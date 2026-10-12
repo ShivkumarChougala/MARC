@@ -1,0 +1,229 @@
+import Foundation
+import Observation
+import Citadel
+import NIOCore
+
+struct MacSnapshot: Decodable, Sendable {
+    let hostname: String
+    let cpu: Double
+    let memoryUsed: Double
+    let memoryTotal: Double
+    let diskUsed: Double
+    let diskTotal: Double
+    let diskAvailable: Double
+    let interface: String?
+    let received: Double?
+    let sent: Double?
+    let diskReadBytes: Double?
+    let diskWriteBytes: Double?
+    let sampledAt: Double
+    var memoryPercent: Double { memoryTotal > 0 ? memoryUsed / memoryTotal * 100 : 0 }
+    var diskPercent: Double { diskUsed + diskAvailable > 0 ? diskUsed / (diskUsed + diskAvailable) * 100 : 0 }
+}
+
+@MainActor @Observable final class SSHMonitor {
+    private(set) var server: ServerProfile?
+    private(set) var snapshot: MacSnapshot?
+    private(set) var downloadRate: Double?
+    private(set) var uploadRate: Double?
+    private(set) var diskReadRate: Double?
+    private(set) var diskWriteRate: Double?
+    private(set) var connecting = false
+    private(set) var connected = false
+    private(set) var error: String?
+    private(set) var updatedAt: Date?
+    @ObservationIgnored private var client: SSHClient?
+    @ObservationIgnored private var polling: Task<Void, Never>?
+    @ObservationIgnored private var generation = UUID()
+
+    func connect(server: ServerProfile, password: String, hostKey: String) async throws {
+        await disconnect()
+        let token = UUID()
+        generation = token
+        connecting = true
+        error = nil
+        defer { if generation == token { connecting = false } }
+        let username = server.username
+        do {
+            let key = try SSHConnectionTest.parseEd25519(hostKey)
+            var settings = SSHClientSettings(host: server.host, port: server.port,
+                authenticationMethod: { .passwordBased(username: username, password: password) },
+                hostKeyValidator: .trustedKeys(Set([key])))
+            settings.connectTimeout = .seconds(10)
+            let opened = try await SSHClient.connect(to: settings)
+            guard generation == token else { try? await opened.close(); throw CancellationError() }
+            client = opened
+            self.server = server
+            try await refresh(using: opened, token: token)
+            guard generation == token else { throw CancellationError() }
+            connected = true
+            polling = Task { @MainActor [weak self] in
+                var failures = 0
+                while !Task.isCancelled {
+                    let preference = UserDefaults.standard.integer(forKey: "marc.refreshInterval")
+                    let interval = [1, 2, 5].contains(preference) ? preference : 2
+                    // CPU sampling takes about one second; space requests without overlap.
+                    try? await Task.sleep(nanoseconds: UInt64(max(1, interval - 1)) * 1_000_000_000)
+                    guard !Task.isCancelled, let self, self.generation == token else { return }
+                    do {
+                        try await self.refresh(using: opened, token: token)
+                        failures = 0
+                        self.error = nil
+                    } catch {
+                        guard !Task.isCancelled, self.generation == token else { return }
+                        failures += 1
+                        self.error = "Update delayed. Showing last readings. Retrying (\(failures)/3)…"
+                        if failures >= 3 {
+                            self.connected = false
+                            self.client = nil
+                            self.polling = nil
+                            self.error = "Updates stopped. Showing last readings. Reconnect in Settings."
+                            try? await opened.close()
+                            return
+                        }
+                    }
+                }
+            }
+        } catch {
+            if generation == token {
+                await disconnect()
+                self.error = "Connection failed: \(error)"
+            }
+            throw error
+        }
+    }
+
+    func disconnect() async {
+        generation = UUID()
+        polling?.cancel()
+        polling = nil
+        let previous = client
+        client = nil
+        connected = false
+        connecting = false
+        snapshot = nil
+        downloadRate = nil
+        uploadRate = nil
+        diskReadRate = nil
+        diskWriteRate = nil
+        updatedAt = nil
+        server = nil
+        if let previous { try? await previous.close() }
+    }
+
+    private func refresh(using client: SSHClient, token: UUID) async throws {
+        let output = try await client.executeCommand(Self.command, maxResponseSize: 32768, mergeStreams: true)
+        guard generation == token else { throw CancellationError() }
+        let bytes = Data(output.readableBytesView)
+        let next: MacSnapshot
+        do { next = try JSONDecoder().decode(MacSnapshot.self, from: bytes) }
+        catch {
+            let detail = String(decoding: bytes, as: UTF8.self).prefix(1000)
+            throw NSError(domain: "MARC", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "Could not collect macOS readings. The Mac needs python3 on its SSH PATH. Server response: \(detail)"])
+        }
+        var newDownload: Double?
+        var newUpload: Double?
+        var newDiskRead: Double?
+        var newDiskWrite: Double?
+        if let previous = snapshot, previous.interface == next.interface {
+            let elapsed = next.sampledAt - previous.sampledAt
+            if elapsed > 0, let oldIn = previous.received, let oldOut = previous.sent,
+               let newIn = next.received, let newOut = next.sent, newIn >= oldIn, newOut >= oldOut {
+                newDownload = (newIn - oldIn) / elapsed
+                newUpload = (newOut - oldOut) / elapsed
+            }
+        }
+        if let previous = snapshot {
+            let elapsed = next.sampledAt - previous.sampledAt
+            if elapsed > 0, let oldRead = previous.diskReadBytes, let oldWrite = previous.diskWriteBytes,
+               let newRead = next.diskReadBytes, let newWrite = next.diskWriteBytes,
+               newRead >= oldRead, newWrite >= oldWrite {
+                newDiskRead = (newRead - oldRead) / elapsed
+                newDiskWrite = (newWrite - oldWrite) / elapsed
+            }
+        }
+        downloadRate = newDownload
+        uploadRate = newUpload
+        diskReadRate = newDiskRead
+        diskWriteRate = newDiskWrite
+        snapshot = next
+        updatedAt = Date()
+    }
+
+    private static let command = #"""
+python3 - <<'MARC_COLLECTOR'
+import json, subprocess, re, time, socket, plistlib
+
+def run(*args):
+    return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=8)
+
+if run('/usr/bin/uname', '-s').strip() != 'Darwin':
+    raise RuntimeError('This collector currently supports macOS only.')
+top = run('/usr/bin/top', '-l', '2', '-s', '1', '-n', '0')
+cpu_matches = re.findall(r'CPU usage:\s*([\d.]+)% user,\s*([\d.]+)% sys,\s*([\d.]+)% idle', top)
+if not cpu_matches:
+    raise RuntimeError('Unable to parse CPU readings.')
+cpu = max(0, min(100, 100 - float(cpu_matches[-1][2])))
+vm = run('/usr/bin/vm_stat')
+page_match = re.search(r'page size of (\d+) bytes', vm)
+if not page_match:
+    raise RuntimeError('Unable to parse memory page size.')
+page = int(page_match.group(1))
+pages = {k.strip(): int(v) for k, v in re.findall(r'^([^:\n]+):\s*(\d+)\.', vm, re.M)}
+total = int(run('/usr/sbin/sysctl', '-n', 'hw.memsize').strip())
+# Resident usage estimate; includes wired, active and compressed memory.
+available = sum(pages.get(k, 0) for k in ('Pages free', 'Pages inactive', 'Pages speculative')) * page
+used = max(0, min(total, total - available))
+disk = run('/bin/df', '-k', '/System/Volumes/Data').splitlines()[-1].split()
+disk_total = int(disk[1]) * 1024
+disk_used = int(disk[2]) * 1024
+disk_available = int(disk[3]) * 1024
+interface, received, sent = None, None, None
+try:
+    route = run('/sbin/route', '-n', 'get', 'default')
+    match = re.search(r'interface:\s*(\S+)', route)
+    if match:
+        interface = match.group(1)
+        lines = run('/usr/sbin/netstat', '-ibn').splitlines()
+        headings = lines[0].split()
+        incoming = headings.index('Ibytes')
+        outgoing = headings.index('Obytes')
+        for line in lines[1:]:
+            cols = line.split()
+            if len(cols) > max(incoming, outgoing) and cols[0] == interface and '<Link#' in line:
+                # Address can be empty in a link row: locate byte columns from the right.
+                offset = len(cols) - len(headings)
+                received, sent = int(cols[incoming + offset]), int(cols[outgoing + offset])
+                break
+except (ValueError, subprocess.SubprocessError):
+    pass
+disk_read, disk_write = None, None
+try:
+    raw = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOBlockStorageDriver', '-a'], stderr=subprocess.DEVNULL, timeout=5)
+    tree = plistlib.loads(raw)
+    counters = []
+    def walk(node):
+        if isinstance(node, dict):
+            stats = node.get('Statistics')
+            if isinstance(stats, dict) and 'Bytes (Read)' in stats and 'Bytes (Write)' in stats:
+                counters.append((int(stats['Bytes (Read)']), int(stats['Bytes (Write)'])))
+            for key, value in node.items():
+                if key != 'Statistics':
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+    walk(tree)
+    if counters:
+        disk_read = sum(item[0] for item in counters)
+        disk_write = sum(item[1] for item in counters)
+except (ValueError, TypeError, subprocess.SubprocessError, plistlib.InvalidFileException):
+    pass
+print(json.dumps(dict(hostname=socket.gethostname(), cpu=cpu, memoryUsed=used,
+    memoryTotal=total, diskUsed=disk_used, diskTotal=disk_total,
+    diskAvailable=disk_available, interface=interface, received=received, sent=sent,
+    diskReadBytes=disk_read, diskWriteBytes=disk_write, sampledAt=time.monotonic())))
+MARC_COLLECTOR
+"""#
+}

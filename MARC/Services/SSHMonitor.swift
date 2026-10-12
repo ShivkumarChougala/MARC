@@ -1,0 +1,1236 @@
+import Foundation
+import Observation
+import Citadel
+import NIOCore
+
+struct SystemDetails: Decodable, Sendable {
+    let coreUsage: [Double]?
+    let cpuUser: Double?
+    let cpuSystem: Double?
+    let cores: Int?
+    let tasks: Int?
+    let uptime: Double?
+    let load: Double?
+    let swap: Double?
+    let ip: String?
+    let model: String?
+    let osVersion: String?
+    let architecture: String?
+    let username: String?
+    let users: [String]?
+    let batteryPercent: Double?
+    let powerSource: String?
+    let batteryState: String?
+    let hasBattery: Bool?
+}
+
+struct SystemHistoryPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let load: Double?
+    let cpu: Double
+    let memory: Double
+    let download: Double?
+    let upload: Double?
+    let read: Double?
+    let write: Double?
+}
+
+struct MacSnapshot: Decodable, Sendable {
+    let hostname: String
+    let cpu: Double
+    let memoryUsed: Double
+    let memoryTotal: Double
+    let diskUsed: Double
+    let diskTotal: Double
+    let diskAvailable: Double
+    let interface: String?
+    let received: Double?
+    let sent: Double?
+    let diskReadBytes: Double?
+    let diskWriteBytes: Double?
+    let details: SystemDetails?
+    let sampledAt: Double
+    var memoryPercent: Double { memoryTotal > 0 ? memoryUsed / memoryTotal * 100 : 0 }
+    var diskPercent: Double { diskUsed + diskAvailable > 0 ? diskUsed / (diskUsed + diskAvailable) * 100 : 0 }
+}
+
+@MainActor @Observable final class SSHMonitor {
+    private(set) var server: ServerProfile?
+    private(set) var history: [SystemHistoryPoint] = []
+    private(set) var archivedHistory: [SystemHistoryPoint] = []
+    private(set) var archiveError: String?
+    @ObservationIgnored private var archiveRequest = UUID()
+
+    private(set) var snapshot: MacSnapshot?
+    private(set) var downloadRate: Double?
+    private(set) var uploadRate: Double?
+    private(set) var diskReadRate: Double?
+    private(set) var diskWriteRate: Double?
+    private(set) var processTotalCount = 0
+    private(set) var connecting = false
+    private(set) var connected = false
+    private(set) var error: String?
+    private(set) var updatedAt: Date?
+    @ObservationIgnored private var client: SSHClient?
+    @ObservationIgnored private var polling: Task<Void, Never>?
+    @ObservationIgnored private var generation = UUID()
+
+    func connect(server: ServerProfile, password: String, hostKey: String) async throws {
+        await disconnect()
+        let token = UUID()
+        generation = token
+        connecting = true
+        error = nil
+        defer { if generation == token { connecting = false } }
+        let username = server.username
+        do {
+            let cleanKey = hostKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let validator: SSHHostKeyValidator
+            if cleanKey.isEmpty {
+                validator = .acceptAnything()
+            } else {
+                validator = .trustedKeys(Set([
+                    try SSHConnectionTest.parseEd25519(cleanKey)
+                ]))
+            }
+            var settings = SSHClientSettings(host: server.host, port: server.port,
+                authenticationMethod: { .passwordBased(username: username, password: password) },
+                hostKeyValidator: validator)
+            settings.connectTimeout = .seconds(10)
+            let opened = try await SSHClient.connect(to: settings)
+            guard generation == token else { try? await opened.close(); throw CancellationError() }
+            client = opened
+            self.server = server
+            let stream = try await opened.executeCommandStream(Self.command)
+            guard generation == token else {
+                try? await opened.close()
+                throw CancellationError()
+            }
+            try MARCCredentials.save(
+                server.id, password: password, hostKey: hostKey
+            )
+            UserDefaults.standard.set(
+                server.id.uuidString, forKey: "marc.autoServer"
+            )
+            connected = true
+            polling = Task { @MainActor [weak self] in
+                var pending = Data()
+                var failures = 0
+                var lastPublished = 0.0
+                do {
+                    for try await event in stream {
+                        guard !Task.isCancelled, let self,
+                              self.generation == token else { return }
+                        switch event {
+                        case .stdout(let chunk):
+                            pending.append(contentsOf: chunk.readableBytesView)
+                            guard pending.count <= 65536 else {
+                                throw NSError(domain: "MARC", code: 2,
+                                    userInfo: [NSLocalizedDescriptionKey:
+                                        "Collector output exceeded its limit."])
+                            }
+                            while let newline = pending.firstIndex(of: 10) {
+                                let line = Data(pending[..<newline])
+                                pending.removeSubrange(...newline)
+                                if line.isEmpty { continue }
+
+                                if let next = try? JSONDecoder().decode(
+                                    MacSnapshot.self, from: line
+                                ) {
+                                    failures = 0
+                                    self.error = nil
+                                    let choice = UserDefaults.standard.integer(
+                                        forKey: "marc.refreshInterval"
+                                    )
+                                    let interval = Double(
+                                        [1, 2, 5].contains(choice) ? choice : 2
+                                    )
+                                    if lastPublished == 0 ||
+                                       next.sampledAt - lastPublished >= interval - 0.05 {
+                                        self.publish(next)
+                                        lastPublished = next.sampledAt
+                                    }
+                                } else {
+                                    failures += 1
+                                    self.error = "Collector update delayed. Showing last readings."
+                                    if failures >= 3 {
+                                        throw NSError(domain: "MARC", code: 3,
+                                            userInfo: [NSLocalizedDescriptionKey:
+                                                "Collector failed repeatedly. Reconnect in Settings."])
+                                    }
+                                }
+                            }
+                        case .stderr(let chunk):
+                            print("[MARC] Collector: " +
+                                String(decoding: chunk.readableBytesView,
+                                       as: UTF8.self).prefix(500))
+                        }
+                    }
+                    guard let self, self.generation == token else { return }
+                    self.connected = false
+                    self.client = nil
+                    self.polling = nil
+                    self.error = "Collector stopped. Showing last readings. Reconnect in Settings."
+                    try? await opened.close()
+                } catch {
+                    guard let self, self.generation == token else { return }
+                    self.connected = false
+                    self.client = nil
+                    self.polling = nil
+                    self.error = "Updates stopped: \(error.localizedDescription)"
+                    try? await opened.close()
+                }
+            }
+        } catch {
+            if generation == token {
+                await disconnect()
+                self.error = "Connection failed: \(error)"
+            }
+            throw error
+        }
+    }
+
+    func disconnect() async {
+        print("[MARC] Disconnect called")
+        generation = UUID()
+        polling?.cancel()
+        polling = nil
+        let previous = client
+        client = nil
+        connected = false
+        connecting = false
+        snapshot = nil
+        history.removeAll(keepingCapacity: true)
+        downloadRate = nil
+        uploadRate = nil
+        diskReadRate = nil
+        diskWriteRate = nil
+        updatedAt = nil
+        server = nil
+        if let previous { try? await previous.close() }
+    }
+
+    private func publish(_ next: MacSnapshot) {
+        var newDownload: Double?
+        var newUpload: Double?
+        var newDiskRead: Double?
+        var newDiskWrite: Double?
+        if let previous = snapshot, previous.interface == next.interface {
+            let elapsed = next.sampledAt - previous.sampledAt
+            if elapsed > 0, let oldIn = previous.received, let oldOut = previous.sent,
+               let newIn = next.received, let newOut = next.sent, newIn >= oldIn, newOut >= oldOut {
+                newDownload = (newIn - oldIn) / elapsed
+                newUpload = (newOut - oldOut) / elapsed
+            }
+        }
+        if let previous = snapshot {
+            let elapsed = next.sampledAt - previous.sampledAt
+            if elapsed > 0, let oldRead = previous.diskReadBytes, let oldWrite = previous.diskWriteBytes,
+               let newRead = next.diskReadBytes, let newWrite = next.diskWriteBytes,
+               newRead >= oldRead, newWrite >= oldWrite {
+                newDiskRead = (newRead - oldRead) / elapsed
+                newDiskWrite = (newWrite - oldWrite) / elapsed
+            }
+        }
+        downloadRate = newDownload
+        uploadRate = newUpload
+        diskReadRate = newDiskRead
+        diskWriteRate = newDiskWrite
+        print("[MARC] CPU=\(next.cpu), RAM=\(next.memoryPercent), RX=\(String(describing: next.received)), TX=\(String(describing: next.sent))")
+        history.append(SystemHistoryPoint(
+            date: Date(timeIntervalSince1970: next.sampledAt),
+            load: next.details?.load, cpu: next.cpu, memory: next.memoryPercent,
+            download: newDownload, upload: newUpload,
+            read: newDiskRead, write: newDiskWrite))
+        history.removeAll {
+            $0.date.timeIntervalSince1970 < next.sampledAt - 300
+        }
+        if history.count > 300 {
+            history.removeFirst(history.count - 300)
+        }
+        snapshot = next
+        updatedAt = Date()
+    }
+
+    private static var command: String {
+        let requested = UserDefaults.standard.integer(
+            forKey: "marc.powerRefreshSeconds"
+        )
+        let seconds = [5, 10, 30, 60].contains(requested) ? requested : 10
+        return collectorCommand.replacingOccurrences(
+            of: "__MARC_POWER_INTERVAL__", with: String(seconds)
+        )
+    }
+
+    private static let collectorCommand = #"""
+python3 -u - <<'MARC_COLLECTOR'
+import json, subprocess, re, time, socket, plistlib, ctypes, sys, os, getpass
+
+def run(*args):
+    return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=8)
+
+if run('/usr/bin/uname', '-s').strip() != 'Darwin':
+    raise RuntimeError('This collector currently supports macOS only.')
+# CPU tick order: user, system, idle, nice.
+lib = ctypes.CDLL('/usr/lib/libSystem.B.dylib')
+lib.mach_host_self.restype = ctypes.c_uint
+lib.host_statistics.argtypes = [
+    ctypes.c_uint, ctypes.c_int,
+    ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)
+]
+lib.host_statistics.restype = ctypes.c_int
+host = lib.mach_host_self()
+
+# Per-core counters; release the allocation after every read.
+lib.host_processor_info.argtypes = [
+    ctypes.c_uint, ctypes.c_int,
+    ctypes.POINTER(ctypes.c_uint),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_uint)),
+    ctypes.POINTER(ctypes.c_uint)
+]
+lib.host_processor_info.restype = ctypes.c_int
+lib.vm_deallocate.argtypes = [
+    ctypes.c_uint, ctypes.c_ulong, ctypes.c_ulong
+]
+lib.vm_deallocate.restype = ctypes.c_int
+task_port = ctypes.c_uint.in_dll(lib, 'mach_task_self_').value
+
+def core_ticks():
+    processors = ctypes.c_uint()
+    count = ctypes.c_uint()
+    info = ctypes.POINTER(ctypes.c_uint)()
+    result = lib.host_processor_info(
+        host, 2, ctypes.byref(processors),
+        ctypes.byref(info), ctypes.byref(count)
+    )
+    if result != 0:
+        return []
+    try:
+        if count.value < processors.value * 4:
+            return []
+        return [
+            [info[core * 4 + state] for state in range(4)]
+            for core in range(processors.value)
+        ]
+    finally:
+        if info:
+            lib.vm_deallocate(
+                task_port,
+                ctypes.cast(info, ctypes.c_void_p).value,
+                count.value * ctypes.sizeof(ctypes.c_uint)
+            )
+
+def cpu_ticks():
+    ticks = (ctypes.c_uint * 4)()
+    count = ctypes.c_uint(4)
+    if lib.host_statistics(host, 3, ticks, ctypes.byref(count)) != 0:
+        raise RuntimeError('Could not read CPU counters')
+    return list(ticks)
+
+hostname = socket.gethostname()
+total = int(run('/usr/sbin/sysctl', '-n', 'hw.memsize').strip())
+previous = cpu_ticks()
+previous_cores = core_ticks()
+disk_updated = 0
+disk_total = disk_used = disk_available = 0
+
+cores = int(run('/usr/sbin/sysctl', '-n', 'hw.logicalcpu').strip())
+boot_match = re.search(r'sec = (\d+)', run('/usr/sbin/sysctl', '-n', 'kern.boottime'))
+boot = int(boot_match.group(1)) if boot_match else None
+model = run('/usr/sbin/sysctl', '-n', 'hw.model').strip()
+os_version = run('/usr/bin/sw_vers', '-productVersion').strip()
+architecture = run('/usr/bin/uname', '-m').strip()
+username = getpass.getuser()
+slow_updated = 0
+tasks, swap, local_ip, users = None, None, None, []
+power_updated = 0
+battery_percent, power_source, battery_state, has_battery = None, None, None, None
+
+def parse_power(output):
+    source = re.search(r"Now drawing from '([^']+)'", output)
+    percentage = re.search(r'(\d+)%;\s*([^;\n]+)', output)
+    source_name = source.group(1) if source else None
+    if percentage:
+        return (max(0, min(100, int(percentage.group(1)))),
+                source_name, percentage.group(2).strip().lower(), True)
+    if source:
+        return (None, source_name, None, False)
+    return (None, None, None, None)
+
+while True:
+    time.sleep(1)
+    try:
+        current_cores = core_ticks()
+        core_usage = None
+        if current_cores and len(current_cores) == len(previous_cores):
+            core_usage = []
+            for current_core, old_core in zip(current_cores, previous_cores):
+                change = [
+                    (new - old) & 0xffffffff
+                    for new, old in zip(current_core, old_core)
+                ]
+                ticks = sum(change)
+                core_usage.append(
+                    100 * (ticks - change[2]) / ticks if ticks else 0
+                )
+        previous_cores = current_cores
+        current = cpu_ticks()
+        delta = [(new - old) & 0xffffffff for new, old in zip(current, previous)]
+        previous = current
+        all_ticks = sum(delta)
+        cpu = 100 * (all_ticks - delta[2]) / all_ticks if all_ticks else 0
+        vm = run('/usr/bin/vm_stat')
+        page_match = re.search(r'page size of (\d+) bytes', vm)
+        if not page_match:
+            raise RuntimeError('Unable to parse memory page size.')
+        page = int(page_match.group(1))
+        pages = {k.strip(): int(v) for k, v in re.findall(r'^([^:\n]+):\s*(\d+)\.', vm, re.M)}
+        # Resident usage estimate; includes wired, active and compressed memory.
+        available = sum(pages.get(k, 0) for k in ('Pages free', 'Pages inactive', 'Pages speculative')) * page
+        used = max(0, min(total, total - available))
+        if time.time() - disk_updated >= 5:
+            disk = run('/bin/df', '-k', '/System/Volumes/Data').splitlines()[-1].split()
+            disk_total = int(disk[1]) * 1024
+            disk_used = int(disk[2]) * 1024
+            disk_available = int(disk[3]) * 1024
+            disk_updated = time.time()
+        interface, received, sent = None, None, None
+        try:
+            route = run('/sbin/route', '-n', 'get', 'default')
+            match = re.search(r'interface:\s*(\S+)', route)
+            if match:
+                interface = match.group(1)
+                lines = run('/usr/sbin/netstat', '-ibn').splitlines()
+                headings = lines[0].split()
+                incoming = headings.index('Ibytes')
+                outgoing = headings.index('Obytes')
+                for line in lines[1:]:
+                    cols = line.split()
+                    if len(cols) > max(incoming, outgoing) and cols[0] == interface and '<Link#' in line:
+                        # Address can be empty in a link row: locate byte columns from the right.
+                        offset = len(cols) - len(headings)
+                        received, sent = int(cols[incoming + offset]), int(cols[outgoing + offset])
+                        break
+        except (ValueError, subprocess.SubprocessError):
+            pass
+        disk_read, disk_write = None, None
+        try:
+            raw = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOBlockStorageDriver', '-a'], stderr=subprocess.DEVNULL, timeout=5)
+            tree = plistlib.loads(raw)
+            counters = []
+            def walk(node):
+                if isinstance(node, dict):
+                    stats = node.get('Statistics')
+                    if isinstance(stats, dict) and 'Bytes (Read)' in stats and 'Bytes (Write)' in stats:
+                        counters.append((int(stats['Bytes (Read)']), int(stats['Bytes (Write)'])))
+                    for key, value in node.items():
+                        if key != 'Statistics':
+                            walk(value)
+                elif isinstance(node, list):
+                    for item in node:
+                        walk(item)
+            walk(tree)
+            if counters:
+                disk_read = sum(item[0] for item in counters)
+                disk_write = sum(item[1] for item in counters)
+        except (ValueError, TypeError, subprocess.SubprocessError, plistlib.InvalidFileException):
+            pass
+        if time.time() - slow_updated >= 5:
+            try:
+                tasks = len(run('/bin/ps', '-axo', 'pid=').splitlines())
+                match = re.search(r'used = ([\d.]+)([MG])',
+                    run('/usr/sbin/sysctl', '-n', 'vm.swapusage'))
+                swap = float(match.group(1)) * (
+                    1024 ** (2 if match.group(2) == 'M' else 3)
+                ) if match else None
+                users = sorted(set(
+                    line.split()[0] for line in run('/usr/bin/who').splitlines()
+                    if line.split()
+                ))
+                local_ip = None
+                if interface:
+                    try:
+                        local_ip = run('/usr/sbin/ipconfig',
+                            'getifaddr', interface).strip() or None
+                    except subprocess.SubprocessError:
+                        pass
+                slow_updated = time.time()
+            except subprocess.SubprocessError:
+                pass
+        if time.time() - power_updated >= __MARC_POWER_INTERVAL__:
+            try:
+                battery_percent, power_source, battery_state, has_battery = parse_power(
+                    run('/usr/bin/pmset', '-g', 'batt'))
+            except (ValueError, subprocess.SubprocessError):
+                battery_percent, power_source, battery_state, has_battery = None, None, None, None
+            power_updated = time.time()
+        details = dict(coreUsage=core_usage, 
+            cpuUser=100 * (delta[0] + delta[3]) / all_ticks if all_ticks else 0,
+            cpuSystem=100 * delta[1] / all_ticks if all_ticks else 0,
+            cores=cores, tasks=tasks,
+            uptime=time.time() - boot if boot else None,
+            load=os.getloadavg()[0], swap=swap, ip=local_ip,
+            model=model, osVersion=os_version,
+            architecture=architecture, username=username, users=users,
+            batteryPercent=battery_percent, powerSource=power_source,
+            batteryState=battery_state, hasBattery=has_battery)
+        print(json.dumps(dict(hostname=hostname, cpu=cpu, memoryUsed=used,
+            memoryTotal=total, diskUsed=disk_used, diskTotal=disk_total,
+            diskAvailable=disk_available, interface=interface, received=received, sent=sent,
+            diskReadBytes=disk_read, diskWriteBytes=disk_write, details=details, sampledAt=time.time())), flush=True)
+    except BrokenPipeError:
+        break
+    except Exception as exc:
+        print(json.dumps({'collectorError': str(exc)}), flush=True)
+MARC_COLLECTOR
+"""#
+}
+
+
+private struct MARCArchivePoint: Decodable {
+    let date: Double
+    let cpu: Double
+    let memory: Double
+    let load: Double?
+    let download: Double?
+    let upload: Double?
+    let read: Double?
+    let write: Double?
+}
+
+extension SSHMonitor {
+    func loadArchivedHistory(seconds: Int) async {
+        let request = UUID()
+        archiveRequest = request
+        guard let client, connected, let serverID = server?.id else {
+            archivedHistory = []
+            archiveError = "Connect to load saved history."
+            return
+        }
+        let duration = [900, 1800, 3600].contains(seconds) ? seconds : 3600
+        let command = """
+python3 - \(duration) <<'MARC_HISTORY'
+import sqlite3, pathlib, json, time, sys
+path = pathlib.Path.home() / '.local/share/marc/history.sqlite'
+duration = int(sys.argv[1])
+if not path.exists():
+    raise RuntimeError('History collector is not installed on this Mac.')
+db = sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True)
+end = time.time()
+start = end - duration
+bucket = {900: 5, 1800: 5, 3600: 10}[duration]
+rows = db.execute(
+    'SELECT ts, payload FROM samples WHERE ts >= ? ORDER BY ts',
+    (start - 120,)
+)
+groups = {}
+previous = None
+
+def rate(current, old, field, dt):
+    a, b = current.get(field), old.get(field)
+    if a is None or b is None or a < b:
+        return None
+    return (a - b) / dt
+
+for timestamp, payload in rows:
+    sample = json.loads(payload)
+    values = dict(
+        cpu=sample['cpu'],
+        memory=sample['memoryUsed'] / sample['memoryTotal'] * 100,
+        load=(sample.get('details') or {}).get('load'),
+        download=None, upload=None, read=None, write=None
+    )
+    if previous:
+        old_time, old = previous
+        dt = timestamp - old_time
+        if 0 < dt <= 120:
+            if old.get('interface') == sample.get('interface'):
+                values['download'] = rate(sample, old, 'received', dt)
+                values['upload'] = rate(sample, old, 'sent', dt)
+            values['read'] = rate(sample, old, 'diskReadBytes', dt)
+            values['write'] = rate(sample, old, 'diskWriteBytes', dt)
+    previous = (timestamp, sample)
+    if timestamp < start:
+        continue
+    key = int(timestamp // bucket) * bucket
+    group = groups.setdefault(key, {'date': [], **{k: [] for k in values}})
+    group['date'].append(timestamp)
+    for field, value in values.items():
+        if value is not None:
+            group[field].append(value)
+
+result = []
+for key in sorted(groups):
+    group = groups[key]
+    result.append({
+        field: sum(values) / len(values) if values else None
+        for field, values in group.items()
+    })
+print(json.dumps(result))
+MARC_HISTORY
+"""
+        do {
+            let buffer = try await client.executeCommand(
+                command, maxResponseSize: 524288, mergeStreams: true
+            )
+            let data = Data(buffer.readableBytesView)
+            let rows = try JSONDecoder().decode([MARCArchivePoint].self, from: data)
+            guard !Task.isCancelled, archiveRequest == request,
+                  server?.id == serverID else { return }
+            archivedHistory = rows.map {
+                SystemHistoryPoint(
+                    date: Date(timeIntervalSince1970: $0.date),
+                    load: $0.load, cpu: $0.cpu, memory: $0.memory,
+                    download: $0.download, upload: $0.upload,
+                    read: $0.read, write: $0.write
+                )
+            }
+            archiveError = nil
+        } catch {
+            guard !Task.isCancelled, archiveRequest == request else { return }
+            archivedHistory = []
+            archiveError = "Saved history could not be loaded."
+        }
+    }
+}
+
+
+struct MARCProcess: Codable, Identifiable, Equatable, Sendable {
+    let started: String?
+    let pid: Int
+    let user: String
+    let cpu: Double
+    let memory: Double
+    let name: String
+    var id: Int { pid }
+}
+
+extension SSHMonitor {
+    func terminateProcess(_ process: MARCProcess) async throws {
+        guard let client, connected, process.pid > 1,
+              process.started != nil else {
+            throw NSError(domain: "MARC", code: 11, userInfo: [
+                NSLocalizedDescriptionKey: "This process cannot be terminated."
+            ])
+        }
+        let encoded = try JSONEncoder().encode(process).base64EncodedString()
+        let command = """
+python3 - \(encoded) <<'MARC_TERMINATE'
+import subprocess, json, os, sys, base64, signal
+expected = json.loads(base64.b64decode(sys.argv[1]))
+pid = int(expected['pid'])
+if pid <= 1:
+    raise RuntimeError('Protected process.')
+environment = dict(os.environ, LC_ALL='C')
+result = subprocess.run(
+    ['/bin/ps', '-p', str(pid), '-o', 'user=,lstart=,comm='],
+    text=True, capture_output=True, timeout=5, env=environment
+)
+fields = result.stdout.strip().split(None, 6)
+if len(fields) != 7:
+    raise RuntimeError('Process has already exited.')
+started = ' '.join(fields[1:6])
+name = os.path.basename(fields[6])
+if (fields[0] != expected['user'] or
+    started != expected['started'] or name != expected['name']):
+    raise RuntimeError('Process identity changed. Refresh and try again.')
+try:
+    os.kill(pid, signal.SIGTERM)
+except PermissionError:
+    raise RuntimeError('macOS denied permission to terminate this process.')
+except ProcessLookupError:
+    raise RuntimeError('Process has already exited.')
+print('MARC_TERMINATE_OK')
+MARC_TERMINATE
+"""
+        let buffer = try await client.executeCommand(
+            command, maxResponseSize: 8192, mergeStreams: true
+        )
+        let output = String(decoding: buffer.readableBytesView, as: UTF8.self)
+        guard output.trimmingCharacters(in: .whitespacesAndNewlines) == "MARC_TERMINATE_OK" else {
+            throw NSError(domain: "MARC", code: 12, userInfo: [
+                NSLocalizedDescriptionKey:
+                    output.components(separatedBy: "\n").filter {
+                        !$0.trimmingCharacters(in: .whitespaces).isEmpty
+                    }.last ?? "Termination request failed."
+            ])
+        }
+    }
+}
+
+struct MARCProcessResponse: Decodable, Sendable {
+    let total: Int
+    let processes: [MARCProcess]
+}
+
+
+extension SSHMonitor {
+    func processUpdates() async throws -> AsyncThrowingStream<MARCProcessResponse, Error> {
+        guard let client, connected, let serverID = server?.id else {
+            throw NSError(domain: "MARC", code: 20, userInfo: [
+                NSLocalizedDescriptionKey: "Connect to a Mac to view processes."
+            ])
+        }
+        let token = UUID().uuidString
+        let command = """
+python3 -u - \(token) <<'MARC_PROCESS_STREAM'
+import subprocess, json, os, datetime, time, pathlib, sys
+folder = pathlib.Path.home() / '.local/share/marc'
+folder.mkdir(parents=True, exist_ok=True)
+flag = folder / ('process-stream-' + sys.argv[1])
+flag.touch()
+environment = dict(os.environ, LC_ALL='C')
+previous = {}
+previous_time = None
+
+def cpu_seconds(text):
+    days = 0
+    if '-' in text:
+        day, text = text.split('-', 1)
+        days = int(day)
+    parts = [float(item) for item in text.split(':')]
+    value = 0
+    for item in parts:
+        value = value * 60 + item
+    return days * 86400 + value
+
+try:
+    while flag.exists():
+        cycle = time.monotonic()
+        output = subprocess.check_output(
+            ['/bin/ps', '-axo', 'pid=,user=,rss=,lstart=,time=,comm='],
+            text=True, timeout=8, env=environment
+        )
+        now = time.monotonic()
+        elapsed = now - previous_time if previous_time is not None else None
+        current = {}
+        rows = []
+
+        for line in output.splitlines():
+            fields = line.strip().split(None, 9)
+            if len(fields) != 10:
+                continue
+            try:
+                pid = int(fields[0])
+                user = fields[1]
+                memory = int(fields[2]) * 1024
+                started = ' '.join(fields[3:8])
+                total_cpu = cpu_seconds(fields[8])
+                name = os.path.basename(fields[9]) or fields[9]
+                started_at = datetime.datetime.strptime(
+                    started, '%a %b %d %H:%M:%S %Y'
+                ).timestamp()
+                identity = (pid, started)
+                current[identity] = total_cpu
+                old = previous.get(identity)
+                cpu = 0.0
+                if elapsed and old is not None and total_cpu >= old:
+                    cpu = (total_cpu - old) / elapsed * 100
+                elif elapsed and started_at >= time.time() - elapsed:
+                    cpu = total_cpu / elapsed * 100
+
+                rows.append((started_at, dict(
+                    pid=pid, user=user, memory=memory,
+                    started=started, name=name, cpu=round(cpu, 1)
+                )))
+            except (ValueError, OverflowError):
+                continue
+
+        rows.sort(key=lambda item: (item[0], item[1]['pid']), reverse=True)
+        if previous_time is not None and flag.exists():
+            print(json.dumps(dict(
+                total=len(rows),
+                processes=[item[1] for item in rows]
+            )), flush=True)
+
+        previous = current
+        previous_time = now
+        time.sleep(max(0, 1 - (time.monotonic() - cycle)))
+except BrokenPipeError:
+    pass
+finally:
+    flag.unlink(missing_ok=True)
+MARC_PROCESS_STREAM
+"""
+        let remote = try await client.executeCommandStream(command)
+
+        return AsyncThrowingStream { continuation in
+            let reader = Task { @MainActor [weak self] in
+                var pending = Data()
+                do {
+                    for try await event in remote {
+                        guard !Task.isCancelled, let self,
+                              self.connected, self.server?.id == serverID else {
+                            throw CancellationError()
+                        }
+                        switch event {
+                        case .stdout(let chunk):
+                            pending.append(contentsOf: chunk.readableBytesView)
+                            guard pending.count <= 4194304 else {
+                                throw NSError(domain: "MARC", code: 21, userInfo: [
+                                    NSLocalizedDescriptionKey: "Process output exceeded its limit."
+                                ])
+                            }
+                            while let newline = pending.firstIndex(of: 10) {
+                                let line = Data(pending[..<newline])
+                                pending.removeSubrange(...newline)
+                                if line.isEmpty { continue }
+                                let response = try JSONDecoder().decode(
+                                    MARCProcessResponse.self, from: line
+                                )
+                                self.processTotalCount = response.total
+                                continuation.yield(response)
+                            }
+                        case .stderr:
+                            break
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { @Sendable [weak self] _ in
+                reader.cancel()
+                Task { @MainActor in
+                    await self?.stopProcessStream(token)
+                }
+            }
+        }
+    }
+
+    private func stopProcessStream(_ token: String) async {
+        guard let client else { return }
+        let command = """
+python3 - <<'MARC_STOP_PROCESSES'
+import pathlib
+(pathlib.Path.home() / '.local/share/marc/process-stream-\(token)').unlink(missing_ok=True)
+MARC_STOP_PROCESSES
+"""
+        _ = try? await client.executeCommand(
+            command, maxResponseSize: 1024, mergeStreams: true
+        )
+    }
+}
+
+extension SSHMonitor {
+    func marcInstalledAIModels() async throws -> [String] {
+        guard connected, let client else {
+            throw MARCAIError.message("Connect a Mac first.")
+        }
+        let serverID = server?.id
+        let command = """
+        python3 - <<'MARC_MODELS'
+        import json, urllib.request
+        try:
+            with urllib.request.urlopen(
+                'http://127.0.0.1:11434/api/tags', timeout=10
+            ) as response:
+                data = response.read(262145)
+            if len(data) > 262144:
+                raise ValueError('Response too large')
+            result = json.loads(data)
+            names = sorted(set(
+                model['name'] for model in result.get('models', [])
+                if isinstance(model.get('name'), str)
+            ))
+            print(json.dumps({'names': names}))
+        except Exception:
+            print(json.dumps({'error':
+                'Could not read models. Make sure Ollama is running on this Mac, then refresh.'}))
+        MARC_MODELS
+        """
+        let output = try await client.executeCommand(
+            command, maxResponseSize: 262144, mergeStreams: false
+        )
+        try Task.checkCancellation()
+        guard connected, server?.id == serverID else {
+            throw CancellationError()
+        }
+        let data = Data(output.readableBytesView)
+        guard let result = try JSONSerialization.jsonObject(
+            with: data
+        ) as? [String: Any] else {
+            throw MARCAIError.message("Invalid model list.")
+        }
+        if let error = result["error"] as? String {
+            throw MARCAIError.message(error)
+        }
+        guard let names = result["names"] as? [String] else {
+            throw MARCAIError.message("Invalid model list.")
+        }
+        return names
+    }
+}
+
+// MARK: - MARC live Control Center
+struct MARCControlDisplay: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+    let resolution: String
+    let supported: Bool
+    let brightness: Int?
+}
+struct MARCControlOutput: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+}
+struct MARCControlState: Decodable, Sendable {
+    var volume: Int?
+    var muted: Bool?
+    var audioError: String?
+    var wifiEnabled: Bool?
+    var wifiInterface: String?
+    var wifiName: String?
+    var wifiError: String?
+    var bluetoothEnabled: Bool?
+    var bluetoothWritable: Bool
+    var bluetoothError: String?
+    var wirelessIncluded: Bool
+    var actionError: String?
+    var displays: [MARCControlDisplay]?
+    var selectedDisplayID: Int?
+    var displayName: String?
+    var brightness: Int?
+    var brightnessError: String?
+    var outputs: [MARCControlOutput]?
+    var audioOutputID: Int?
+    var audioOutputName: String?
+    var audioOutputError: String?
+}
+
+enum MARCControlAction: String, Encodable, Sendable {
+    case read, volume, mute, wifi, bluetooth, output, brightness
+}
+private struct MARCControlRequest: Encodable {
+    let action: MARCControlAction
+    let value: Int?
+    let includeWireless: Bool
+    let displayID: Int?
+}
+
+extension SSHMonitor {
+    func marcControlRequest(_ action: MARCControlAction = .read,
+                            value: Int? = nil, includeWireless: Bool = true, displayID: Int? = nil) async throws -> MARCControlState {
+        try Task.checkCancellation()
+        guard connected, let client else {
+            throw MARCAIError.message("Connect to a Mac in Settings first.")
+        }
+        let connectionGeneration = generation
+        let request = MARCControlRequest(action: action, value: value, includeWireless: includeWireless, displayID: displayID)
+        let encoded = try JSONEncoder().encode(request).base64EncodedString()
+        let command = "python3 - " + encoded + " <<'MARC_CONTROLS'\n" + Self.marcControlPython + "\nMARC_CONTROLS\n"
+        let response = try await client.executeCommand(command, maxResponseSize: 65536, mergeStreams: false)
+        try Task.checkCancellation()
+        guard connected, generation == connectionGeneration else { throw CancellationError() }
+        return try JSONDecoder().decode(MARCControlState.self, from: Data(response.readableBytesView))
+    }
+
+    private static let marcControlPython = #"""
+import base64, json, os, re, shutil, subprocess, sys, time
+import ctypes as C, math
+
+class AudioAddress(C.Structure):
+    _fields_ = [('selector', C.c_uint32), ('scope', C.c_uint32), ('element', C.c_uint32)]
+
+def fourcc(text): return int.from_bytes(text.encode('ascii'), 'big')
+
+class MacAudio:
+    def __init__(self):
+        self.audio = C.CDLL('/System/Library/Frameworks/CoreAudio.framework/CoreAudio')
+        self.cf = C.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
+        ptr = C.POINTER(AudioAddress)
+        self.audio.AudioObjectGetPropertyDataSize.argtypes = [C.c_uint32,ptr,C.c_uint32,C.c_void_p,C.POINTER(C.c_uint32)]
+        self.audio.AudioObjectGetPropertyDataSize.restype = C.c_int32
+        self.audio.AudioObjectGetPropertyData.argtypes = [C.c_uint32,ptr,C.c_uint32,C.c_void_p,C.POINTER(C.c_uint32),C.c_void_p]
+        self.audio.AudioObjectGetPropertyData.restype = C.c_int32
+        self.audio.AudioObjectSetPropertyData.argtypes = [C.c_uint32,ptr,C.c_uint32,C.c_void_p,C.c_uint32,C.c_void_p]
+        self.audio.AudioObjectSetPropertyData.restype = C.c_int32
+        self.audio.AudioObjectIsPropertySettable.argtypes = [C.c_uint32,ptr,C.POINTER(C.c_ubyte)]
+        self.audio.AudioObjectIsPropertySettable.restype = C.c_int32
+        self.cf.CFStringGetLength.argtypes = [C.c_void_p]
+        self.cf.CFStringGetLength.restype = C.c_long
+        self.cf.CFStringGetMaximumSizeForEncoding.argtypes = [C.c_long,C.c_uint32]
+        self.cf.CFStringGetMaximumSizeForEncoding.restype = C.c_long
+        self.cf.CFStringGetCString.argtypes = [C.c_void_p,C.c_void_p,C.c_long,C.c_uint32]
+        self.cf.CFStringGetCString.restype = C.c_ubyte
+        self.cf.CFRelease.argtypes = [C.c_void_p]
+        self.cf.CFRelease.restype = None
+    def address(self, selector, scope='glob'): return AudioAddress(fourcc(selector),fourcc(scope),0)
+    def size(self, obj, address):
+        size=C.c_uint32()
+        if self.audio.AudioObjectGetPropertyDataSize(obj,C.byref(address),0,None,C.byref(size)):
+            raise RuntimeError('Audio property unavailable.')
+        return size.value
+    def read(self, obj, address, target):
+        size=C.c_uint32(C.sizeof(target))
+        if self.audio.AudioObjectGetPropertyData(obj,C.byref(address),0,None,C.byref(size),C.byref(target)):
+            raise RuntimeError('Audio property unavailable.')
+        return target
+    def string(self, obj, selector):
+        value=self.read(obj,self.address(selector),C.c_void_p())
+        if not value.value: return ''
+        try:
+            length=self.cf.CFStringGetLength(value)
+            size=self.cf.CFStringGetMaximumSizeForEncoding(length,0x08000100)+1
+            if not 1 <= size <= 65536: return ''
+            buffer=C.create_string_buffer(size)
+            if not self.cf.CFStringGetCString(value,buffer,size,0x08000100): return ''
+            return buffer.value.decode('utf-8',errors='replace')
+        finally: self.cf.CFRelease(value)
+    def current(self): return self.read(1,self.address('dOut'),C.c_uint32()).value
+    def outputs(self):
+        address=self.address('dev#')
+        size=self.size(1,address)
+        if size > 16384 or size%4: raise RuntimeError('Audio device list unavailable.')
+        ids=(C.c_uint32*(size//4))()
+        self.read(1,address,ids)
+        rows=[]
+        for obj in ids:
+            try:
+                if self.size(obj,self.address('stm#','outp')) == 0: continue
+                alive=self.read(obj,self.address('livn'),C.c_uint32()).value
+                if not alive: continue
+                name=self.string(obj,'lnam')
+                if name: rows.append(dict(id=int(obj),name=name))
+            except Exception: continue
+        return sorted(rows,key=lambda row: (row['name'].lower(),row['id']))
+    def select(self, value):
+        if value not in [row['id'] for row in self.outputs()]:
+            raise RuntimeError('That audio output is no longer available. Refresh and choose again.')
+        address=self.address('dOut')
+        writable=C.c_ubyte()
+        if self.audio.AudioObjectIsPropertySettable(1,C.byref(address),C.byref(writable)) or not writable.value:
+            raise RuntimeError('macOS does not allow this audio-output change.')
+        data=C.c_uint32(value)
+        if self.audio.AudioObjectSetPropertyData(1,C.byref(address),0,None,C.sizeof(data),C.byref(data)):
+            raise RuntimeError('macOS rejected the audio-output change.')
+
+class MacBrightness:
+    @staticmethod
+    def online():
+        cg=C.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+        cg.CGGetOnlineDisplayList.argtypes=[C.c_uint32,C.POINTER(C.c_uint32),C.POINTER(C.c_uint32)]
+        cg.CGGetOnlineDisplayList.restype=C.c_int32
+        cg.CGDisplayIsBuiltin.argtypes=[C.c_uint32];cg.CGDisplayIsBuiltin.restype=C.c_uint32
+        cg.CGDisplayPixelsWide.argtypes=[C.c_uint32];cg.CGDisplayPixelsWide.restype=C.c_size_t
+        cg.CGDisplayPixelsHigh.argtypes=[C.c_uint32];cg.CGDisplayPixelsHigh.restype=C.c_size_t
+        displays=(C.c_uint32*16)();count=C.c_uint32()
+        if cg.CGGetOnlineDisplayList(16,displays,C.byref(count)):
+            raise RuntimeError('Display information unavailable.')
+        rows=[]
+        for i in range(min(count.value,16)):
+            display=int(displays[i]);builtin=bool(cg.CGDisplayIsBuiltin(display))
+            width=int(cg.CGDisplayPixelsWide(display));height=int(cg.CGDisplayPixelsHigh(display))
+            name='Built-in display' if builtin else 'External display ' + str(i+1)
+            rows.append(dict(id=display,name=name,resolution=str(width)+' × '+str(height),supported=False,brightness=None))
+        return rows
+    @classmethod
+    def displays(cls):
+        rows=cls.online()
+        for row in rows:
+            try:
+                controller=cls(row['id'])
+                row['brightness']=controller.read()
+                row['supported']=True
+            except Exception: pass
+        return rows
+    def __init__(self, selected=None):
+        rows=self.online()
+        if not rows: raise RuntimeError('No active displays.')
+        ids=[row['id'] for row in rows]
+        if selected is not None and (isinstance(selected,bool) or not isinstance(selected,int) or selected not in ids):
+            raise RuntimeError('This display disconnected. Choose another display.')
+        self.display=selected if selected is not None else next((row['id'] for row in rows if row['name']=='Built-in display'),ids[0])
+        self.ds=C.CDLL('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+        self.ds.DisplayServicesCanChangeBrightness.argtypes=[C.c_uint32]
+        self.ds.DisplayServicesCanChangeBrightness.restype=C.c_bool
+        self.ds.DisplayServicesGetBrightness.argtypes=[C.c_uint32,C.POINTER(C.c_float)]
+        self.ds.DisplayServicesGetBrightness.restype=C.c_int32
+        self.ds.DisplayServicesSetBrightness.argtypes=[C.c_uint32,C.c_float]
+        self.ds.DisplayServicesSetBrightness.restype=C.c_int32
+        if not self.ds.DisplayServicesCanChangeBrightness(self.display):
+            raise RuntimeError('This display does not expose brightness control.')
+    def read(self):
+        value=C.c_float()
+        if self.ds.DisplayServicesGetBrightness(self.display,C.byref(value)):
+            raise RuntimeError('Brightness is unavailable for this display.')
+        if not math.isfinite(value.value) or not 0 <= value.value <= 1:
+            raise RuntimeError('Display reported an invalid brightness.')
+        return round(value.value*100)
+    def set(self, percent):
+        if not 0 <= percent <= 100: raise RuntimeError('Brightness must be between 0 and 100.')
+        if self.ds.DisplayServicesSetBrightness(self.display,C.c_float(percent/100)):
+            raise RuntimeError('macOS rejected the brightness change.')
+
+
+request = json.loads(base64.b64decode(sys.argv[1]))
+result = dict(volume=None, muted=None, audioError=None,
+              wifiEnabled=None, wifiInterface=None, wifiName=None, wifiError=None,
+              bluetoothEnabled=None, bluetoothWritable=False, bluetoothError=None,
+              wirelessIncluded=bool(request.get('includeWireless')), actionError=None,
+              displays=[], selectedDisplayID=None, displayName=None, brightness=None, brightnessError=None, outputs=[], audioOutputID=None,
+              audioOutputName=None, audioOutputError=None)
+
+def run(*args, timeout=8):
+    completed = subprocess.run(args, text=True, capture_output=True,
+                               timeout=timeout, env=dict(os.environ, LC_ALL='C'))
+    if completed.returncode:
+        message = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(message.splitlines()[-1][:240] if message else 'macOS rejected the request.')
+    return completed.stdout.strip()
+
+def wifi_interface(output):
+    for block in re.split(r'\n\s*\n', output):
+        port = re.search(r'Hardware Port:\s*(.+)', block)
+        device = re.search(r'Device:\s*(en\d+)\b', block)
+        if port and device and port.group(1).strip().lower() in ('wi-fi', 'wifi', 'airport'):
+            return device.group(1)
+    return None
+
+def parse_wifi_power(output):
+    match = re.search(r':\s*(On|Off)\s*$', output, re.I)
+    return match.group(1).lower() == 'on' if match else None
+
+def parse_bluetooth_report(data):
+    controllers = data.get('SPBluetoothDataType', [])
+    for controller in controllers:
+        properties = controller.get('controller_properties', {})
+        state = properties.get('controller_state')
+        if isinstance(state, str):
+            state = state.lower()
+            if state in ('on', 'enabled', 'attrib_on', 'spbluetooth_on'): return True
+            if state in ('off', 'disabled', 'attrib_off', 'spbluetooth_off'): return False
+    return None
+
+def find_blueutil():
+    for path in ('/opt/homebrew/bin/blueutil', '/usr/local/bin/blueutil', shutil.which('blueutil')):
+        if path and os.path.isfile(path) and os.access(path, os.X_OK): return path
+    return None
+
+def read_audio():
+    script = ('set s to get volume settings\n'
+              'return ((output volume of s) as text) & "|" & ((output muted of s) as text)')
+    output = run('/usr/bin/osascript', '-e', script)
+    parts = output.split('|')
+    if len(parts) != 2: raise RuntimeError('Could not read Mac audio settings.')
+    try:
+        volume = int(parts[0])
+    except ValueError:
+        raise RuntimeError('This audio output does not expose adjustable volume.')
+    if not 0 <= volume <= 100 or parts[1].lower() not in ('true', 'false'):
+        raise RuntimeError('This output does not expose adjustable volume.')
+    result['volume'], result['muted'] = volume, parts[1].lower() == 'true'
+
+action = request.get('action')
+value = request.get('value')
+blueutil = find_blueutil()
+audio_controller = None
+brightness_controller = None
+try:
+    if action not in ('read', 'volume', 'mute', 'wifi', 'bluetooth', 'output', 'brightness'):
+        raise RuntimeError('Unsupported control request.')
+    if action != 'read':
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise RuntimeError('Invalid control value.')
+        if action == 'volume':
+            if not 0 <= value <= 100: raise RuntimeError('Volume must be between 0 and 100.')
+            run('/usr/bin/osascript', '-e', 'set volume output volume ' + str(value))
+        elif action == 'mute':
+            if value not in (0, 1): raise RuntimeError('Invalid mute value.')
+            run('/usr/bin/osascript', '-e', 'set volume output muted ' + ('true' if value else 'false'))
+        elif action == 'wifi':
+            if value not in (0, 1): raise RuntimeError('Invalid Wi-Fi value.')
+            interface = wifi_interface(run('/usr/sbin/networksetup', '-listallhardwareports'))
+            if not interface: raise RuntimeError('No Wi-Fi interface was detected.')
+            run('/usr/sbin/networksetup', '-setairportpower', interface, 'on' if value else 'off')
+        elif action == 'output':
+            if not 0 < value <= 0xffffffff: raise RuntimeError('Invalid audio output.')
+            audio_controller = MacAudio()
+            audio_controller.select(value)
+            time.sleep(0.15)
+        elif action == 'brightness':
+            if not 0 <= value <= 100: raise RuntimeError('Brightness must be between 0 and 100.')
+            brightness_controller = MacBrightness(request.get('displayID'))
+            brightness_controller.set(value)
+        elif action == 'bluetooth':
+            if value not in (0, 1): raise RuntimeError('Invalid Bluetooth value.')
+            if not blueutil: raise RuntimeError('Bluetooth switching requires blueutil on this Mac.')
+            run(blueutil, '--power', str(value))
+except Exception as exc:
+    result['actionError'] = ('This control is unavailable on this Mac.'
+                             if isinstance(exc, (OSError, AttributeError)) else str(exc)[:240])
+
+try:
+    read_audio()
+except Exception as exc:
+    result['audioError'] = str(exc)[:240]
+
+try:
+    audio_controller = audio_controller or MacAudio()
+    result['outputs'] = audio_controller.outputs()
+    result['audioOutputID'] = audio_controller.current()
+    result['audioOutputName'] = next((row['name'] for row in result['outputs']
+                                    if row['id'] == result['audioOutputID']), None)
+except Exception:
+    result['audioOutputError'] = 'Audio output information is unavailable.'
+try:
+    result['displays'] = MacBrightness.displays()
+    selected = request.get('displayID')
+    if selected is not None and not any(row['id'] == selected for row in result['displays']):
+        raise RuntimeError('This display disconnected. Choose another display.')
+    brightness_controller = brightness_controller or MacBrightness(selected)
+    result['selectedDisplayID'] = brightness_controller.display
+    result['displayName'] = next((row['name'] for row in result['displays'] if row['id'] == brightness_controller.display), 'Display')
+    result['brightness'] = brightness_controller.read()
+except Exception as exc:
+    result['brightnessError'] = (str(exc)[:160] if isinstance(exc, RuntimeError)
+                                 else 'Brightness control is unavailable for this display.')
+
+if result['wirelessIncluded']:
+    try:
+        interface = wifi_interface(run('/usr/sbin/networksetup', '-listallhardwareports'))
+        result['wifiInterface'] = interface
+        if not interface: raise RuntimeError('No Wi-Fi interface was detected.')
+        result['wifiEnabled'] = parse_wifi_power(run('/usr/sbin/networksetup', '-getairportpower', interface))
+        if result['wifiEnabled'] is None: raise RuntimeError('macOS did not report Wi-Fi power state.')
+        if result['wifiEnabled']:
+            output = run('/usr/sbin/networksetup', '-getairportnetwork', interface)
+            match = re.search(r'^Current Wi-Fi Network:\s*(.+)$', output, re.M)
+            if match and match.group(1).strip() not in ('<redacted>', '<hidden>', '(null)'):
+                result['wifiName'] = match.group(1).strip()
+    except Exception as exc:
+        result['wifiError'] = str(exc)[:240]
+    try:
+        result['bluetoothWritable'] = blueutil is not None
+        if blueutil:
+            power = run(blueutil, '--power')
+            if power not in ('0', '1'): raise RuntimeError('Bluetooth power state unavailable.')
+            result['bluetoothEnabled'] = power == '1'
+        else:
+            report = run('/usr/sbin/system_profiler', 'SPBluetoothDataType', '-json', timeout=12)
+            result['bluetoothEnabled'] = parse_bluetooth_report(json.loads(report))
+            if result['bluetoothEnabled'] is None:
+                raise RuntimeError('macOS did not report Bluetooth power state.')
+    except Exception as exc:
+        result['bluetoothError'] = str(exc)[:240]
+
+if not result['actionError']:
+    if action == 'volume' and (result['volume'] is None or abs(result['volume'] - value) > 2):
+        result['actionError'] = 'The Mac did not confirm this volume. Its output may have fixed volume.'
+    elif action == 'mute' and result['muted'] != bool(value):
+        result['actionError'] = 'The Mac did not confirm the mute change.'
+    elif action == 'wifi' and result['wifiEnabled'] != bool(value):
+        result['actionError'] = 'The Mac did not confirm the Wi-Fi change.'
+    elif action == 'bluetooth' and result['bluetoothEnabled'] != bool(value):
+        result['actionError'] = 'The Mac did not confirm the Bluetooth change.'
+    elif action == 'output' and result['audioOutputID'] != value:
+        result['actionError'] = 'The Mac did not confirm the audio-output change.'
+    elif action == 'brightness' and (result['brightness'] is None or abs(result['brightness'] - value) > 2):
+        result['actionError'] = 'The Mac did not confirm this brightness. Refresh and try again.'
+print(json.dumps(result))
+"""#
+}
+
+
