@@ -45,6 +45,23 @@ Actual screenshots from the app. Device names, readings, available outputs and d
   <img src="docs/screenshots/settings.png" alt="Saved servers, Terminal and AI settings, appearance, accents and refresh interval" width="300" />
 </details>
 
+## A closer look at your Mac
+
+Open **System** from Status to see per-core CPU activity, memory and swap, network transfer totals, storage usage and disk I/O. Switch between CPU, load, memory, network and disk charts to explore recent activity.
+
+<table>
+  <tr>
+    <th>System details</th>
+    <th>Storage and statistics</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/system-details.png" alt="System details showing per-core CPU activity, uptime, memory, swap and network readings" width="300" /></td>
+    <td><img src="docs/screenshots/system-statistics.png" alt="Storage capacity, disk read and write totals, and a fifteen-minute CPU history chart" width="300" /></td>
+  </tr>
+</table>
+
+The live five-minute chart works without the separate history collector. Longer history periods use saved samples from that collector.
+
 ## What you can do
 
 - **Monitor your Mac:** CPU and memory usage, network transfer rates, disk activity, battery state and available storage. Open System details for per-core readings, uptime, swap, network information and charts.
