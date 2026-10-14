@@ -4,9 +4,10 @@ struct SSHConnectScreen: View {
     let server: ServerProfile
     let monitor: SSHMonitor
     @Environment(\.dismiss) private var dismiss
-    @State private var password = ""
+    @State private var loginDraft = MARCLoginDraft()
     @State private var publicHostKey = ""
     @State private var testing = false
+    @State private var trust = MARCHostTrust()
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
@@ -30,18 +31,11 @@ struct SSHConnectScreen: View {
                     }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 MARCSettingsGroup(title: "Authentication") {
-                    SecureField("Mac login password", text: $password)
-                        .textContentType(.password).padding(16).disabled(testing)
+                    MARCLoginFields(draft: $loginDraft).padding(16).disabled(testing)
                 }
-                Text("Connect once. Your password is saved in this iPhone’s Keychain for automatic reconnection.")
+                Text("Your login is saved in this iPhone’s Keychain for automatic reconnection.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
-                MARCSettingsGroup(title: "Server host key · optional") {
-                    TextEditor(text: $publicHostKey)
-                        .font(.system(size: 11, design: .monospaced))
-                        .scrollContentBackground(.hidden).frame(height: 100).padding(10)
-                        .autocorrectionDisabled().textInputAutocapitalization(.never).disabled(testing)
-                }
-                Text("Leave blank to connect without host verification, or enter this server’s Ed25519 public host key.")
+                Text("MARC remembers this Mac’s fingerprint automatically and blocks unexpected changes.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
                 Button {
                     startTest()
@@ -52,32 +46,34 @@ struct SSHConnectScreen: View {
                     }.font(.system(size: 14, weight: .medium))
                         .frame(maxWidth: .infinity, minHeight: 46)
                         .background(p.accent, in: RoundedRectangle(cornerRadius: 12)).foregroundStyle(.white)
-                }.disabled(testing || password.isEmpty)
-                if let failure {
-                    MARCCard(title: "Connection failed") {
-                        Text(failure).font(.system(size: 12)).textSelection(.enabled)
-                        Text("Check the password, server key, and that both devices are on the same Wi-Fi. Allow Local Network access if iOS asks.")
-                            .font(.system(size: 12)).foregroundStyle(p.muted)
-                    }
-                }
+                }.disabled(testing || !loginDraft.hasLogin)
             }.padding(16).padding(.top, 12)
         }.marcCanvas().interactiveDismissDisabled(testing)
-            .onDisappear { password = "" }
+            .onAppear {
+                let saved = MARCCredentials.read(server.id)
+                publicHostKey = saved?.hostKey ?? ""
+                loginDraft = MARCLoginDraft(saved: saved)
+            }
+            .hostTrustPrompt(trust)
+        .marcConnectionAlert($failure)
+            .onDisappear { loginDraft.clear(); trust.cancel() }
     }
 
     private func startTest() {
         testing = true
         failure = nil
-        let submittedPassword = password
+        let submittedLogin = loginDraft.credentials()
         let submittedKey = publicHostKey
-        password = ""
         Task { @MainActor in
             defer { testing = false }
             do {
-                try await monitor.connect(server: server, password: submittedPassword, hostKey: submittedKey)
+                let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
+                try await monitor.connect(server: server, login: submittedLogin, hostKey: verifiedKey)
                 dismiss()
+            } catch is CancellationError {
+                failure = nil
             } catch {
-                failure = String(describing: error)
+                failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
     }

@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var terminalWorkspace = MARCTerminalWorkspace()
     @AppStorage("marc.appearance") private var appearance = "system"
     @State private var tab = 0
+    @State private var terminalReturnTab = 0
     @State private var initialConnectionCheck = true
     @State private var terminalKeyboardVisible = false
     @Environment(\.scenePhase) private var scenePhase
@@ -13,28 +14,33 @@ struct ContentView: View {
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        VStack(spacing: 0) {
         Group {
             switch tab {
             case 1: NavigationStack { ProcessesScreen(monitor: store.monitor) }
             case 2:
-                NavigationStack {
                     MARCKeyboardContainer {
                         TerminalScreen(
                             monitor: store.monitor,
-                            workspace: terminalWorkspace
+                            workspace: terminalWorkspace,
+                            navigate: { destination in
+                                UIApplication.shared.sendAction(
+                                    #selector(UIResponder.resignFirstResponder),
+                                    to: nil, from: nil, for: nil
+                                )
+                                tab = destination < 0 ? terminalReturnTab : destination
+                            }
                         )
                         .environment(\.colorScheme, scheme)
                     }
-                }
+                    .background(p.background.ignoresSafeArea(.container, edges: .top))
             case 3: NavigationStack { FilesScreen(monitor: store.monitor) }
             case 4: NavigationStack { SettingsScreen(store: store) }
             default: NavigationStack { HomeScreen(store: store, openSettings: { tab = 4 }) }
             }
         }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if !(tab == 2 && terminalKeyboardVisible) {
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if tab != 2 {
             HStack(spacing: 2) {
                 navItem("Status", symbol: "gauge.with.needle", index: 0, palette: p)
                 navItem("Processes", symbol: "slider.horizontal.3", index: 1, palette: p)
@@ -45,9 +51,16 @@ struct ContentView: View {
                 .overlay(Capsule().stroke(p.border.opacity(0.7), lineWidth: 1))
                 .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
                 .padding(.horizontal, 12).padding(.bottom, 10).padding(.top, 6)
+                .background {
+                    Rectangle().fill(.ultraThinMaterial)
+                        .mask(LinearGradient(
+                            colors: [.clear, .black],
+                            startPoint: .top, endPoint: .bottom
+                        ))
+                        .ignoresSafeArea(.container, edges: .bottom)
+                }
 
             }
-        
         }
         .ignoresSafeArea(
             tab == 2 ? .keyboard : [],
@@ -98,6 +111,10 @@ struct ContentView: View {
                 }
             }
         }
+        .onDisappear {
+            terminalWorkspace.pause()
+            Task { await store.monitor.disconnect() }
+        }
         .onChange(of: store.monitor.connected) { _, connected in
             if !connected { terminalWorkspace.pause() }
         }
@@ -107,7 +124,10 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
     }
     private func navItem(_ title: String, symbol: String, index: Int, palette: MARCPalette) -> some View {
-        Button { tab = index } label: {
+        Button {
+            if index == 2 && tab != 2 { terminalReturnTab = tab }
+            tab = index
+        } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 23, weight: .regular))
                 Text(title).lineLimit(1).minimumScaleFactor(0.75).font(.system(size: 10, weight: tab == index ? .semibold : .medium))
@@ -231,4 +251,3 @@ private struct MARCLoadingLogoAppearance: ViewModifier {
         }
     }
 }
-

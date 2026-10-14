@@ -1,6 +1,15 @@
 import SwiftUI
 struct SettingsScreen: View {
     let store: ServerStore
+    @State private var customizingSettings = false
+    @AppStorage("marc.settings.order") private var settingsOrder = "servers,security,terminal,general,support"
+    @AppStorage("marc.settings.hidden") private var settingsHidden = ""
+    private var visibleSettingsSections: [MARCSettingsSection] {
+        let hidden = Set(settingsHidden.split(separator: ",").map(String.init))
+        return MARCSettingsSection.ordered(settingsOrder).filter {
+            $0 == .security || !hidden.contains($0.rawValue)
+        }
+    }
     @AppStorage("marc.appearance") private var appearance = "system"
     @AppStorage("marc.refreshInterval") private var refreshInterval = 2
     @State private var removing: ServerProfile?
@@ -18,8 +27,14 @@ struct SettingsScreen: View {
                 HStack {
                     Text("Settings").font(.system(size: 22, weight: .semibold))
                     Spacer()
-                    Image(systemName: "slider.horizontal.3").font(.system(size: 18)).foregroundStyle(p.muted.opacity(0.4)).frame(width: 44, height: 44)
-                        .accessibilityLabel("Control Center unavailable while offline")
+                    Button { customizingSettings = true } label: {
+                        Label("Customize", systemImage: "square.grid.2x2")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(p.accent).padding(.horizontal, 10)
+                            .frame(minHeight: 44)
+                            .background(p.raised, in: RoundedRectangle(cornerRadius: 13))
+                            .overlay(RoundedRectangle(cornerRadius: 13).stroke(p.border, lineWidth: 1))
+                    }.buttonStyle(.plain).accessibilityLabel("Customize Settings layout")
                 }
                 Button { adding = true } label: {
                     HStack(spacing: 12) {
@@ -31,6 +46,39 @@ struct SettingsScreen: View {
                     }.padding(.horizontal, 16).frame(minHeight: 58)
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
                 }.buttonStyle(.plain)
+                ForEach(visibleSettingsSections) { item in
+                    settingsSection(item)
+                }
+                if let error = store.storageError { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
+            }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 100)
+        }.scrollIndicators(.hidden).marcCanvas().toolbar(.hidden, for: .navigationBar)
+            .sheet(isPresented: $customizingSettings) {
+                MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
+            }
+            .sheet(isPresented: $adding) { AddServerScreen(store: store) }
+            .sheet(item: $editingServer) { server in
+                MARCEditServerScreen(store: store, server: server)
+            }
+            .sheet(item: $connectingServer) { server in SSHConnectScreen(server: server, monitor: store.monitor) }
+            .sheet(item: $testingServer) { server in SSHTestScreen(server: server) }
+            .alert(support ?? "", isPresented: Binding(get: { support != nil }, set: { if !$0 { support = nil } })) {
+                Button("OK") { support = nil }
+            } message: {
+                Text(support == "SSH logs" ? "SSH test results appear in the Test SSH sheet. Persistent session logging is not enabled yet." : "Use the saved server’s menu → Connect, then open Home for live macOS readings. Monitoring pauses when the app goes into the background. Terminal sessions and file transfers are still pending.")
+            }
+            .sheet(item: $removing) { server in
+                MARCRemoveServerSheet(server: server) {
+                    store.remove(server)
+                    removing = nil
+                }
+            }
+    }
+
+    @ViewBuilder
+    private func settingsSection(_ item: MARCSettingsSection) -> some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        switch item {
+        case .servers:
                 if !store.servers.isEmpty {
                     MARCSettingsGroup(title: "Saved servers") {
                         ForEach(store.servers) { server in
@@ -77,6 +125,23 @@ struct SettingsScreen: View {
                         }
                     }
                 }
+        case .security:
+                MARCSettingsGroup(title: "Security") {
+                    MARCAppLockSetting()
+                    MARCSettingsDivider()
+                    NavigationLink {
+                        MARCKeychainScreen(store: store)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text("Keychain").font(.system(size: 15))
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(p.muted)
+                        }.foregroundStyle(p.text).padding(16)
+                            .frame(maxWidth: .infinity, minHeight: 58)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+        case .terminal:
                 MARCSettingsGroup(title: "Terminal & AI") {
                     NavigationLink {
                         MARCTerminalAISettings(monitor: store.monitor)
@@ -96,6 +161,7 @@ struct SettingsScreen: View {
                     }
                     .buttonStyle(.plain)
                 }
+        case .general:
                 MARCSettingsGroup(title: "General") {
                     HStack {
                         Text("Appearance").font(.system(size: 15))
@@ -119,6 +185,7 @@ struct SettingsScreen: View {
                         }.labelsHidden().pickerStyle(.menu).tint(p.muted).font(.system(size: 15))
                     }.padding(.horizontal, 14).frame(minHeight: 50)
                 }
+        case .support:
                 MARCSettingsGroup(title: "Support") {
                     ShareLink(item: "MARC — Macintosh Access & Remote Control. Monitor. Access. Control.") {
                         MARCSettingsAction(title: "Share", symbol: "arrow.up.right")
@@ -132,26 +199,7 @@ struct SettingsScreen: View {
                     MARCSettingsDivider()
                     Button { support = "SSH logs" } label: { MARCSettingsAction(title: "SSH logs") }.buttonStyle(.plain)
                 }
-                if let error = store.storageError { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
-            }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 24)
-        }.scrollIndicators(.hidden).marcCanvas().toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $adding) { AddServerScreen(store: store) }
-            .sheet(item: $editingServer) { server in
-                MARCEditServerScreen(store: store, server: server)
-            }
-            .sheet(item: $connectingServer) { server in SSHConnectScreen(server: server, monitor: store.monitor) }
-            .sheet(item: $testingServer) { server in SSHTestScreen(server: server) }
-            .alert(support ?? "", isPresented: Binding(get: { support != nil }, set: { if !$0 { support = nil } })) {
-                Button("OK") { support = nil }
-            } message: {
-                Text(support == "SSH logs" ? "SSH test results appear in the Test SSH sheet. Persistent session logging is not enabled yet." : "Use the saved server’s menu → Connect, then open Home for live macOS readings. Monitoring pauses when the app goes into the background. Terminal sessions and file transfers are still pending.")
-            }
-            .sheet(item: $removing) { server in
-                MARCRemoveServerSheet(server: server) {
-                    store.remove(server)
-                    removing = nil
-                }
-            }
+        }
     }
 
     private func connectionLabel(_ server: ServerProfile) -> String {
@@ -201,8 +249,9 @@ private struct MARCEditServerScreen: View {
     @State private var host = ""
     @State private var port = ""
     @State private var username = ""
-    @State private var password = ""
+    @State private var loginDraft = MARCLoginDraft()
     @State private var hostKey = ""
+    @State private var trust = MARCHostTrust()
     @State private var loaded = false
     @State private var busy = false
     @State private var failure: String?
@@ -267,58 +316,17 @@ private struct MARCEditServerScreen: View {
                             .padding(.horizontal, 16)
 
                         VStack(spacing: 0) {
-                            inputRow("User", hint: "Mac username", text: $username)
+                            inputRow("Username", hint: "Mac username", text: $username)
                             Divider().padding(.horizontal, 16)
 
-                            HStack(spacing: 10) {
-                                Text("Password")
-                                Button {
-                                    revealPassword.toggle()
-                                } label: {
-                                    Image(systemName: revealPassword ? "eye.slash" : "eye")
-                                        .foregroundStyle(p.accent)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(
-                                    revealPassword ? "Hide password" : "Show password"
-                                )
-
-                                Group {
-                                    if revealPassword {
-                                        TextField("Password", text: $password)
-                                    } else {
-                                        SecureField("Password", text: $password)
-                                    }
-                                }
-                                .textContentType(.password)
-                                .multilineTextAlignment(.trailing)
-                                .frame(maxWidth: .infinity)
-                            }
-                            .font(.system(size: 15))
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 56)
+                            MARCLoginFields(draft: $loginDraft)
+                                .padding(16)
                         }
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
                     }
 
-                    DisclosureGroup {
-                        TextEditor(text: $hostKey)
-                            .font(.system(size: 11, design: .monospaced))
-                            .scrollContentBackground(.hidden)
-                            .frame(height: 100)
-                            .padding(.top, 8)
-                    } label: {
-                        HStack {
-                            Text("Host key · optional")
-                            Spacer()
-                            Text(hostKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "None" : "Pinned")
-                                .foregroundStyle(p.accent)
-                        }
-                        .font(.system(size: 15))
-                    }
-                    .tint(p.accent)
-                    .padding(16)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
+                    Text("MARC remembers the fingerprint on first connection. Future connections are checked automatically; unexpected changes are blocked.")
+                        .font(.system(size: 12)).foregroundStyle(p.muted)
 
                     Button(action: testConnection) {
                         HStack {
@@ -356,17 +364,11 @@ private struct MARCEditServerScreen: View {
                     }
                     .disabled(!valid || busy || !loaded)
 
-                    Text("Leave the password blank to keep the remembered password.")
+                    Text("Your saved login is loaded automatically. Changes are checked before saving.")
                         .font(.system(size: 11))
                         .foregroundStyle(p.muted)
                         .padding(.horizontal, 12)
 
-                    if let failure {
-                        Text(failure)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 12)
-                    }
                 }
                 .padding(16)
                 .padding(.bottom, 24)
@@ -385,10 +387,14 @@ private struct MARCEditServerScreen: View {
             host = server.host
             port = String(server.port)
             username = server.username
-            hostKey = MARCCredentials.read(server.id)?.hostKey ?? ""
+            let saved = MARCCredentials.read(server.id)
+            hostKey = saved?.hostKey ?? ""
+            loginDraft = MARCLoginDraft(saved: saved)
             loaded = true
         }
-        .onDisappear { password = "" }
+        .hostTrustPrompt(trust)
+        .marcConnectionAlert($failure)
+        .onDisappear { loginDraft.clear(); trust.cancel() }
     }
 
     private func inputRow(
@@ -405,18 +411,24 @@ private struct MARCEditServerScreen: View {
         .frame(minHeight: 56)
     }
 
+    private func existingKey(host: String, port: Int) -> String {
+        guard HostKeyIdentity.endpoint(host: host, port: port) ==
+                HostKeyIdentity.endpoint(host: server.host, port: server.port) else { return "" }
+        return hostKey
+    }
+
     private func testConnection() {
         guard valid, let number = Int(port), !busy else { return }
         let server = ServerProfile(
+            id: self.server.id,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             host: host.trimmingCharacters(in: .whitespacesAndNewlines),
             port: number,
-            username: username.trimmingCharacters(in: .whitespacesAndNewlines)
+            username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+            requiresHostKey: self.server.requiresHostKey
         )
-        let submittedPassword = password.isEmpty
-            ? (MARCCredentials.read(server.id)?.password ?? "")
-            : password
-        let submittedKey = hostKey
+        let submittedLogin = loginDraft.credentials(fallback: MARCCredentials.read(server.id))
+        let submittedKey = existingKey(host: server.host, port: server.port)
         busy = true
         failure = nil
         testMessage = nil
@@ -424,14 +436,17 @@ private struct MARCEditServerScreen: View {
         Task { @MainActor in
             defer { busy = false }
             do {
+                let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
                 _ = try await SSHConnectionTest.run(
                     server: server,
-                    password: submittedPassword,
-                    publicHostKey: submittedKey
+                    login: submittedLogin,
+                    publicHostKey: verifiedKey
                 )
                 testMessage = "Connection successful. Ready to save."
+            } catch is CancellationError {
+                failure = nil
             } catch {
-                failure = error.localizedDescription
+                failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
     }
@@ -444,9 +459,9 @@ private struct MARCEditServerScreen: View {
         }
 
         let remembered = MARCCredentials.read(server.id)
-        let chosenPassword = password.isEmpty ? remembered?.password : password
-        guard let chosenPassword, !chosenPassword.isEmpty else {
-            failure = "Enter a password for this server."
+        let chosenLogin = loginDraft.credentials(fallback: remembered)
+        guard chosenLogin.hasLogin else {
+            failure = "Enter a password or select a saved SSH key."
             return
         }
 
@@ -455,7 +470,8 @@ private struct MARCEditServerScreen: View {
         updated.host = host.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.port = number
         updated.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = hostKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.requiresHostKey = true
+        let key = existingKey(host: updated.host, port: updated.port)
         let reconnect = store.selectedID == server.id
 
         busy = true
@@ -463,23 +479,29 @@ private struct MARCEditServerScreen: View {
         Task { @MainActor in
             defer { busy = false }
             do {
+                let verifiedKey = try await trust.keyForConnection(server: updated, existingKey: key)
+                _ = try SSHConnectionTest.hostKeyValidator(server: updated, publicHostKey: verifiedKey)
                 if reconnect {
                     // Validate the edited connection before saving the profile.
                     try await store.monitor.connect(
                         server: updated,
-                        password: chosenPassword,
-                        hostKey: key
+                        login: chosenLogin,
+                        hostKey: verifiedKey
                     )
                 } else {
+                    // Check the edited login before replacing its Keychain item.
+                    _ = try await SSHConnectionTest.run(server: updated, login: chosenLogin, publicHostKey: verifiedKey)
                     try MARCCredentials.save(
-                        server.id, password: chosenPassword, hostKey: key
+                        server.id, login: chosenLogin, hostKey: verifiedKey
                     )
                 }
                 store.update(updated)
-                password = ""
+                loginDraft.clear()
                 dismiss()
+            } catch is CancellationError {
+                failure = nil
             } catch {
-                failure = error.localizedDescription
+                failure = MARCConnectionIssue.message(error, login: chosenLogin)
             }
         }
     }
@@ -504,7 +526,7 @@ private struct MARCRemoveServerSheet: View {
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(p.muted)
             }
-            Text("This removes the saved profile and password from MARC. The Mac and its files are unaffected.")
+            Text("This removes the saved profile and login from MARC. The Mac and its files are unaffected.")
                 .font(.system(size: 12))
                 .foregroundStyle(p.muted)
             HStack(spacing: 12) {
@@ -537,5 +559,83 @@ private struct MARCRemoveServerSheet: View {
         .marcCanvas()
         .presentationDetents([.height(285)])
         .presentationDragIndicator(.visible)
+    }
+}
+
+private enum MARCSettingsSection: String, CaseIterable, Identifiable {
+    case servers, security, terminal, general, support
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .servers: return "Saved servers"
+        case .security: return "Security"
+        case .terminal: return "Terminal & AI"
+        case .general: return "General"
+        case .support: return "Support"
+        }
+    }
+    static func ordered(_ stored: String) -> [Self] {
+        var result: [Self] = []
+        for raw in stored.split(separator: ",") {
+            if let item = Self(rawValue: String(raw)), !result.contains(item) {
+                result.append(item)
+            }
+        }
+        for item in allCases where !result.contains(item) { result.append(item) }
+        return result
+    }
+}
+
+private struct MARCSettingsCustomizeSheet: View {
+    @Binding var order: String
+    @Binding var hidden: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+
+    private func shown(_ item: MARCSettingsSection) -> Binding<Bool> {
+        Binding(get: {
+            item == .security || !hidden.split(separator: ",").contains(Substring(item.rawValue))
+        }, set: { enabled in
+            guard item != .security else { return }
+            var values = Set(hidden.split(separator: ",").map(String.init))
+            if enabled { values.remove(item.rawValue) }
+            else { values.insert(item.rawValue) }
+            hidden = values.sorted().joined(separator: ",")
+        })
+    }
+
+    var body: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(MARCSettingsSection.ordered(order)) { item in
+                        Toggle(item.title, isOn: shown(item))
+                            .tint(p.accent).disabled(item == .security)
+                    }.onMove { indices, destination in
+                        var items = MARCSettingsSection.ordered(order)
+                        items.move(fromOffsets: indices, toOffset: destination)
+                        order = items.map(\.rawValue).joined(separator: ",")
+                    }
+                } header: { Text("Settings sections") }
+                  footer: {
+                    Text("Drag to reorder. Add server and Security stay available. Hiding a section does not change its settings.")
+                }
+                Section {
+                    Button("Reset layout") {
+                        order = "servers,security,terminal,general,support"
+                        hidden = ""
+                    }.foregroundStyle(p.accent)
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Customize")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }.tint(p.accent)
+        }
     }
 }

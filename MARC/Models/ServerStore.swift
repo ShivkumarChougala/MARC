@@ -1,13 +1,6 @@
 import Foundation
 import Security
 import Observation
-struct ServerProfile: Identifiable, Codable, Equatable, Sendable {
-    var id = UUID()
-    var name: String
-    var host: String
-    var port: Int
-    var username: String
-}
 @MainActor @Observable final class ServerStore {
     let monitor = SSHMonitor()
     private(set) var servers: [ServerProfile] = []
@@ -47,9 +40,18 @@ struct ServerProfile: Identifiable, Codable, Equatable, Sendable {
 
 
 enum MARCCredentials {
-    struct Saved: Codable {
+    struct Saved: Codable, Sendable {
         let password: String
         let hostKey: String
+        let keyID: UUID?
+        let privateKey: String?
+        let passphrase: String?
+        init(password: String, hostKey: String, privateKey: String? = nil, passphrase: String? = nil, keyID: UUID? = nil) {
+            self.password = password; self.hostKey = hostKey
+            self.privateKey = privateKey; self.passphrase = passphrase; self.keyID = keyID
+        }
+        var isKeyLogin: Bool { keyID != nil || privateKey != nil }
+        var hasLogin: Bool { keyID != nil || (isKeyLogin ? !(privateKey?.isEmpty ?? true) : !password.isEmpty) }
     }
 
     private static let service = "MARC.savedSSH"
@@ -63,9 +65,16 @@ enum MARCCredentials {
     }
 
     static func save(_ id: UUID, password: String, hostKey: String) throws {
-        let data = try JSONEncoder().encode(
-            Saved(password: password, hostKey: hostKey)
-        )
+        try save(id, login: Saved(password: password, hostKey: hostKey), hostKey: hostKey)
+    }
+
+    static func save(_ id: UUID, login: Saved, hostKey: String) throws {
+        let data = try JSONEncoder().encode(Saved(
+            password: login.isKeyLogin ? "" : login.password, hostKey: hostKey,
+            privateKey: login.keyID == nil ? login.privateKey : nil,
+            passphrase: login.keyID == nil && login.isKeyLogin ? login.passphrase : nil,
+            keyID: login.keyID
+        ))
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String:
@@ -90,14 +99,20 @@ enum MARCCredentials {
         }
     }
 
-    static func read(_ id: UUID) -> Saved? {
+    static func read(_ id: UUID) -> Saved? { try? readChecked(id) }
+
+    static func readChecked(_ id: UUID) throws -> Saved? {
         var item = query(id)
         item[kSecReturnData as String] = true
         item[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        guard SecItemCopyMatching(item as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return try? JSONDecoder().decode(Saved.self, from: data)
+        let status = SecItemCopyMatching(item as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else {
+            throw MARCKeyStoreError.storage(status)
+        }
+        do { return try JSONDecoder().decode(Saved.self, from: data) }
+        catch { throw MARCKeyStoreError.storage(errSecDecode) }
     }
 
     static func remove(_ id: UUID) {
@@ -117,7 +132,7 @@ extension ServerStore {
         do {
             try await monitor.connect(
                 server: server,
-                password: saved.password,
+                login: saved,
                 hostKey: saved.hostKey
             )
         } catch {
@@ -140,7 +155,7 @@ extension ServerStore {
         guard let saved = MARCCredentials.read(server.id) else {
             throw NSError(domain: "MARC", code: 30, userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Connect to this server once to remember its password."
+                    "Connect to this server once to save its login."
             ])
         }
 
@@ -150,7 +165,7 @@ extension ServerStore {
         )
         try await monitor.connect(
             server: server,
-            password: saved.password,
+            login: saved,
             hostKey: saved.hostKey
         )
     }

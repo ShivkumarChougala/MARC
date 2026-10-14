@@ -71,26 +71,13 @@ final class MARCTerminalSession {
                 )
             }
 
-            let key = saved.hostKey.trimmingCharacters(
-                in: .whitespacesAndNewlines
-            )
-            let validator: SSHHostKeyValidator
-            if key.isEmpty {
-                validator = .acceptAnything()
-            } else {
-                validator = .trustedKeys(Set([
-                    try SSHConnectionTest.parseEd25519(key)
-                ]))
-            }
-
+            let validator = try SSHConnectionTest.hostKeyValidator(server: server, publicHostKey: saved.hostKey)
             let username = server.username
-            let password = saved.password
+            let authentication = try MARCLogin.authentication(saved, username: username)
             var settings = SSHClientSettings(
                 host: server.host,
                 port: server.port,
-                authenticationMethod: {
-                    .passwordBased(username: username, password: password)
-                },
+                authenticationMethod: authentication,
                 hostKeyValidator: validator
             )
             settings.connectTimeout = .seconds(10)
@@ -142,7 +129,7 @@ final class MARCTerminalSession {
         } catch {
             if token == current, !Task.isCancelled,
                !(error is CancellationError) {
-                failure = error.localizedDescription
+                failure = MARCConnectionIssue.message(error, login: MARCCredentials.read(server.id))
                 status = "Disconnected"
             }
         }
@@ -456,6 +443,7 @@ final class MARCTerminalWorkspace {
 struct TerminalScreen: View {
     let monitor: SSHMonitor
     let workspace: MARCTerminalWorkspace
+    let navigate: (Int) -> Void
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @Environment(\.scenePhase) private var scenePhase
@@ -470,6 +458,18 @@ struct TerminalScreen: View {
 
         GeometryReader { geometry in
             VStack(spacing: 0) {
+            HStack {
+                Button { navigate(-1) } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(p.accent).frame(minHeight: 44)
+                }.buttonStyle(.plain)
+                    .accessibilityLabel("Return to previous screen")
+                Spacer()
+                Text("Terminal").font(.system(size: 13, weight: .medium)).foregroundStyle(p.muted)
+            }
+            .padding(.horizontal, 12)
+            .background(p.background)
             ZStack {
                 ForEach(workspace.slots) { slot in
                     MARCTerminalSurface(
@@ -490,6 +490,7 @@ struct TerminalScreen: View {
                 }
             }
             .padding(.horizontal, 8)
+            .padding(.top, 8)
             .frame(
                 maxWidth: .infinity,
                 minHeight: 0,
@@ -1474,15 +1475,20 @@ struct MARCKeyboardContainer<Content: View>: UIViewControllerRepresentable {
 
         override func viewDidLoad() {
             super.viewDidLoad()
-            view.backgroundColor = .clear
-            host.view.backgroundColor = .clear
+            let terminalBackground = UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 17/255, green: 17/255, blue: 19/255, alpha: 1)
+                    : UIColor(red: 245/255, green: 245/255, blue: 247/255, alpha: 1)
+            }
+            view.backgroundColor = terminalBackground
+            host.view.backgroundColor = terminalBackground
 
             addChild(host)
             view.addSubview(host.view)
             host.view.translatesAutoresizingMaskIntoConstraints = false
 
             NSLayoutConstraint.activate([
-                host.view.topAnchor.constraint(equalTo: view.topAnchor),
+                host.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
                 host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                 host.view.bottomAnchor.constraint(

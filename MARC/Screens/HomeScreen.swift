@@ -4,6 +4,13 @@ struct HomeScreen: View {
     let store: ServerStore
     let openSettings: () -> Void
     @State private var controls = false
+    @State private var showingMacPicker = false
+    @State private var pickerMac: ServerProfile?
+    @State private var pickerManage = false
+    @State private var loginMac: ServerProfile?
+    @State private var switchingMac = false
+    @State private var switchFailure: String?
+    @State private var switchTask: Task<Void, Never>?
     @State private var customizing = false
     @State private var customizingAlerts = false
     @AppStorage("marc.alerts.storage") private var showStorageAlerts = true
@@ -34,15 +41,28 @@ struct HomeScreen: View {
                                 .background(p.raised, in: RoundedRectangle(cornerRadius: 13))
                                 .overlay(RoundedRectangle(cornerRadius: 13).stroke(p.border, lineWidth: 1))
                         }.accessibilityLabel("Open Control Center")
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(store.monitor.snapshot?.details?.username
-                                 ?? store.monitor.server?.username ?? "MARC")
-                                .font(.system(size: 21, weight: .semibold))
-                                .foregroundStyle(p.text).lineLimit(1).minimumScaleFactor(0.75)
-                            if let version = store.monitor.snapshot?.details?.osVersion, !version.isEmpty {
-                                Text("macOS " + version).font(.system(size: 12)).foregroundStyle(p.muted)
-                            }
+                        Button {
+                            pickerMac = nil
+                            pickerManage = false
+                            showingMacPicker = true
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(activeMac?.name ?? "Choose a Mac")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .lineLimit(1).minimumScaleFactor(0.75)
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }.foregroundStyle(p.text)
+                                if let activeMac {
+                                    Text(activeMac.username)
+                                        .font(.system(size: 12)).foregroundStyle(p.muted).lineLimit(1)
+                                }
+                            }.frame(minHeight: 44, alignment: .leading)
                         }
+                        .buttonStyle(.plain)
+                        .disabled(switchingMac || store.monitor.connecting)
+                        .accessibilityLabel("Choose a saved Mac. Current: \(activeMac?.name ?? "none")")
                         Spacer(minLength: 4)
                         Button { customizing = true } label: {
                             Label("Customize", systemImage: "square.grid.2x2")
@@ -54,6 +74,18 @@ struct HomeScreen: View {
                         }.accessibilityLabel("Customize Status layout")
                     }
                     if let reading = store.monitor.snapshot {
+                        if let received = store.monitor.updatedAt {
+                            let age = max(0, Int(context.date.timeIntervalSince(received)))
+                            if !store.monitor.connected || age >= 12 {
+                                Label(
+                                    "\(store.monitor.connected ? "Updates delayed" : "Disconnected") · last received \(age)s ago",
+                                    systemImage: "clock.arrow.circlepath"
+                                )
+                                .font(.system(size: 12)).foregroundStyle(.orange)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .accessibilityLabel("Readings are not live. Last update received \(age) seconds ago.")
+                            }
+                        }
                         let alerts = liveAlerts(reading: reading, now: context.date)
                         ForEach(visibleSections) { item in
                             section(item, reading: reading, alerts: alerts, palette: p)
@@ -68,24 +100,71 @@ struct HomeScreen: View {
                             Button("Open Settings", action: openSettings).tint(p.accent)
                         }
                     } else {
-                        VStack(spacing: 14) {
-                            Text(store.servers.isEmpty ? "Add your first server" : "No server is active")
-                                .font(.system(size: 20, weight: .semibold))
-                            Text("Connect in Settings to see your Mac’s live data.")
-                                .font(.system(size: 13)).foregroundStyle(p.muted)
-                                .multilineTextAlignment(.center)
-                            Button("Open Settings", action: openSettings)
-                                .font(.system(size: 13, weight: .medium))
-                                .padding(.horizontal, 20).frame(height: 44)
-                                .foregroundStyle(.white)
-                                .background(p.accent, in: RoundedRectangle(cornerRadius: 12))
-                            if let error = store.monitor.error {
-                                Text(error).font(.system(size: 12)).foregroundStyle(.red)
-                                    .textSelection(.enabled)
+                        let busy = switchingMac || store.monitor.connecting
+                        let failure = busy ? nil : (switchFailure ?? store.monitor.error)
+                        let issue = busy ? nil : store.monitor.connectionIssue
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 12) {
+                                if busy {
+                                    ProgressView().tint(p.accent)
+                                } else {
+                                    Image(systemName: failure == nil ? "laptopcomputer" : (issue?.symbol ?? "exclamationmark.circle"))
+                                        .font(.system(size: 22)).foregroundStyle(p.accent)
+                                }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(busy ? "Connecting…" : failure != nil ? (issue?.title ?? "Connection unavailable") : store.servers.isEmpty ? "Add your first Mac" : "Connect to your Mac")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(p.text)
+                                    if let mac = activeMac {
+                                        Text(mac.name).font(.system(size: 13))
+                                            .foregroundStyle(p.muted)
+                                    }
+                                }
                             }
-                        }.frame(maxWidth: .infinity).padding(.top, 60)
+                            if let failure {
+                                Text(issue?.detail ?? failure).font(.system(size: 13))
+                                    .foregroundStyle(p.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                            } else {
+                                Text(busy ? "Establishing a secure SSH connection." : "Choose a Mac to see its live data.")
+                                    .font(.system(size: 13)).foregroundStyle(p.muted)
+                            }
+                            if !busy {
+                                HStack(spacing: 12) {
+                                    if let mac = activeMac, issue?.canRetry != false {
+                                        Button(failure == nil ? "Connect" : "Retry") {
+                                            chooseMac(mac)
+                                        }
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .frame(maxWidth: .infinity, minHeight: 46)
+                                        .foregroundStyle(.white)
+                                        .background(p.accent, in: RoundedRectangle(cornerRadius: 12))
+                                    }
+                                    Button(store.servers.isEmpty ? "Add Mac" : "Choose Mac") {
+                                        if store.servers.isEmpty {
+                                            openSettings()
+                                        } else {
+                                            pickerMac = nil
+                                            pickerManage = false
+                                            showingMacPicker = true
+                                        }
+                                    }
+                                    .font(.system(size: 14, weight: .medium))
+                                    .frame(maxWidth: .infinity, minHeight: 46)
+                                    .foregroundStyle(p.text)
+                                    .background(p.raised, in: RoundedRectangle(cornerRadius: 12))
+                                }.buttonStyle(.plain)
+                                Button(issue?.actionTitle ?? "Connection settings", action: openSettings)
+                                    .font(.system(size: 13)).tint(p.muted)
+                                    .frame(minHeight: 44)
+                            }
+                        }
+                        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
+                        .padding(.top, 24)
                     }
-                }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 24)
+                }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 100)
             }.scrollIndicators(.hidden)
         }.marcCanvas().toolbar(.hidden, for: .navigationBar)
             .onAppear {
@@ -96,6 +175,30 @@ struct HomeScreen: View {
                 hidden.remove("storage")
                 hiddenSections = hidden.sorted().joined(separator: ",")
             }
+            .sheet(isPresented: $showingMacPicker, onDismiss: {
+                let selected = pickerMac
+                let manage = pickerManage
+                pickerMac = nil; pickerManage = false
+                if manage { openSettings() }
+                else if let selected { chooseMac(selected) }
+            }) {
+                MARCMacPickerSheet(
+                    servers: store.servers,
+                    currentID: store.monitor.connected ? store.monitor.server?.id : nil,
+                    choose: { server in pickerMac = server; showingMacPicker = false },
+                    manage: { pickerManage = true; showingMacPicker = false }
+                )
+            }
+            .sheet(item: $loginMac) { server in
+                SSHConnectScreen(server: server, monitor: store.monitor)
+            }
+            .onChange(of: store.monitor.connected) { _, connected in
+                if connected { switchFailure = nil }
+            }
+            .onChange(of: store.monitor.connecting) { _, connecting in
+                if connecting { switchFailure = nil }
+            }
+            .onDisappear { switchTask?.cancel(); switchTask = nil }
             .sheet(isPresented: $controls) {
                 NavigationStack {
                     ControlsScreen(monitor: store.monitor).toolbar {
@@ -112,6 +215,38 @@ struct HomeScreen: View {
                 MARCStatusAlertCustomizeSheet()
             }
     }
+    private var activeMac: ServerProfile? {
+        store.monitor.server ?? store.selected
+    }
+
+    private func chooseMac(_ server: ServerProfile) {
+        guard !switchingMac, !store.monitor.connecting else { return }
+        if store.monitor.connected && store.monitor.server?.id == server.id { return }
+        connectMac(server)
+    }
+
+    private func connectMac(_ server: ServerProfile) {
+        guard !switchingMac, !store.monitor.connecting else { return }
+        switchFailure = nil
+        guard store.servers.contains(where: { $0.id == server.id }) else { return }
+        guard let saved = MARCCredentials.read(server.id), saved.hasLogin else {
+            loginMac = server
+            return
+        }
+        switchingMac = true
+        switchTask = Task { @MainActor in
+            defer { switchingMac = false; switchTask = nil }
+            do {
+                try Task.checkCancellation()
+                try await store.switchToSavedServer(server)
+            } catch is CancellationError {
+                switchFailure = nil
+            } catch {
+                switchFailure = store.monitor.error ?? MARCConnectionIssue.message(error, login: MARCCredentials.read(server.id))
+            }
+        }
+    }
+
     @ViewBuilder
     private func section(_ item: MARCStatusSection, reading: MacSnapshot,
                          alerts: [MARCStatusAlert], palette: MARCPalette) -> some View {
@@ -610,5 +745,109 @@ private struct MARCOverviewStorageCard: View {
             }
         }.frame(height: 132, alignment: .topLeading)
             .modifier(MARCOverviewSurface(palette: palette))
+    }
+}
+
+private struct MARCMacPickerSheet: View {
+    let servers: [ServerProfile]
+    let currentID: UUID?
+    let choose: (ServerProfile) -> Void
+    let manage: () -> Void
+    @State private var pendingMac: ServerProfile?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Your Macs").font(.system(size: 20, weight: .semibold))
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                }.tint(p.muted).accessibilityLabel("Close Mac picker")
+            }.padding(.horizontal, 20).padding(.top, 12)
+
+            ScrollView {
+                VStack(spacing: 10) {
+                    if servers.isEmpty {
+                        Text("Add a Mac in Settings to get started.")
+                            .font(.system(size: 13)).foregroundStyle(p.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 20)
+                    }
+                    ForEach(servers) { server in
+                        Button {
+                            if currentID == server.id { choose(server) }
+                            else { pendingMac = server }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "laptopcomputer")
+                                    .font(.system(size: 20)).foregroundStyle(p.accent)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(server.name)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(p.text)
+                                    Text("\(server.username)@\(server.host):\(server.port)")
+                                        .font(.system(size: 11)).foregroundStyle(p.muted)
+                                        .lineLimit(2).multilineTextAlignment(.leading)
+                                }
+                                Spacer(minLength: 8)
+                                if pendingMac?.id == server.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 20)).foregroundStyle(p.accent)
+                                        .accessibilityLabel("Selected")
+                                } else if currentID == server.id {
+                                    Text("Active").font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(p.muted)
+                                }
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
+                            .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(server.name), \(server.username)\(currentID == server.id ? ", active Mac" : "")")
+                    }
+                }.padding(.horizontal, 20).padding(.vertical, 12)
+            }.scrollIndicators(.hidden)
+
+            if let pendingMac {
+                VStack(spacing: 12) {
+                    Divider()
+                    if currentID != nil {
+                        Text("Switching closes your current terminal sessions.")
+                            .font(.system(size: 12)).foregroundStyle(p.muted)
+                            .multilineTextAlignment(.center)
+                    }
+                    Button { choose(pendingMac) } label: {
+                        Text("\(currentID == nil ? "Connect to" : "Switch to") \(pendingMac.name)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12).padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .foregroundStyle(.white)
+                            .background(p.accent, in: RoundedRectangle(cornerRadius: 14))
+                    }.buttonStyle(.plain)
+                }.padding(.horizontal, 20).padding(.bottom, 8)
+            }
+            Button(action: manage) {
+                HStack {
+                    Text("Manage servers").font(.system(size: 13, weight: .medium))
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 11))
+                }
+                .foregroundStyle(p.muted).frame(minHeight: 48)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).padding(.horizontal, 24).padding(.bottom, 12)
+        }
+        .marcCanvas()
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(24)
     }
 }

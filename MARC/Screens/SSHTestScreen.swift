@@ -6,8 +6,9 @@ struct SSHTestScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @State private var password = ""
+    @State private var loginDraft = MARCLoginDraft()
     @State private var hostKey = ""
+    @State private var trust = MARCHostTrust()
     @State private var busy = false
     @State private var latency: Double?
     @State private var output: String?
@@ -53,10 +54,8 @@ struct SSHTestScreen: View {
                         .foregroundStyle(Color(marcHex: 0x2eae7d))
                 }
 
-                SecureField("Password · blank uses saved password", text: $password)
-                    .textContentType(.password)
-                    .font(.system(size: 12))
-                    .padding(16)
+                MARCLoginFields(draft: $loginDraft)
+                    .padding(16).disabled(busy)
                     .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
 
                 Button {
@@ -81,11 +80,6 @@ struct SSHTestScreen: View {
                         .font(.system(size: 11, design: .monospaced))
                         .textSelection(.enabled)
                 }
-                if let failure {
-                    Text(failure)
-                        .font(.system(size: 12))
-                        .foregroundStyle(p.accent)
-                }
                 Text("Reachability measures a TCP connection to the SSH port, not ICMP ping.")
                     .font(.system(size: 10))
                     .foregroundStyle(p.muted)
@@ -95,9 +89,13 @@ struct SSHTestScreen: View {
         .marcCanvas()
         .interactiveDismissDisabled(busy)
         .onAppear {
-            hostKey = MARCCredentials.read(server.id)?.hostKey ?? ""
+            let saved = MARCCredentials.read(server.id)
+            hostKey = saved?.hostKey ?? ""
+            loginDraft = MARCLoginDraft(saved: saved)
         }
-        .onDisappear { password = "" }
+        .hostTrustPrompt(trust)
+        .marcConnectionAlert($failure)
+        .onDisappear { loginDraft.clear(); trust.cancel() }
     }
 
     private func run(authenticate: Bool) {
@@ -107,7 +105,7 @@ struct SSHTestScreen: View {
         latency = nil
         output = nil
         let saved = MARCCredentials.read(server.id)
-        let submittedPassword = password.isEmpty ? (saved?.password ?? "") : password
+        let submittedLogin = loginDraft.credentials(fallback: saved)
         let submittedKey = hostKey
 
         Task { @MainActor in
@@ -117,19 +115,22 @@ struct SSHTestScreen: View {
                     host: server.host, port: server.port
                 )
                 if authenticate {
-                    guard !submittedPassword.isEmpty else {
-                        failure = "Server is reachable. Enter a password to test SSH login."
+                    guard submittedLogin.hasLogin else {
+                        failure = "Server is reachable. Enter a password or select a saved SSH key to test login."
                         return
                     }
+                    let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
                     let result = try await SSHConnectionTest.run(
                         server: server,
-                        password: submittedPassword,
-                        publicHostKey: submittedKey
+                        login: submittedLogin,
+                        publicHostKey: verifiedKey
                     )
                     output = result.output
                 }
+            } catch is CancellationError {
+                failure = nil
             } catch {
-                failure = error.localizedDescription
+                failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
     }

@@ -259,7 +259,8 @@
 				DEVELOPMENT_TEAM = 36V47FVPXL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MARC connects to your saved servers over SSH on your local network.";
+				INFOPLIST_FILE = "Config/MARC-Info.plist";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MARC discovers nearby Macs and connects securely over your local network.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -293,7 +294,8 @@
 				DEVELOPMENT_TEAM = 36V47FVPXL;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MARC connects to your saved servers over SSH on your local network.";
+				INFOPLIST_FILE = "Config/MARC-Info.plist";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MARC discovers nearby Macs and connects securely over your local network.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

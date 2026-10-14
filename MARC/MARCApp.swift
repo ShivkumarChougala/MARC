@@ -11,7 +11,7 @@ import SwiftUI
 struct MARCApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MARCLockedRoot()
         }
     }
 }

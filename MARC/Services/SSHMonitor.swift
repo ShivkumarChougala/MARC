@@ -71,44 +71,47 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var connecting = false
     private(set) var connected = false
     private(set) var error: String?
+    private(set) var connectionIssue: MARCConnectionIssue?
     private(set) var updatedAt: Date?
     @ObservationIgnored private var client: SSHClient?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
 
     func connect(server: ServerProfile, password: String, hostKey: String) async throws {
-        await disconnect()
-        let token = UUID()
-        generation = token
+        try await connect(server: server, login: .init(password: password, hostKey: hostKey), hostKey: hostKey)
+    }
+
+    func connect(server: ServerProfile, login: MARCCredentials.Saved, hostKey: String) async throws {
+        let previous = resetConnection()
+        let token = generation
         connecting = true
         error = nil
         defer { if generation == token { connecting = false } }
         let username = server.username
         do {
-            let cleanKey = hostKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            let validator: SSHHostKeyValidator
-            if cleanKey.isEmpty {
-                validator = .acceptAnything()
-            } else {
-                validator = .trustedKeys(Set([
-                    try SSHConnectionTest.parseEd25519(cleanKey)
-                ]))
-            }
+            if let previous { try? await previous.close() }
+            try Task.checkCancellation()
+            guard generation == token else { throw CancellationError() }
+            let verifiedHostKey = try await MARCHostTrust().keyForConnection(server: server, existingKey: hostKey)
+            try Task.checkCancellation()
+            guard generation == token else { throw CancellationError() }
+            let validator = try SSHConnectionTest.hostKeyValidator(server: server, publicHostKey: verifiedHostKey)
+            let authentication = try MARCLogin.authentication(login, username: username)
             var settings = SSHClientSettings(host: server.host, port: server.port,
-                authenticationMethod: { .passwordBased(username: username, password: password) },
+                authenticationMethod: authentication,
                 hostKeyValidator: validator)
             settings.connectTimeout = .seconds(10)
             let opened = try await SSHClient.connect(to: settings)
-            guard generation == token else { try? await opened.close(); throw CancellationError() }
+            guard generation == token, !Task.isCancelled else { try? await opened.close(); throw CancellationError() }
             client = opened
             self.server = server
             let stream = try await opened.executeCommandStream(Self.command)
-            guard generation == token else {
+            guard generation == token, !Task.isCancelled else {
                 try? await opened.close()
                 throw CancellationError()
             }
             try MARCCredentials.save(
-                server.id, password: password, hostKey: hostKey
+                server.id, login: login, hostKey: verifiedHostKey
             )
             UserDefaults.standard.set(
                 server.id.uuidString, forKey: "marc.autoServer"
@@ -140,6 +143,7 @@ struct MacSnapshot: Decodable, Sendable {
                                 ) {
                                     failures = 0
                                     self.error = nil
+                                    self.connectionIssue = nil
                                     let choice = UserDefaults.standard.integer(
                                         forKey: "marc.refreshInterval"
                                     )
@@ -178,21 +182,30 @@ struct MacSnapshot: Decodable, Sendable {
                     self.connected = false
                     self.client = nil
                     self.polling = nil
-                    self.error = "Updates stopped: \(error.localizedDescription)"
+                    self.error = "Live updates stopped. Reconnect to resume readings."
                     try? await opened.close()
                 }
             }
         } catch {
             if generation == token {
-                await disconnect()
-                self.error = "Connection failed: \(error)"
+                let previous = resetConnection()
+                if !(error is CancellationError) && !Task.isCancelled {
+                    let issue = MARCConnectionIssue.classify(error, login: login)
+                    self.connectionIssue = issue
+                    self.error = issue.message
+                }
+                if let previous { try? await previous.close() }
             }
             throw error
         }
     }
 
     func disconnect() async {
-        print("[MARC] Disconnect called")
+        let previous = resetConnection()
+        if let previous { try? await previous.close() }
+    }
+
+    private func resetConnection() -> SSHClient? {
         generation = UUID()
         polling?.cancel()
         polling = nil
@@ -208,7 +221,9 @@ struct MacSnapshot: Decodable, Sendable {
         diskWriteRate = nil
         updatedAt = nil
         server = nil
-        if let previous { try? await previous.close() }
+        error = nil
+        connectionIssue = nil
+        return previous
     }
 
     private func publish(_ next: MacSnapshot) {
@@ -898,10 +913,25 @@ struct MARCControlState: Decodable, Sendable {
     var audioOutputID: Int?
     var audioOutputName: String?
     var audioOutputError: String?
+    var mediaPlayers: [String]?
+    var mediaHelperInstalled: Bool?
+    var mediaInstallCommand: String?
+    var mediaSetupMessage: String?
+    var nowPlaying: MARCNowPlaying?
+    var mediaError: String?
+    var screenLocked: Bool?
+}
+struct MARCNowPlaying: Decodable, Sendable {
+    let title: String
+    let artist: String?
+    let source: String
+    let playing: Bool?
+    let prohibitsSkip: Bool
 }
 
 enum MARCControlAction: String, Encodable, Sendable {
     case read, volume, mute, wifi, bluetooth, output, brightness
+    case lock, displaySleep, displayWake, playPause, previousTrack, nextTrack
 }
 private struct MARCControlRequest: Encodable {
     let action: MARCControlAction
@@ -1071,7 +1101,7 @@ result = dict(volume=None, muted=None, audioError=None,
               bluetoothEnabled=None, bluetoothWritable=False, bluetoothError=None,
               wirelessIncluded=bool(request.get('includeWireless')), actionError=None,
               displays=[], selectedDisplayID=None, displayName=None, brightness=None, brightnessError=None, outputs=[], audioOutputID=None,
-              audioOutputName=None, audioOutputError=None)
+              audioOutputName=None, audioOutputError=None, mediaPlayers=[])
 
 def run(*args, timeout=8):
     completed = subprocess.run(args, text=True, capture_output=True,
@@ -1123,18 +1153,191 @@ def read_audio():
         raise RuntimeError('This output does not expose adjustable volume.')
     result['volume'], result['muted'] = volume, parts[1].lower() == 'true'
 
+
+# Detect only this SSH user's already-open players.
+# Polling never launches a music application.
+for player in ('Music', 'Spotify'):
+    try:
+        process = subprocess.run(
+            ('/usr/bin/pgrep', '-u', str(os.getuid()), '-x', player),
+            capture_output=True, timeout=2
+        )
+        if process.returncode == 0:
+            result['mediaPlayers'].append(player)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def find_executable(name):
+    for path in ('/opt/homebrew/bin/' + name, '/usr/local/bin/' + name, shutil.which(name)):
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+media_tool = find_executable('media-control')
+brew_tool = find_executable('brew')
+result['mediaHelperInstalled'] = media_tool is not None
+result['mediaInstallCommand'] = ("'" + brew_tool.replace("'", "'\"'\"'") + "' install media-control") if brew_tool else None
+result['mediaSetupMessage'] = (
+    'Copy the command and paste it into MARC Terminal. Then return and tap Check again.'
+    if brew_tool else
+    'Homebrew is needed first. Set it up on your Mac, then return here.'
+)
+result['nowPlaying'] = None
+result['mediaError'] = None
+result['screenLocked'] = None
+
+def read_now_playing():
+    result['nowPlaying'] = None
+    if not media_tool:
+        return
+    try:
+        # Keep artwork on the Mac: only small selected fields enter the SSH response.
+        data = json.loads(run(media_tool, 'get', timeout=3))
+        if data is None:
+            return
+        if not isinstance(data, dict):
+            raise ValueError('Invalid media response')
+        title = data.get('title')
+        bundle = data.get('parentApplicationBundleIdentifier') or data.get('bundleIdentifier')
+        if not isinstance(title, str) or not title.strip() or not isinstance(bundle, str):
+            return
+        names = {'com.apple.Safari': 'Safari', 'com.google.Chrome': 'Chrome',
+                 'com.brave.Browser': 'Brave', 'org.mozilla.firefox': 'Firefox',
+                 'com.microsoft.edgemac': 'Edge', 'com.apple.Music': 'Music',
+                 'com.spotify.client': 'Spotify'}
+        playing = data.get('playing')
+        result['nowPlaying'] = dict(
+            title=title[:300],
+            artist=data.get('artist')[:200] if isinstance(data.get('artist'), str) else None,
+            source=names.get(bundle, bundle[:160]),
+            playing=playing if isinstance(playing, bool) else None,
+            prohibitsSkip=data.get('prohibitsSkip') is True
+        )
+    except Exception:
+        result['mediaError'] = 'Now Playing could not be read. Check that media is open on the Mac, then tap Check again.'
+
+def control_active_media(action):
+    read_now_playing()
+    if not media_tool or not result['nowPlaying']:
+        raise RuntimeError('No active media session. Start playback on the Mac and try again.')
+    if action != 'playPause' and result['nowPlaying']['prohibitsSkip']:
+        raise RuntimeError('This media session does not allow skipping tracks.')
+    if action == 'playPause':
+        command = 'toggle-play-pause'
+    else:
+        # Only use a command advertised by the installed version's help.
+        help_result = subprocess.run((media_tool,), text=True, capture_output=True, timeout=3)
+        help_text = help_result.stdout + '\n' + help_result.stderr
+        options = ('next-track', 'next') if action == 'nextTrack' else ('previous-track', 'previous', 'prev')
+        command = next((item for item in options if re.search(
+            r'(?<![\w-])' + re.escape(item) + r'(?![\w-])', help_text)), None)
+        if not command:
+            raise RuntimeError('This helper version does not advertise a track-skip command. Update media-control on your Mac.')
+    run(media_tool, command, timeout=4)
+    time.sleep(0.15)
+
+def session_locked():
+    try:
+        cg = C.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+        cf = C.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
+        cg.CGSessionCopyCurrentDictionary.argtypes = []
+        cg.CGSessionCopyCurrentDictionary.restype = C.c_void_p
+        cf.CFStringCreateWithCString.argtypes = [C.c_void_p, C.c_char_p, C.c_uint32]
+        cf.CFStringCreateWithCString.restype = C.c_void_p
+        cf.CFDictionaryGetValue.argtypes = [C.c_void_p, C.c_void_p]
+        cf.CFDictionaryGetValue.restype = C.c_void_p
+        cf.CFBooleanGetValue.argtypes = [C.c_void_p]
+        cf.CFBooleanGetValue.restype = C.c_ubyte
+        cf.CFRelease.argtypes = [C.c_void_p]
+        cf.CFRelease.restype = None
+        session = cg.CGSessionCopyCurrentDictionary()
+        if not session:
+            return None
+        key = cf.CFStringCreateWithCString(None, b'CGSSessionScreenIsLocked', 0x08000100)
+        try:
+            if not key:
+                return None
+            value = cf.CFDictionaryGetValue(session, key)
+            return bool(cf.CFBooleanGetValue(value)) if value else None
+        finally:
+            if key:
+                cf.CFRelease(key)
+            cf.CFRelease(session)
+    except Exception:
+        return None
+
+def lock_session():
+    if os.stat('/dev/console').st_uid != os.getuid():
+        raise RuntimeError('Connect as the Mac user who is currently signed in to lock their screen.')
+    if session_locked() is True:
+        return
+    # Invoke on the Mac, in a child process. Never activate Terminal or type keys.
+    code = (
+        'import ctypes as c; '
+        'lib=c.CDLL("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login"); '
+        'f=lib.SACLockScreenImmediate; f.argtypes=[]; f.restype=None; f()'
+    )
+    try:
+        run(sys.executable, '-c', code, timeout=4)
+    except Exception:
+        raise RuntimeError('This Mac does not support the direct screen-lock request.')
+    for _ in range(15):
+        if session_locked() is True:
+            return
+        time.sleep(0.15)
+    raise RuntimeError('Lock was requested, but macOS did not confirm it. Check the Mac before relying on it being locked.')
+
+read_now_playing()
+
 action = request.get('action')
 value = request.get('value')
 blueutil = find_blueutil()
 audio_controller = None
 brightness_controller = None
 try:
-    if action not in ('read', 'volume', 'mute', 'wifi', 'bluetooth', 'output', 'brightness'):
+    if action not in ('read', 'volume', 'mute', 'wifi', 'bluetooth', 'output', 'brightness',
+                       'lock', 'displaySleep', 'displayWake', 'playPause', 'previousTrack', 'nextTrack'):
         raise RuntimeError('Unsupported control request.')
     if action != 'read':
         if isinstance(value, bool) or not isinstance(value, int):
             raise RuntimeError('Invalid control value.')
-        if action == 'volume':
+
+        if action == 'lock':
+            lock_session()
+        elif action == 'displaySleep':
+            run('/usr/bin/pmset', 'displaysleepnow')
+        elif action == 'displayWake':
+            run('/usr/bin/caffeinate', '-u', '-t', '1', timeout=3)
+        elif action in ('playPause', 'previousTrack', 'nextTrack'):
+            if value == 2:
+                control_active_media(action)
+            else:
+                if value not in (0, 1):
+                    raise RuntimeError('Choose Music or Spotify.')
+                player = 'Spotify' if value else 'Music'
+                if player not in result['mediaPlayers']:
+                    raise RuntimeError('Open ' + player + ' on your Mac, then refresh controls.')
+                command = {
+                    'playPause': 'playpause',
+                    'previousTrack': 'previous track',
+                    'nextTrack': 'next track'
+                }[action]
+                # Fixed app and command names; no user-supplied script text.
+                # Recheck so an app closing during the request is not relaunched.
+                script = (
+                    'if application "' + player + '" is running then\n'
+                    'tell application "' + player + '" to ' + command + '\n'
+                    'else\nerror "Player closed"\nend if'
+                )
+                try:
+                    run('/usr/bin/osascript', '-e', script)
+                except Exception:
+                    raise RuntimeError(
+                        'Playback was not confirmed. Check that ' + player +
+                        ' is open and allows Automation on your Mac.'
+                    )
+        elif action == 'volume':
             if not 0 <= value <= 100: raise RuntimeError('Volume must be between 0 and 100.')
             run('/usr/bin/osascript', '-e', 'set volume output volume ' + str(value))
         elif action == 'mute':
@@ -1229,6 +1432,9 @@ if not result['actionError']:
         result['actionError'] = 'The Mac did not confirm the audio-output change.'
     elif action == 'brightness' and (result['brightness'] is None or abs(result['brightness'] - value) > 2):
         result['actionError'] = 'The Mac did not confirm this brightness. Refresh and try again.'
+if action in ('playPause', 'previousTrack', 'nextTrack'):
+    read_now_playing()
+result['screenLocked'] = session_locked()
 print(json.dumps(result))
 """#
 }
