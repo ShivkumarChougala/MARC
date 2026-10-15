@@ -4,6 +4,7 @@ import Citadel
 struct ContentView: View {
     @State private var store = ServerStore()
     @State private var terminalWorkspace = MARCTerminalWorkspace()
+    @State private var remoteFiles = MARCRemoteFiles()
     @AppStorage("marc.appearance") private var appearance = "system"
     @State private var tab = 0
     @State private var terminalReturnTab = 0
@@ -33,7 +34,14 @@ struct ContentView: View {
                         .environment(\.colorScheme, scheme)
                     }
                     .background(p.background.ignoresSafeArea(.container, edges: .top))
-            case 3: NavigationStack { FilesScreen(monitor: store.monitor) }
+            case 3:
+                NavigationStack {
+                    FilesScreen(monitor: store.monitor, files: remoteFiles, onShowTerminal: { path in
+                        guard terminalWorkspace.stageDirectory(path) else { return }
+                        terminalReturnTab = 3
+                        tab = 2
+                    })
+                }
             case 4: NavigationStack { SettingsScreen(store: store) }
             default: NavigationStack { HomeScreen(store: store, openSettings: { tab = 4 }) }
             }
@@ -96,6 +104,7 @@ struct ContentView: View {
         .task(id: scenePhase) {
             if scenePhase == .background {
                 terminalWorkspace.pause()
+                remoteFiles.stop()
                 await store.monitor.disconnect()
                 return
             }
@@ -113,13 +122,15 @@ struct ContentView: View {
         }
         .onDisappear {
             terminalWorkspace.pause()
+            remoteFiles.stop()
             Task { await store.monitor.disconnect() }
         }
         .onChange(of: store.monitor.connected) { _, connected in
-            if !connected { terminalWorkspace.pause() }
+            if !connected { terminalWorkspace.pause(); remoteFiles.stop() }
         }
         .onChange(of: store.monitor.server?.id) { _, id in
             terminalWorkspace.clearIfDifferent(id)
+            remoteFiles.stop()
         }
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
     }

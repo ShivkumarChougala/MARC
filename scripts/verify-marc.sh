@@ -17,6 +17,12 @@ xcrun swiftc -swift-version 5 \
     MARC/Services/HostKeyIdentity.swift \
     Tests/DiscoveryChecks.swift \
     -o "$marc_build/discovery-checks"
+python3 Tests/FileActionChecks.py
+xcrun swiftc -swift-version 5 \
+    MARC/Services/MARCFileFormatting.swift \
+    Tests/FileUIHelpersChecks.swift \
+    -o "$marc_build/file-ui-checks"
+"$marc_build/file-ui-checks"
 "$marc_build/discovery-checks"
 # Select the target platform by destination. Do not globally force -sdk or
 # SDKROOT: Swift package build tools must remain native macOS executables.

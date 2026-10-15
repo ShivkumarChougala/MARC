@@ -233,12 +233,13 @@ struct ProcessesScreen: View {
 }
 
 
-private struct MARCRemoteEntry: Identifiable {
+struct MARCRemoteEntry: Identifiable {
     let name: String
     let path: String
     let directory: Bool
     let size: UInt64?
     let modified: Date?
+    let mode: UInt32?
     var id: String { path }
 }
 
@@ -248,7 +249,7 @@ private struct MARCFileExport: Identifiable {
 }
 
 @MainActor @Observable
-private final class MARCRemoteFiles {
+final class MARCRemoteFiles {
     var entries: [MARCRemoteEntry] = []
     var path = ""
     var home = ""
@@ -256,6 +257,13 @@ private final class MARCRemoteFiles {
     var busy = false
     var transferring = false
     var progress = 0.0
+    var transferName = ""
+    var transferBytes: UInt64 = 0
+    var transferTotal: UInt64?
+    var transferPhase = "Starting"
+    var previewTransfer = false
+    var uploadingTransfer = false
+    var cancellingTransfer = false
     var activity = ""
     var failure: String?
     var notice: String?
@@ -290,6 +298,12 @@ private final class MARCRemoteFiles {
             try? await oldSFTP?.close()
             try? await oldSSH?.close()
         }
+    }
+
+    func prepare(server: ServerProfile) async {
+        if folderServerID == server.id && ready { return }
+        stop()
+        await connect(server: server)
     }
 
     func connect(server: ServerProfile) async {
@@ -385,7 +399,8 @@ private final class MARCRemoteFiles {
                     path: joined(requested, $0.filename),
                     directory: directory,
                     size: $0.attributes.size,
-                    modified: $0.attributes.accessModificationTime?.modificationTime
+                    modified: $0.attributes.accessModificationTime?.modificationTime,
+                    mode: mode
                 )
             }
             .sorted {
@@ -402,6 +417,7 @@ private final class MARCRemoteFiles {
         guard ready, !busy, let client = sftp else { return }
         let id = generation
         busy = true
+        activity = "Opening folder"
         failure = nil
         notice = nil
 
@@ -436,6 +452,8 @@ private final class MARCRemoteFiles {
             return
         }
         lastProgressUpdate = now
+        transferBytes = completed
+        transferTotal = total
 
         let value = total > 0
             ? min(1, Double(completed) / Double(total)) : 0
@@ -443,7 +461,22 @@ private final class MARCRemoteFiles {
     }
 
     func cancelTransfer() {
+        guard transferring, !cancellingTransfer else { return }
+        cancellingTransfer = true
         operation?.cancel()
+    }
+
+    private func beginTransfer(name: String, preview: Bool = false, upload: Bool = false) {
+        transferName = name
+        transferBytes = 0
+        transferTotal = nil
+        transferPhase = preview ? "Preparing preview" : (upload ? "Starting upload" : "Starting download")
+        previewTransfer = preview
+        uploadingTransfer = upload
+        cancellingTransfer = false
+        completionTitle = nil
+        progress = 0
+        lastProgressUpdate = nil
     }
 
     func upload(_ url: URL) {
@@ -463,8 +496,7 @@ private final class MARCRemoteFiles {
         let temporary = joined(folder, ".marc-upload-\(UUID().uuidString).part")
         busy = true
         transferring = true
-        progress = 0
-        lastProgressUpdate = nil
+        beginTransfer(name: name, upload: true)
         activity = "Uploading \(name)"
         failure = nil
         notice = nil
@@ -498,6 +530,7 @@ private final class MARCRemoteFiles {
                     throw MARCAIError.message("Choose a file rather than a folder.")
                 }
                 let total = UInt64(max(0, values.fileSize ?? 0))
+                transferTotal = total
                 let input = try MARCTransferIO(forReadingFrom: url)
                 local = input
                 let file = try await client.openFile(
@@ -506,6 +539,9 @@ private final class MARCRemoteFiles {
                 )
                 remote = file
                 created = true
+                try Task.checkCancellation()
+                guard generation == id else { throw CancellationError() }
+                transferPhase = "Uploading"
                 var offset: UInt64 = 0
 
                 while true {
@@ -527,6 +563,11 @@ private final class MARCRemoteFiles {
                         "The local file changed during upload. Select it again."
                     )
                 }
+                try Task.checkCancellation()
+                guard generation == id else { throw CancellationError() }
+                transferBytes = offset
+                progress = 1
+                transferPhase = "Verifying upload"
                 let uploadedAttributes = try await client.getAttributes(
                     at: temporary
                 )
@@ -542,6 +583,7 @@ private final class MARCRemoteFiles {
                 try Task.checkCancellation()
                 guard generation == id else { throw CancellationError() }
 
+                transferPhase = "Finishing upload"
                 try await client.rename(at: temporary, to: destination)
                 created = false
                 let rows = try await listing(folder, using: client)
@@ -568,20 +610,28 @@ private final class MARCRemoteFiles {
         }
     }
 
-    func download(_ entry: MARCRemoteEntry) {
+    func download(_ entry: MARCRemoteEntry, archiveDirectory: String? = nil, forPreview: Bool = false) {
         guard ready, !busy, !entry.directory, let client = sftp else { return }
         let id = generation
         busy = true
         transferring = true
-        progress = 0
-        lastProgressUpdate = nil
-        activity = "Downloading \(entry.name)"
+        beginTransfer(name: entry.name, preview: forPreview)
+        activity = forPreview ? "Preparing preview" : "Downloading \(entry.name)"
+        let archiveConnection = ssh
         downloaded = nil
         failure = nil
         notice = nil
 
         operation = Task { @MainActor in
             defer {
+                if let archiveDirectory, let archiveConnection {
+                    Task {
+                        _ = try? await MARCFileBridge.request(
+                            ["action": "cleanupArchive", "path": archiveDirectory],
+                            using: archiveConnection
+                        )
+                    }
+                }
                 if generation == id {
                     busy = false
                     transferring = false
@@ -602,6 +652,10 @@ private final class MARCRemoteFiles {
                     throw MARCAIError.message("The server did not provide this file’s size.")
                 }
 
+                try Task.checkCancellation()
+                guard generation == id else { throw CancellationError() }
+                transferTotal = total
+                transferPhase = forPreview ? "Preparing preview" : "Downloading"
                 let folder = FileManager.default.temporaryDirectory
                     .appendingPathComponent("MARC-\(UUID().uuidString)", isDirectory: true)
                 directory = folder
@@ -638,6 +692,11 @@ private final class MARCRemoteFiles {
                     }
                 }
 
+                try Task.checkCancellation()
+                guard generation == id else { throw CancellationError() }
+                transferBytes = offset
+                progress = 1
+                transferPhase = forPreview ? "Opening preview" : "Verifying download"
                 let final = try await client.getAttributes(at: entry.path)
                 guard final.size == attributes.size,
                       final.accessModificationTime?.modificationTime ==
@@ -653,10 +712,10 @@ private final class MARCRemoteFiles {
                 guard generation == id else { throw CancellationError() }
 
                 progress = 1
-                completionEvent = UUID()
-                completionTitle = "Download complete"
-                completionPath = entry.path
-                notice = "Choose Save to Files in the share sheet to keep your download."
+                // Quick Look / the save sheet is the completion feedback.
+                // Preview needs a temporary local copy, not a second download toast.
+                completionTitle = nil
+                notice = nil
                 downloaded = destination
             } catch {
                 try? await remote?.close()
@@ -664,18 +723,129 @@ private final class MARCRemoteFiles {
                 if let directory { try? FileManager.default.removeItem(at: directory) }
                 guard generation == id else { return }
                 if Task.isCancelled {
-                    notice = "Download cancelled."
+                    notice = forPreview ? "Preview cancelled." : "Download cancelled."
                 } else {
-                    failure = "Download failed: \(error.localizedDescription)"
+                    failure = "\(forPreview ? "Preview" : "Download") failed: \(error.localizedDescription)"
                 }
             }
         }
     }
+    func perform(_ action: String, entry: MARCRemoteEntry,
+                 extras: [String: Any] = [:], refresh: Bool = false) async throws -> MARCFileReply {
+        guard ready, !busy, let ssh else {
+            throw MARCAIError.message("Wait for the current operation, or reconnect Files.")
+        }
+        let token = generation
+        busy = true
+        switch action {
+        case "archive": activity = "Preparing folder archive"
+        case "permissions": activity = "Updating permissions"
+        case "rename": activity = "Moving item"
+        case "delete": activity = "Deleting item"
+        case "readText": activity = "Opening text file"
+        case "saveText": activity = "Saving text file"
+        default: activity = "Loading file details"
+        }
+        defer { if generation == token { busy = false } }
+        var request = extras
+        request["action"] = action
+        request["path"] = entry.path
+        request["home"] = home
+        var staged: String?
+        var stagedFile: SFTPFile?
+        let stagingClient = sftp
+        do {
+            // Transfer edited text through SFTP: a 1 MB document must not become
+            // a huge shell argument. The action request only contains its path.
+            if action == "saveText" {
+                guard let encoded = extras["data"] as? String,
+                      let data = Data(base64Encoded: encoded), data.count <= 1048576,
+                      let stagingClient else {
+                    throw MARCAIError.message("Save UTF-8 text up to 1 MB.")
+                }
+                let parent = (entry.path as NSString).deletingLastPathComponent
+                let temporary = joined(parent, ".marc-edit-input-\(UUID().uuidString).part")
+                staged = temporary
+                let file = try await stagingClient.openFile(
+                    filePath: temporary, flags: [.write, .create, .forceCreate]
+                )
+                stagedFile = file
+                _ = try await MARCFileBridge.request(
+                    ["action": "permissions", "path": temporary, "mode": 0o600],
+                    using: ssh
+                )
+                var offset = 0
+                while offset < data.count {
+                    try Task.checkCancellation()
+                    guard generation == token else { throw CancellationError() }
+                    let end = min(data.count, offset + 32768)
+                    var buffer = ByteBuffer()
+                    buffer.writeBytes(data[offset..<end])
+                    try await file.write(buffer, at: UInt64(offset))
+                    offset = end
+                }
+                try await file.close()
+                stagedFile = nil
+                request.removeValue(forKey: "data")
+                request["staged"] = temporary
+            }
+            let reply = try await MARCFileBridge.request(request, using: ssh)
+            if let staged, let stagingClient { try? await stagingClient.remove(at: staged) }
+            staged = nil
+            guard generation == token, !Task.isCancelled else {
+                if let folder = reply.archiveDirectory {
+                    _ = try? await MARCFileBridge.request(["action": "cleanupArchive", "path": folder], using: ssh)
+                }
+                throw CancellationError()
+            }
+            if refresh, let sftp {
+                do {
+                    let rows = try await listing(path, using: sftp)
+                    guard generation == token else { throw CancellationError() }
+                    entries = rows
+                } catch is CancellationError { throw CancellationError() }
+                catch {
+                    if generation == token { failure = "The action completed, but the folder could not refresh. Tap Refresh." }
+                }
+            }
+            return reply
+        } catch {
+            try? await stagedFile?.close()
+            if let staged, let stagingClient { try? await stagingClient.remove(at: staged) }
+            throw error
+        }
+    }
+
+    func downloadFolder(_ entry: MARCRemoteEntry) {
+        guard ready, !busy else { return }
+        let token = generation
+        operation = Task { @MainActor in
+            do {
+                let result = try await perform("archive", entry: entry)
+                guard generation == token, let path = result.archive,
+                      let folder = result.archiveDirectory else { return }
+                let archive = MARCRemoteEntry(
+                    name: (path as NSString).lastPathComponent, path: path,
+                    directory: false, size: nil, modified: nil, mode: nil
+                )
+                download(archive, archiveDirectory: folder)
+            } catch {
+                guard generation == token, !Task.isCancelled else { return }
+                failure = error.localizedDescription
+            }
+        }
+    }
+
 }
 
 struct FilesScreen: View {
     let monitor: SSHMonitor
-    @State private var files = MARCRemoteFiles()
+    let files: MARCRemoteFiles
+    var onShowTerminal: (String) -> Void = { _ in }
+    var onClose: (() -> Void)? = nil
+    @State private var selectedEntry: MARCRemoteEntry?
+    @State private var actionSheetVisible = false
+    @State private var pendingDownloadURL: URL?
     @State private var search = ""
     @State private var showHidden = false
     @State private var importing = false
@@ -685,6 +855,8 @@ struct FilesScreen: View {
     @State private var export: MARCFileExport?
     @State private var preview: MARCFileExport?
     @State private var previewRequested = false
+    @State private var showTransferProgress = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @Environment(\.scenePhase) private var scenePhase
@@ -705,6 +877,11 @@ struct FilesScreen: View {
 
         VStack(spacing: 12) {
             HStack {
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "chevron.left").frame(width: 36, height: 44)
+                    }.tint(p.accent).accessibilityLabel("Return to Terminal")
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Files")
                         .font(.system(size: 22, weight: .semibold))
@@ -794,103 +971,99 @@ struct FilesScreen: View {
             .background(p.surface, in: RoundedRectangle(cornerRadius: 12))
 
 
-
-
-
-            if let failure = files.failure {
-                Text(failure)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            // Feedback participates in layout below Search, so navigation
+            // can never cover its progress or Cancel control.
+            if ((preparingPhoto || files.transferring) && showTransferProgress) || files.completionTitle != nil {
+                Group {
+                    if preparingPhoto && showTransferProgress {
+                        MARCFileTransferCard(
+                            title: "Preparing media", filename: "Photo or video",
+                            symbol: "photo", detail: "Loading selected item…",
+                            progress: nil, cancel: nil
+                        )
+                    } else if files.transferring && showTransferProgress {
+                        MARCFileTransferCard(
+                            title: files.cancellingTransfer ? "Cancelling…" : files.transferPhase,
+                            filename: files.transferName,
+                            symbol: files.previewTransfer ? "eye" : (files.uploadingTransfer ? "arrow.up" : "arrow.down"),
+                            detail: transferDetail,
+                            progress: files.transferTotal == nil ? nil : files.progress,
+                            cancel: files.cancellingTransfer ? nil : { files.cancelTransfer() }
+                        )
+                    } else if let title = files.completionTitle {
+                        MARCFileCompletionCard(
+                            title: title,
+                            filename: (files.completionPath as NSString).lastPathComponent
+                        )
+                        .allowsHitTesting(false)
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
-            if let notice = files.notice {
+            if let notice = files.notice, !files.busy, !preparingPhoto, !files.transferring, files.completionTitle == nil {
                 Text(notice)
-                    .font(.system(size: 11))
-                    .foregroundStyle(p.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.system(size: 12)).multilineTextAlignment(.center)
+                    .padding(14)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .frame(maxWidth: .infinity)
+                    .allowsHitTesting(false)
             }
 
             ScrollViewReader { scroll in
             ScrollView {
                 LazyVStack(spacing: 1) {
                     ForEach(visibleEntries) { entry in
-                        Button {
-                            if entry.directory {
-                                search = ""
-                                files.browse(entry.path)
-                            } else {
-                                previewRequested = true
-                                files.download(entry)
-                            }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: entry.directory ? "folder.fill" : "doc")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(entry.directory ? p.accent : p.muted)
-                                    .frame(width: 30)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(entry.name)
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundStyle(p.text)
-                                        .lineLimit(2)
-                                    Text(detail(entry))
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(p.muted)
+                        HStack(spacing: 0) {
+                            Button {
+                                if entry.directory { open(entry) }
+                                else { actionSheetVisible = true; selectedEntry = entry }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: entry.symbol)
+                                        .font(.system(size: 21))
+                                        .foregroundStyle(entry.directory ? p.accent : p.muted)
+                                        .frame(width: 42, height: 44)
+                                        .background(p.accent.opacity(entry.directory ? 0.13 : 0.04),
+                                                    in: RoundedRectangle(cornerRadius: 12))
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(entry.name)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(p.text).lineLimit(2)
+                                        Text(detail(entry))
+                                            .font(.system(size: 10)).foregroundStyle(p.muted)
+                                        Text(MARCFileFormatting.permissions(entry.mode))
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundStyle(p.muted)
+                                    }
+                                    Spacer(minLength: 4)
                                 }
-                                Spacer(minLength: 6)
-                                if entry.directory {
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(p.muted)
-                                }
+                                .padding(.leading, 14).padding(.vertical, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 13)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                entry.path == files.lastUploadedPath
-                                    ? p.accent.opacity(0.12) : p.surface
-                            )
-                            .overlay(alignment: .leading) {
-                                if entry.path == files.lastUploadedPath {
-                                    Rectangle()
-                                        .fill(p.accent)
-                                        .frame(width: 3)
-                                }
+                            .buttonStyle(.plain)
+                            .accessibilityHint(entry.directory ? "Open folder" : "Details and actions")
+                            Button { actionSheetVisible = true; selectedEntry = entry } label: {
+                                Image(systemName: "ellipsis")
+                                    .foregroundStyle(p.muted)
+                                    .frame(width: 48, height: 60)
+                                    .contentShape(Rectangle())
                             }
-                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Details and actions for \(entry.name)")
                         }
-                        .buttonStyle(.plain)
+                        .background(entry.path == files.lastUploadedPath ? p.accent.opacity(0.12) : p.surface)
                         .disabled(files.busy || !files.ready)
                         .contextMenu {
-                            if !entry.directory {
-                                Button {
-                                    previewRequested = false
-                                    files.download(entry)
-                                } label: {
-                                    Label("Download", systemImage: "arrow.down")
-                                }
-                                .disabled(files.busy || !files.ready)
-                            }
-                            Button {
-                                UIPasteboard.general.string = entry.path
-                            } label: {
-                                Label("Copy path", systemImage: "document.on.document")
-                            }
+                            Button("Details and actions") { actionSheetVisible = true; selectedEntry = entry }
+                            Button("Copy path") { UIPasteboard.general.string = entry.path }
                         }
-                        .accessibilityHint(
-                            entry.directory
-                                ? "Open folder"
-                                : "Preview file. Long-press for Download."
-                        )
                         .id(entry.id)
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                if files.busy && !files.transferring {
-                    ProgressView().padding(24)
-                } else if visibleEntries.isEmpty {
+                if !files.busy && visibleEntries.isEmpty {
                     Text(files.ready
                          ? (search.isEmpty ? "This folder is empty." : "No matching files.")
                          : (monitor.connected ? "Files connection unavailable." : "Connect a Mac in Settings."))
@@ -899,7 +1072,7 @@ struct FilesScreen: View {
                         .padding(30)
                 }
             }
-            .contentMargins(.bottom, 88, for: .scrollContent)
+            .contentMargins(.bottom, 16, for: .scrollContent)
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: files.lastUploadedPath) { _, uploaded in
@@ -921,88 +1094,23 @@ struct FilesScreen: View {
         .padding(.horizontal, 16)
         .padding(.top, 18)
         .padding(.bottom, 8)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showTransferProgress)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: files.completionTitle)
+
         .marcCanvas()
-        .overlay {
-            if preparingPhoto || files.transferring ||
-                files.completionTitle != nil {
-                ZStack {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .ignoresSafeArea()
-
-                    VStack(spacing: 12) {
-            if preparingPhoto {
-                MARCFileTransferCard(
-                    title: "Preparing photo or video",
-                    progress: nil,
-                    preparing: true,
-                    cancel: nil
-                )
-            } else if files.transferring {
-                MARCFileTransferCard(
-                    title: files.activity,
-                    progress: files.progress,
-                    preparing: false,
-                    cancel: { files.cancelTransfer() }
-                )
-            }
-            if let title = files.completionTitle {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color(marcHex: 0x2dcc58))
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(title)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(p.text)
-                        Text(files.completionPath)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(p.muted)
-                            .lineLimit(3)
-                            .textSelection(.enabled)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Button {
-                        files.completionTitle = nil
-                        files.lastUploadedPath = nil
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11))
-                            .foregroundStyle(p.muted)
-                            .frame(width: 32, height: 32)
-                    }
-                    .accessibilityLabel("Dismiss transfer confirmation")
-                }
-                .padding(14)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(
-                            Color(marcHex: 0x2dcc58).opacity(0.35),
-                            lineWidth: 1
-                        )
-                )
-            }
-                    }
-                    .frame(maxWidth: 340)
-                    .padding(24)
-                    .shadow(
-                        color: .black.opacity(0.14),
-                        radius: 20,
-                        y: 8
-                    )
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.opacity)
-            }
-        }
-        .animation(
-            .easeInOut(duration: 0.2),
-            value: preparingPhoto || files.transferring ||
-                files.completionTitle != nil
+        .marcDelayedActivity(
+            active: files.busy && !files.transferring && !preparingPhoto && selectedEntry == nil,
+            title: files.ready ? files.activity : "Connecting to Files"
         )
+        .task(id: preparingPhoto || files.transferring) {
+            showTransferProgress = false
+            guard preparingPhoto || files.transferring else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(350))
+                try Task.checkCancellation()
+                showTransferProgress = true
+            } catch {}
+        }
         .task(id: files.completionEvent) {
             guard files.completionTitle != nil else { return }
             do {
@@ -1014,18 +1122,22 @@ struct FilesScreen: View {
             } catch {}
         }
 
+        .task(id: files.notice) {
+            guard let notice = files.notice else { return }
+            do {
+                try await Task.sleep(for: .seconds(2))
+                if files.notice == notice { files.notice = nil }
+            } catch {}
+        }
         .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: connectionID) { _, _ in
+            selectedEntry = nil
+            pendingDownloadURL = nil
+        }
         .task(id: connectionID) {
-            files.stop()
             guard scenePhase != .background, monitor.connected,
                   let server = monitor.server else { return }
-            await files.connect(server: server)
-        }
-        .onDisappear {
-            if !choosingPhoto && !importing && !preparingPhoto &&
-                preview == nil && export == nil {
-                files.stop()
-            }
+            await files.prepare(server: server)
         }
         .photosPicker(
             isPresented: $choosingPhoto,
@@ -1098,11 +1210,34 @@ struct FilesScreen: View {
         }
         .onChange(of: files.downloaded) { _, url in
             guard let url else { return }
-            if previewRequested {
-                preview = MARCFileExport(url: url)
-            } else {
-                export = MARCFileExport(url: url)
-            }
+            pendingDownloadURL = url
+            presentDownloadedFile()
+        }
+        .alert("Files", isPresented: Binding(
+            get: { files.failure != nil },
+            set: { if !$0 { files.failure = nil } }
+        )) {
+            Button("OK", role: .cancel) { files.failure = nil }
+        } message: { Text(files.failure ?? "") }
+        .sheet(item: $selectedEntry, onDismiss: {
+            actionSheetVisible = false
+            presentDownloadedFile()
+        }) { entry in
+            MARCFileActionSheet(
+                entry: entry, files: files,
+                open: { selectedEntry = nil; open(entry) },
+                download: {
+                    selectedEntry = nil
+                    previewRequested = false
+                    if entry.directory { files.downloadFolder(entry) }
+                    else { files.download(entry) }
+                },
+                terminal: {
+                    selectedEntry = nil
+                    let path = entry.directory ? entry.path : (entry.path as NSString).deletingLastPathComponent
+                    onShowTerminal(path)
+                }
+            )
         }
         .sheet(item: $preview, onDismiss: cleanLocalDownload) { item in
             MARCRemoteFilePreview(url: item.url)
@@ -1112,7 +1247,33 @@ struct FilesScreen: View {
         }
     }
 
+    private var transferDetail: String {
+        func bytes(_ count: UInt64) -> String {
+            ByteCountFormatter.string(fromByteCount: Int64(clamping: count), countStyle: .file)
+        }
+        guard let total = files.transferTotal else { return "Connecting to your Mac…" }
+        return "\(bytes(files.transferBytes)) of \(bytes(total))"
+    }
+
+    private func open(_ entry: MARCRemoteEntry) {
+        if entry.directory {
+            search = ""
+            files.browse(entry.path)
+        } else {
+            previewRequested = true
+            files.download(entry, forPreview: true)
+        }
+    }
+
+    private func presentDownloadedFile() {
+        guard !actionSheetVisible, let url = pendingDownloadURL else { return }
+        pendingDownloadURL = nil
+        if previewRequested { preview = MARCFileExport(url: url) }
+        else { export = MARCFileExport(url: url) }
+    }
+
     private func cleanLocalDownload() {
+        pendingDownloadURL = nil
         guard let url = files.downloaded else { return }
         let folder = url.deletingLastPathComponent()
         if folder.lastPathComponent.hasPrefix("MARC-") &&
@@ -2028,85 +2189,132 @@ private struct MARCPhotoImport: Transferable, Sendable {
 }
 
 
+// One compact transfer surface: progress ring, file identity, status and cancel.
+// The ring advances only from bytes already transferred; no decorative looping.
 private struct MARCFileTransferCard: View {
     let title: String
+    let filename: String
+    let symbol: String
+    let detail: String
     let progress: Double?
-    let preparing: Bool
     let cancel: (() -> Void)?
 
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulsing = false
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         let value = min(1, max(0, progress ?? 0))
 
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ZStack {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(p.accent.opacity(0.06))
+                Circle().stroke(p.accent.opacity(0.12), lineWidth: 2.5)
+                if progress != nil {
                     Circle()
-                        .fill(p.accent.opacity(0.10))
-                        .frame(width: 42, height: 42)
-                        .scaleEffect(reduceMotion ? 1 : (pulsing ? 1.08 : 0.94))
-                        .animation(
-                            reduceMotion ? nil :
-                                .easeInOut(duration: 0.85)
-                                    .repeatForever(autoreverses: true),
-                            value: pulsing
-                        )
-
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(p.accent)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(p.text)
-                        .lineLimit(2)
-                    Text(preparing
-                         ? "Preparing the selected item, including iCloud download if needed."
-                         : "Keep MARC open until the transfer finishes.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(p.muted)
-                        .lineLimit(2)
-                }
-
-                Spacer(minLength: 4)
-
-                if !preparing {
-                    Text("\(Int(value * 100))%")
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .trim(from: 0, to: CGFloat(value))
+                        .stroke(p.accent.gradient, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(reduceMotion ? nil : .linear(duration: 0.18), value: value)
+                    Image(systemName: symbol)
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(p.accent)
-                        .monospacedDigit()
+                } else {
+                    ProgressView().controlSize(.small).tint(p.accent)
                 }
             }
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
 
-            if progress != nil {
-                ProgressView(value: value)
-                    .tint(p.accent)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(p.accent)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    if progress != nil {
+                        Text("\(Int(value * 100))%")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(p.text)
+                    }
+                }
+                Text(filename)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(p.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(detail)
+                    .font(.system(size: 10))
+                    .monospacedDigit()
+                    .foregroundStyle(p.muted)
+                    .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
 
             if let cancel {
-                HStack {
-                    Spacer()
-                    Button("Cancel transfer", action: cancel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(p.accent)
-                        .frame(minHeight: 32)
+                Button(action: cancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(p.muted)
+                        .frame(width: 28, height: 28)
+                        .background(p.raised, in: Circle())
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Cancel \(title.lowercased())")
             }
         }
-        .padding(14)
-        .background(p.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(p.accent.opacity(0.30), lineWidth: 1)
-        )
-        .onAppear { pulsing = true }
+        .padding(.leading, 16)
+        .padding(.trailing, cancel == nil ? 16 : 6)
+        .padding(.vertical, 14)
+        .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(
+                    LinearGradient(colors: [p.accent.opacity(0.22), p.border],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+private struct MARCFileCompletionCard: View {
+    let title: String
+    let filename: String
+    @Environment(\.colorScheme) private var scheme
+    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+
+    var body: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(p.accent)
+                .frame(width: 44, height: 44)
+                .background(p.accent.opacity(0.08), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(p.accent)
+                Text(filename)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(p.text)
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(p.border, lineWidth: 1))
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -12,6 +12,23 @@ import NIOCore
 final class MARCTerminalSession {
     private(set) var aiServerID: UUID?
     var aiCommandHistory: [String] = []
+    var aiHistory: [MARCAIHistoryRecord] = []
+    var controlArmed = false
+    var altArmed = false
+
+    func rememberAI(prompt: String, command: String) {
+        aiHistory.removeAll { $0.command == command }
+        aiHistory.insert(MARCAIHistoryRecord(prompt: prompt, command: command), at: 0)
+        if aiHistory.count > 12 { aiHistory.removeLast(aiHistory.count - 12) }
+    }
+
+    func sendKeyboard(_ bytes: [UInt8]) {
+        guard ready, !bytes.isEmpty else { return }
+        let output = MARCTerminalInput.modified(bytes, control: controlArmed, alt: altArmed)
+        controlArmed = false
+        altArmed = false
+        send(output)
+    }
     @ObservationIgnored private var marcClearSequenceTail = ""
     @ObservationIgnored private var marcInputLine = ""
     @ObservationIgnored private var marcInputLineKnown = true
@@ -58,6 +75,8 @@ final class MARCTerminalSession {
         marcInputLineKnown = true
         marcClearSequenceTail = ""
         ready = false
+        controlArmed = false
+        altArmed = false
         failure = nil
         status = "Connecting"
         var opened: SSHClient?
@@ -262,6 +281,8 @@ struct MARCTerminalSurface: UIViewRepresentable {
 
     func makeUIView(context: Context) -> SwiftTerm.TerminalView {
         let view = session.view ?? SwiftTerm.TerminalView(frame: .zero)
+        // The SwiftUI scrolling strip owns terminal shortcuts.
+        view.inputAccessoryView = nil
         view.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         view.terminalDelegate = context.coordinator
         session.view = view
@@ -317,7 +338,7 @@ struct MARCTerminalSurface: UIViewRepresentable {
         }
 
         func send(source: SwiftTerm.TerminalView, data: ArraySlice<UInt8>) {
-            session.send(Array(data))
+            session.sendKeyboard(Array(data))
         }
         func sizeChanged(
             source: SwiftTerm.TerminalView, newCols: Int, newRows: Int
@@ -359,6 +380,14 @@ final class MARCTerminalSlot: Identifiable {
 final class MARCTerminalWorkspace {
     var slots: [MARCTerminalSlot] = []
     var selectedID: UUID?
+    var pendingDirectoryCommand: String?
+
+    func stageDirectory(_ path: String) -> Bool {
+        guard let command = MARCFileFormatting.shellDirectoryCommand(path) else { return false }
+        pendingDirectoryCommand = command
+        return true
+    }
+
     private var server: ServerProfile?
     private var nextNumber = 1
 
@@ -428,6 +457,7 @@ final class MARCTerminalWorkspace {
         slots.removeAll()
         selectedID = nil
         server = nil
+        pendingDirectoryCommand = nil
         nextNumber = 1
     }
 
@@ -448,6 +478,7 @@ struct TerminalScreen: View {
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSessions = false
+    @State private var aiFocused = false
 
     private var connectionID: String {
         "\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)-\(scenePhase == .active)"
@@ -481,6 +512,10 @@ struct TerminalScreen: View {
                     .zIndex(workspace.selected?.id == slot.id ? 1 : 0)
                 }
 
+                if let session = workspace.selected?.session, session.status == "Connecting" {
+                    MARCActivityCard(title: "Connecting to Terminal")
+                        .zIndex(3)
+                }
                 if workspace.slots.isEmpty {
                     Text(monitor.connected
                          ? "Tap + to open a shell"
@@ -501,22 +536,6 @@ struct TerminalScreen: View {
 
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
-                    Button {
-                        guard let view = workspace.selected?.session.view else {
-                            return
-                        }
-                        if view.isFirstResponder {
-                            view.resignFirstResponder()
-                        } else {
-                            view.becomeFirstResponder()
-                        }
-                    } label: {
-                        Image(systemName: "keyboard")
-                            .frame(width: 40, height: 40)
-                            .background(p.raised, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .accessibilityLabel("Toggle terminal keyboard")
-
                     Button {
                         guard let session = workspace.selected?.session,
                               session.ready else { return }
@@ -603,8 +622,11 @@ struct TerminalScreen: View {
                 .foregroundStyle(p.accent)
 
                 if let slot = workspace.selected {
-                    MARCTerminalAI(session: slot.session)
+                    MARCTerminalAI(session: slot.session, focusChanged: { aiFocused = $0 })
                         .id(slot.id)
+                    if !aiFocused {
+                        MARCTerminalKeyStrip(session: slot.session)
+                    }
 
                     if let failure = slot.session.failure {
                         Text(failure)
@@ -640,6 +662,21 @@ struct TerminalScreen: View {
         }
         .sheet(isPresented: $showingSessions) {
             sessionPicker
+        }
+        .alert("Show location in Terminal", isPresented: Binding(
+            get: { workspace.pendingDirectoryCommand != nil && workspace.selected?.session.ready == true },
+            set: { if !$0 { workspace.pendingDirectoryCommand = nil } }
+        )) {
+            Button("Insert at prompt") {
+                if let command = workspace.pendingDirectoryCommand {
+                    workspace.selected?.session.send(Array(command.utf8))
+                }
+                workspace.pendingDirectoryCommand = nil
+                workspace.selected?.session.view?.becomeFirstResponder()
+            }
+            Button("Cancel", role: .cancel) { workspace.pendingDirectoryCommand = nil }
+        } message: {
+            Text((workspace.pendingDirectoryCommand ?? "") + "\n\nMake sure the shell is at an empty prompt. This inserts the command without running it.")
         }
     }
 
@@ -766,8 +803,15 @@ enum MARCAIError: LocalizedError {
     }
 }
 
+struct MARCAIHistoryRecord: Identifiable {
+    let id = UUID()
+    let prompt: String
+    let command: String
+}
+
 struct MARCTerminalAI: View {
     let session: MARCTerminalSession
+    var focusChanged: (Bool) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @AppStorage("marc.ai.provider") private var provider = "off"
@@ -778,6 +822,7 @@ struct MARCTerminalAI: View {
 
     @State private var prompt = ""
     @State private var command = ""
+    @State private var historyPrompt: String?
     @State private var failure: String?
     @State private var busy = false
     @State private var requestTask: Task<Void, Never>?
@@ -827,6 +872,45 @@ struct MARCTerminalAI: View {
         let p = MARCPalette(dark: scheme == .dark)
 
         VStack(alignment: .leading, spacing: 7) {
+            if promptFocused {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 7) {
+                        Text("Recent")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(p.muted)
+                        if session.aiHistory.isEmpty {
+                            Text("Commands you run with AI appear here")
+                                .font(.system(size: 11)).foregroundStyle(p.muted)
+                                .padding(.vertical, 10)
+                        }
+                        ForEach(session.aiHistory) { previous in
+                            Button {
+                                command = previous.command
+                                historyPrompt = previous.prompt
+                                failure = nil
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: "sparkles").foregroundStyle(p.accent)
+                                    Text(previous.prompt.isEmpty ? previous.command : previous.prompt)
+                                        .font(.system(size: 11)).lineLimit(1)
+                                    Text(previous.command)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(p.muted).lineLimit(1)
+                                }
+                                .frame(maxWidth: 300, alignment: .leading)
+                                .padding(.horizontal, 12).padding(.vertical, 10)
+                                .background(p.surface, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Review recent command: \(previous.command)")
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .frame(height: 44)
+                .disabled(busy)
+            }
+
             HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13))
@@ -842,6 +926,7 @@ struct MARCTerminalAI: View {
                 .onChange(of: prompt) { old, new in
                     if old != new && !busy {
                         command = ""
+                        historyPrompt = nil
                         failure = nil
                     }
                 }
@@ -879,67 +964,15 @@ struct MARCTerminalAI: View {
                     .stroke(p.border, lineWidth: 1)
             )
 
-            if busy {
-                HStack(spacing: 6) {
-                    Text("Generating command…")
-                        .font(.system(size: 10))
-                        .foregroundStyle(p.muted)
-                    Spacer()
-                    Text("Tap spinner to cancel")
-                        .font(.system(size: 9))
-                        .foregroundStyle(p.muted)
-                }
-                .padding(.horizontal, 4)
-            }
-
-            if promptFocused && !busy &&
-                !session.aiCommandHistory.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 7) {
-                        ForEach(session.aiCommandHistory, id: \.self) { previous in
-                            Button {
-                                command = previous
-                                failure = nil
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "clock.arrow.circlepath")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(p.accent)
-                                    Text(previous)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .lineLimit(1)
-                                        .frame(maxWidth: 200, alignment: .leading)
-                                }
-                                .foregroundStyle(p.muted)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .background(
-                                    p.surface,
-                                    in: Capsule()
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Review recent command: \(previous)")
-                        }
-                    }
-                    .padding(.horizontal, 1)
-                }
-                .scrollIndicators(.hidden)
-            }
-
             if !command.isEmpty {
                 HStack(spacing: 8) {
                     ScrollView(.horizontal) {
-                        Button(action: runCommand) {
-                            Text(command)
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(p.text)
-                                .padding(.vertical, 11)
-                                .padding(.horizontal, 12)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!insertable)
+                        Text(command)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(p.text)
+                            .textSelection(.enabled)
+                            .padding(.vertical, 11)
+                            .padding(.horizontal, 12)
                     }
                     .scrollIndicators(.hidden)
 
@@ -978,6 +1011,7 @@ struct MARCTerminalAI: View {
                     .lineLimit(2)
             }
         }
+        .onChange(of: promptFocused) { _, focused in focusChanged(focused) }
         .onChange(of: session.aiConnectionID) { _, _ in
             cancelRequest()
             command = ""
@@ -988,7 +1022,7 @@ struct MARCTerminalAI: View {
             command = ""
             failure = nil
         }
-        .onDisappear { cancelRequest() }
+        .onDisappear { cancelRequest(); focusChanged(false) }
     }
 
     private func runCommand() {
@@ -996,6 +1030,8 @@ struct MARCTerminalAI: View {
         let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
         promptFocused = false
         session.view?.resignFirstResponder()
+        session.rememberAI(prompt: historyPrompt ?? prompt, command: value)
+        historyPrompt = nil
         session.aiCommandHistory.removeAll { $0 == value }
         session.aiCommandHistory.insert(value, at: 0)
         if session.aiCommandHistory.count > 8 {
@@ -1466,7 +1502,7 @@ struct MARCKeyboardContainer<Content: View>: UIViewControllerRepresentable {
                 )
             )
             super.init(nibName: nil, bundle: nil)
-            host.safeAreaRegions = []
+            host.safeAreaRegions = [.container]
         }
 
         required init?(coder: NSCoder) {
