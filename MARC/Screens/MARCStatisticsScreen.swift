@@ -90,6 +90,7 @@ struct MARCStatisticsScreen: View {
             }
         }
         .marcCanvas()
+        .marcLiveReadings(enabled: monitor.connected)
         .navigationTitle("Statistics")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -145,6 +146,7 @@ private struct MARCStatisticsCard: View {
             if series.hasSamples {
                 MARCStatisticsChart(series: series, duration: duration,
                                     primaryColor: color, end: end)
+                    .id(duration)
             } else {
                 Text(history.isEmpty ? emptyMessage : "No samples available for this metric.")
                     .font(.caption).foregroundStyle(palette.muted)
@@ -166,14 +168,14 @@ private struct MARCStatisticsCard: View {
     @ViewBuilder private var summary: some View {
         switch metric {
         case "CPU":
-            reading(MARCStatisticsData.percent(monitor.snapshot?.cpu))
+            reading(MARCStatisticsData.percent(monitor.snapshot?.cpu), number: monitor.snapshot?.cpu)
         case "Server Load":
             let load = monitor.snapshot?.details?.load
             reading(load.map { $0.isFinite && $0 >= 0 ? String(format: "%.2f", $0) : "—" } ?? "—",
-                    label: "1m average")
+                    label: "1m average", number: load)
         case "Memory":
             reading("\(MARCStatisticsData.byteCount(monitor.snapshot?.memoryUsed)) / \(MARCStatisticsData.byteCount(monitor.snapshot?.memoryTotal))",
-                    label: "\(MARCStatisticsData.percent(monitor.snapshot?.memoryPercent)) used")
+                    label: "\(MARCStatisticsData.percent(monitor.snapshot?.memoryPercent)) used", number: monitor.snapshot?.memoryUsed)
         case "Network":
             pairedReadings(first: monitor.downloadRate, firstLabel: "Download",
                            second: monitor.uploadRate, secondLabel: "Upload")
@@ -183,12 +185,12 @@ private struct MARCStatisticsCard: View {
         }
     }
 
-    private func reading(_ value: String, label: String? = nil) -> some View {
+    private func reading(_ value: String, label: String? = nil, number: Double? = nil) -> some View {
         VStack(alignment: dynamicType.isAccessibilitySize ? .leading : .trailing, spacing: 3) {
-            Text(value).font(.subheadline.weight(.semibold))
+            MARCLiveNumberText(text: value, value: number).font(.subheadline.weight(.semibold))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
             if let label {
-                Text(label).font(.caption2).foregroundStyle(palette.muted)
+                MARCLiveNumberText(text: label, value: number).font(.caption2).foregroundStyle(palette.muted)
             }
         }.frame(maxWidth: .infinity, alignment: dynamicType.isAccessibilitySize ? .leading : .trailing)
     }
@@ -213,7 +215,7 @@ private struct MARCStatisticsCard: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Image(systemName: symbol)
                 .font(.caption.weight(.medium)).foregroundStyle(color)
-            Text(StatusFormat.speed(value))
+            MARCLiveNumberText(text: StatusFormat.speed(value), value: value)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
         }
@@ -222,18 +224,18 @@ private struct MARCStatisticsCard: View {
         .accessibilityLabel("\(label), \(StatusFormat.speed(value))")
     }
 
-    private func detail(_ label: String, _ value: String) -> some View {
+    private func detail(_ label: String, _ value: String, number: Double? = nil) -> some View {
         ViewThatFits(in: .horizontal) {
             if !dynamicType.isAccessibilitySize {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(label).foregroundStyle(palette.muted)
-                    Text(value).foregroundStyle(palette.text).monospacedDigit()
+                    MARCLiveNumberText(text: value, value: number).foregroundStyle(palette.text).monospacedDigit()
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(label).foregroundStyle(palette.muted)
-                Text(value).foregroundStyle(palette.text).monospacedDigit()
+                MARCLiveNumberText(text: value, value: number).foregroundStyle(palette.text).monospacedDigit()
             }
         }
         .font(.caption2)
@@ -245,21 +247,22 @@ private struct MARCStatisticsCard: View {
             switch metric {
             case "Memory":
                 HStack(alignment: .top, spacing: 16) {
-                    detail("Available", MARCStatisticsData.byteCount(max(0, r.memoryTotal - r.memoryUsed)))
-                    detail("Swap", MARCStatisticsData.byteCount(r.details?.swap))
+                    detail("Available", MARCStatisticsData.byteCount(max(0, r.memoryTotal - r.memoryUsed)), number: max(0, r.memoryTotal - r.memoryUsed))
+                    detail("Swap", MARCStatisticsData.byteCount(r.details?.swap), number: r.details?.swap)
                 }
             case "Network":
                 HStack(alignment: .top, spacing: 16) {
-                    detail("Received", MARCStatisticsData.byteCount(r.received))
-                    detail("Sent", MARCStatisticsData.byteCount(r.sent))
+                    detail("Received", MARCStatisticsData.byteCount(r.received), number: r.received)
+                    detail("Sent", MARCStatisticsData.byteCount(r.sent), number: r.sent)
                 }
             case "Disk":
                 VStack(spacing: 6) {
                     ProgressView(value: r.diskPercent.isFinite ? min(100, max(0, r.diskPercent)) : 0,
                                  total: 100).tint(palette.accent)
+                        .modifier(MARCLiveValueMotion(value: r.diskPercent.isFinite ? r.diskPercent : 0))
                     HStack(alignment: .top, spacing: 16) {
-                        detail("Used", MARCStatisticsData.byteCount(r.diskUsed))
-                        detail("Available", MARCStatisticsData.byteCount(r.diskAvailable))
+                        detail("Used", MARCStatisticsData.byteCount(r.diskUsed), number: r.diskUsed)
+                        detail("Available", MARCStatisticsData.byteCount(r.diskAvailable), number: r.diskAvailable)
                     }
                 }
             default: EmptyView()
@@ -360,6 +363,8 @@ private struct MARCStatisticsChart: View {
                 }
             }
             .frame(height: min(150, chartHeight))
+            .modifier(MARCLiveValueMotion(value: series.samples.last?.date,
+                                          allowsMotion: duration == 300))
         }
     }
 }

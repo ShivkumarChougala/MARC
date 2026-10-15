@@ -12,7 +12,8 @@ struct MARCVerticalControl: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Text(available ? "\(Int(value.rounded()))%" : "—")
+            MARCLiveNumberText(text: available ? "\(Int(value.rounded()))%" : "—",
+                               value: available ? value : nil)
                 .font(.system(size: 20, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(palette.text)
@@ -26,6 +27,7 @@ struct MARCVerticalControl: View {
                         .fill(palette.accent.opacity(0.8))
                         .frame(height: geometry.size.height *
                             (available ? min(100, max(0, value)) / 100 : 0))
+                        .modifier(MARCLiveValueMotion(value: value, allowsMotion: !dragging))
 
                     Image(systemName: symbol)
                         .font(.system(size: 22, weight: .medium))

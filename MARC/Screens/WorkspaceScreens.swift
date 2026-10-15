@@ -65,7 +65,8 @@ struct ProcessesScreen: View {
                         .foregroundStyle(p.muted)
                         .lineLimit(1)
                         .layoutPriority(1)
-                    Text("\(monitor.connected ? monitor.processTotalCount : 0) total")
+                    MARCLiveNumberText(text: "\(monitor.connected ? monitor.processTotalCount : 0) total",
+                                       value: Double(monitor.connected ? monitor.processTotalCount : 0))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(p.muted)
                         .lineLimit(1)
@@ -138,14 +139,14 @@ struct ProcessesScreen: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                            Text(String(format: "%.1f%%", process.cpu))
+                            MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
                                 .foregroundStyle(Color(marcHex: 0x2dcc58))
                                 .frame(width: 52, alignment: .trailing)
 
-                            Text(ByteCountFormatter.string(
+                            MARCLiveNumberText(text: ByteCountFormatter.string(
                                 fromByteCount: MARCProcessRows.memoryBytes(process.memory),
                                 countStyle: .binary
-                            ))
+                            ), value: process.memory)
                             .frame(width: 72, alignment: .trailing)
                         }
                         .font(.system(size: 11))
@@ -180,6 +181,7 @@ struct ProcessesScreen: View {
             .padding(.top, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .marcCanvas()
+        .marcLiveReadings(enabled: currentConnection && !scrolling)
         .sheet(item: $terminating) { target in
             MARCTerminationSheet(process: target.process) {
                 try await monitor.terminateProcess(target.process, expectedConnection: target.connection)
@@ -1750,6 +1752,7 @@ struct ControlsScreen: View {
                 .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
             }.padding(16)
         }.scrollIndicators(.hidden).marcCanvas()
+            .marcLiveReadings(enabled: usable && !editingVolume && !editingBrightness)
             .overlay { floatingFeedback(p) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -2372,7 +2375,6 @@ private struct MARCFileTransferCard: View {
 
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -2387,7 +2389,7 @@ private struct MARCFileTransferCard: View {
                         .trim(from: 0, to: CGFloat(value))
                         .stroke(p.accent.gradient, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .animation(reduceMotion ? nil : .linear(duration: 0.18), value: value)
+                        .modifier(MARCLiveValueMotion(value: value))
                     Image(systemName: symbol)
                         .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(p.accent)
@@ -2406,7 +2408,7 @@ private struct MARCFileTransferCard: View {
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     if progress != nil {
-                        Text("\(Int(value * 100))%")
+                        MARCLiveNumberText(text: "\(Int(value * 100))%", value: value * 100)
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(p.text)
@@ -2453,6 +2455,7 @@ private struct MARCFileTransferCard: View {
                 )
                 .allowsHitTesting(false)
         }
+        .marcLiveReadings(enabled: progress != nil)
     }
 }
 

@@ -13,6 +13,7 @@ struct HomeScreen: View {
     @State private var switchTask: Task<Void, Never>?
     @State private var customizing = false
     @State private var customizingAlerts = false
+    @State private var statusVisible = false
     @AppStorage("marc.alerts.storage") private var showStorageAlerts = true
     @AppStorage("marc.alerts.battery") private var showBatteryAlerts = true
     @AppStorage("marc.alerts.cpu") private var showCPUAlerts = true
@@ -166,8 +167,13 @@ struct HomeScreen: View {
                     }
                 }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 100)
             }.scrollIndicators(.hidden)
+                .environment(\.marcLiveMotionEnabled,
+                    statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
+                        max(0, context.date.timeIntervalSince($0)) < 12
+                    } == true)
         }.marcCanvas().toolbar(.hidden, for: .navigationBar)
             .onAppear {
+                statusVisible = true
                 sectionOrder = MARCStatusSection.ordered(sectionOrder).map(\.rawValue).joined(separator: ",")
                 var hidden = Set(hiddenSections.split(separator: ",").map(String.init))
                 if hidden.contains("power") && hidden.contains("storage") { hidden.insert("powerStorage") }
@@ -198,7 +204,10 @@ struct HomeScreen: View {
             .onChange(of: store.monitor.connecting) { _, connecting in
                 if connecting { switchFailure = nil }
             }
-            .onDisappear { switchTask?.cancel(); switchTask = nil }
+            .onDisappear {
+                statusVisible = false
+                switchTask?.cancel(); switchTask = nil
+            }
             .sheet(isPresented: $controls) {
                 NavigationStack {
                     ControlsScreen(monitor: store.monitor).toolbar {
@@ -661,12 +670,14 @@ private struct MARCOverviewSystemCard: View {
             Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.muted)
             VStack(spacing: 7) {
                 Text(firstLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                Text(MARCOverviewFormat.rate(first)).font(.system(size: 13, weight: .medium))
+                MARCLiveNumberText(text: MARCOverviewFormat.rate(first), value: first)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
             }
             VStack(spacing: 7) {
                 Text(secondLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                Text(MARCOverviewFormat.rate(second)).font(.system(size: 13, weight: .medium))
+                MARCLiveNumberText(text: MARCOverviewFormat.rate(second), value: second)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
             }
         }.frame(maxWidth: .infinity)
@@ -687,7 +698,8 @@ private struct MARCOverviewGauge: View {
                 Circle().trim(from: 0, to: value / 100)
                     .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text("\(Int(value.rounded()))%")
+                    .modifier(MARCLiveValueMotion(value: value))
+                MARCLiveNumberText(text: "\(Int(value.rounded()))%", value: value)
                     .font(.system(size: 21, weight: .semibold)).monospacedDigit()
                     .foregroundStyle(tint).minimumScaleFactor(0.75).lineLimit(1)
             }.frame(width: 64, height: 64)
@@ -699,6 +711,10 @@ private struct MARCOverviewPowerCard: View {
     @AppStorage("marc.showPowerStatus") private var showPowerStatus = true
     let details: SystemDetails?
     let palette: MARCPalette
+    private var batteryPercent: Double? {
+        guard let value = details?.batteryPercent, value.isFinite else { return nil }
+        return min(100, max(0, value))
+    }
     private var pluggedIn: Bool { details?.powerSource == "AC Power" }
     private var charging: Bool {
         details?.batteryState == "charging" ||
@@ -720,8 +736,10 @@ private struct MARCOverviewPowerCard: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Power", systemImage: "battery.100")
                 .font(.system(size: 16, weight: .semibold)).foregroundStyle(palette.text)
-            Text(details?.batteryPercent.map { "\(Int(min(100, max(0, $0)).rounded()))%" }
-                 ?? (details?.hasBattery == false && pluggedIn ? "AC" : "—"))
+            MARCLiveNumberText(
+                text: batteryPercent.map { "\(Int($0.rounded()))%" }
+                    ?? (details?.hasBattery == false && pluggedIn ? "AC" : "—"),
+                value: batteryPercent)
                 .font(.system(size: 28, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(palette.text)
             if showPowerStatus {
@@ -739,14 +757,17 @@ private struct MARCOverviewStorageCard: View {
     let reading: MacSnapshot
     let palette: MARCPalette
     private var usedFraction: Double {
-        guard reading.diskTotal > 0 else { return 0 }
+        guard reading.diskTotal.isFinite, reading.diskTotal > 0,
+              reading.diskAvailable.isFinite else { return 0 }
         return min(1, max(0, 1 - reading.diskAvailable / reading.diskTotal))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Storage", systemImage: "internaldrive")
                 .font(.system(size: 16, weight: .semibold)).foregroundStyle(palette.text)
-            Text(reading.diskTotal > 0 ? MARCOverviewFormat.bytes(reading.diskAvailable) : "—")
+            MARCLiveNumberText(
+                text: reading.diskTotal > 0 ? MARCOverviewFormat.bytes(reading.diskAvailable) : "—",
+                value: reading.diskTotal > 0 ? reading.diskAvailable : nil)
                 .font(.system(size: 28, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(palette.text).lineLimit(1).minimumScaleFactor(0.7)
             Text(reading.diskTotal > 0 ? "free of " + MARCOverviewFormat.bytes(reading.diskTotal) : "Storage data unavailable")
@@ -761,10 +782,12 @@ private struct MARCOverviewStorageCard: View {
                             : Color(red: 0.18, green: 0.78, blue: 0.52)
                     )
                         .frame(width: geometry.size.width * usedFraction)
+                        .modifier(MARCLiveValueMotion(value: usedFraction))
                 }
             }.frame(height: 5).accessibilityHidden(true)
             if reading.diskTotal > 0 {
-                Text("\(Int((usedFraction * 100).rounded()))% used")
+                MARCLiveNumberText(text: "\(Int((usedFraction * 100).rounded()))% used",
+                                     value: usedFraction * 100)
                     .font(.system(size: 10)).foregroundStyle(palette.muted)
             }
         }.frame(height: 132, alignment: .topLeading)

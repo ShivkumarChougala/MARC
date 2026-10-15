@@ -39,7 +39,7 @@ struct LiveSystemDetailScreen: View {
 
                     SystemPanel(title: "CPU", subtitle: r.details?.architecture ?? "") {
                         HStack(alignment: .top, spacing: 10) {
-                            Text(percent(r.cpu))
+                            MARCLiveNumberText(text: percent(r.cpu), value: r.cpu)
                                 .font(.system(size: 36, weight: .medium))
                                 .monospacedDigit()
                                 .lineLimit(1)
@@ -48,13 +48,13 @@ struct LiveSystemDetailScreen: View {
                             Spacer(minLength: 0)
                             DetailStat(title: "SYS",
                                 value: percent(r.details?.cpuSystem),
-                                color: Color(marcHex: 0xff565f), small: true)
+                                color: Color(marcHex: 0xff565f), small: true, numericValue: r.details?.cpuSystem)
                             DetailStat(title: "USER",
                                 value: percent(r.details?.cpuUser),
-                                color: Color(marcHex: 0x2dcc58), small: true)
+                                color: Color(marcHex: 0x2dcc58), small: true, numericValue: r.details?.cpuUser)
                             DetailStat(title: "TASKS",
                                 value: r.details?.tasks.map { String($0) } ?? "—",
-                                small: true)
+                                small: true, numericValue: r.details?.tasks.map(Double.init))
                         }
 
                         if let values = r.details?.coreUsage, !values.isEmpty {
@@ -72,15 +72,15 @@ struct LiveSystemDetailScreen: View {
                         HStack(spacing: 8) {
                             DetailStat(title: "CORES",
                                 value: r.details?.cores.map { String($0) } ?? "—",
-                                small: true)
+                                small: true, numericValue: r.details?.cores.map(Double.init))
                             DetailStat(title: "IDLE",
-                                value: percent(100 - r.cpu), small: true)
+                                value: percent(100 - r.cpu), small: true, numericValue: 100 - r.cpu)
                             DetailStat(title: "UPTIME",
-                                value: uptime(r.details?.uptime), small: true)
+                                value: uptime(r.details?.uptime), small: true, numericValue: r.details?.uptime)
                             DetailStat(title: "LOAD · 1m",
                                 value: r.details?.load.map {
                                     String(format: "%.2f", $0)
-                                } ?? "—", small: true)
+                                } ?? "—", small: true, numericValue: r.details?.load)
                         }
                     }
 
@@ -89,18 +89,18 @@ struct LiveSystemDetailScreen: View {
                             DetailStat(
                                 title: "Available ≈",
                                 value: bytes(max(0, r.memoryTotal - r.memoryUsed)),
-                                small: true
+                                small: true, numericValue: max(0, r.memoryTotal - r.memoryUsed)
                             )
                             DetailStat(
                                 title: "Used",
                                 value: bytes(r.memoryUsed),
                                 color: Color(marcHex: 0xe5a000),
-                                small: true
+                                small: true, numericValue: r.memoryUsed
                             )
                             DetailStat(
                                 title: "Swap",
                                 value: bytes(r.details?.swap),
-                                small: true
+                                small: true, numericValue: r.details?.swap
                             )
                             CompactMetricRing(
                                 value: r.memoryPercent,
@@ -114,8 +114,8 @@ struct LiveSystemDetailScreen: View {
                             Text("↓ Download")
                                 .foregroundStyle(Color(marcHex: 0x2eae7d))
                             Spacer()
-                            Text(StatusFormat.speed(m.downloadRate))
-                            Text(bytes(r.received))
+                            MARCLiveNumberText(text: StatusFormat.speed(m.downloadRate), value: m.downloadRate)
+                            MARCLiveNumberText(text: bytes(r.received), value: r.received)
                                 .foregroundStyle(.secondary)
                                 .frame(width: 82, alignment: .trailing)
                         }
@@ -123,8 +123,8 @@ struct LiveSystemDetailScreen: View {
                             Text("↑ Upload")
                                 .foregroundStyle(Color(marcHex: 0xe5a000))
                             Spacer()
-                            Text(StatusFormat.speed(m.uploadRate))
-                            Text(bytes(r.sent))
+                            MARCLiveNumberText(text: StatusFormat.speed(m.uploadRate), value: m.uploadRate)
+                            MARCLiveNumberText(text: bytes(r.sent), value: r.sent)
                                 .foregroundStyle(.secondary)
                                 .frame(width: 82, alignment: .trailing)
                         }
@@ -142,10 +142,10 @@ struct LiveSystemDetailScreen: View {
                     SystemPanel(title: "Storage", subtitle: "Data · APFS") {
                         HStack(spacing: 10) {
                             DetailStat(title: "Used",
-                                value: bytes(r.diskUsed), small: true)
+                                value: bytes(r.diskUsed), small: true, numericValue: r.diskUsed)
                             DetailStat(title: "Available",
-                                value: bytes(r.diskAvailable), small: true)
-                            Text(percent(r.diskPercent))
+                                value: bytes(r.diskAvailable), small: true, numericValue: r.diskAvailable)
+                            MARCLiveNumberText(text: percent(r.diskPercent), value: r.diskPercent)
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color(marcHex: 0xff8f24))
                                 .monospacedDigit()
@@ -159,12 +159,14 @@ struct LiveSystemDetailScreen: View {
                                 first: "↓ Read",
                                 second: StatusFormat.speed(m.diskReadRate),
                                 third: bytes(r.diskReadBytes),
-                                color: Color(marcHex: 0x2eae7d))
+                                color: Color(marcHex: 0x2eae7d),
+                                secondNumber: m.diskReadRate, thirdNumber: r.diskReadBytes)
                             ReferenceIORow(
                                 first: "↑ Write",
                                 second: StatusFormat.speed(m.diskWriteRate),
                                 third: bytes(r.diskWriteBytes),
-                                color: Color(marcHex: 0xe5a000))
+                                color: Color(marcHex: 0xe5a000),
+                                secondNumber: m.diskWriteRate, thirdNumber: r.diskWriteBytes)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -198,6 +200,7 @@ struct LiveSystemDetailScreen: View {
                 }
             }.padding(16).padding(.bottom, 16)
         }.scrollIndicators(.visible).marcCanvas()
+            .marcLiveReadings(enabled: m.connected)
             .navigationTitle("System").navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
     }
@@ -219,10 +222,12 @@ struct LiveSystemDetailScreen: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             }
         } else {
-            SystemPanel(title: "Battery", subtitle: percent(details?.batteryPercent)) {
+            SystemPanel(title: "Battery", subtitle: percent(details?.batteryPercent),
+                        numericSubtitle: details?.batteryPercent) {
                 if let value = details?.batteryPercent, value.isFinite {
                     ProgressView(value: min(100, max(0, value)), total: 100)
                         .tint(value <= 20 ? .orange : Color(marcHex: 0x2dcc58))
+                        .modifier(MARCLiveValueMotion(value: value))
                         .accessibilityLabel("Battery charge")
                         .accessibilityValue(percent(value))
                 }
@@ -231,18 +236,19 @@ struct LiveSystemDetailScreen: View {
                 Divider()
                 batteryRow("Condition", value: details?.batteryCondition ?? "Unavailable")
                 Divider()
-                batteryRow("Maximum capacity", value: details?.batteryMaximumCapacity.map { percent($0) } ?? "Unavailable")
+                batteryRow("Maximum capacity", value: details?.batteryMaximumCapacity.map { percent($0) } ?? "Unavailable", numericValue: details?.batteryMaximumCapacity)
                 Divider()
-                batteryRow("Cycle count", value: details?.batteryCycleCount.map { String($0) } ?? "Unavailable")
+                batteryRow("Cycle count", value: details?.batteryCycleCount.map { String($0) } ?? "Unavailable", numericValue: details?.batteryCycleCount.map(Double.init))
             }
         }
     }
 
-    private func batteryRow(_ title: String, value: String) -> some View {
+    private func batteryRow(_ title: String, value: String, numericValue: Double? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title).foregroundStyle(.secondary)
             Spacer(minLength: 0)
-            Text(value).multilineTextAlignment(.trailing).monospacedDigit()
+            MARCLiveNumberText(text: value, value: numericValue)
+                .multilineTextAlignment(.trailing).monospacedDigit()
         }
         .font(.subheadline)
     }
@@ -254,11 +260,13 @@ private struct DetailStat: View {
     let value: String
     var color = Color.primary
     var small = false
+    var numericValue: Double? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title).font(.system(size: 10)).foregroundStyle(.secondary)
                 .lineLimit(1).minimumScaleFactor(0.7)
-            Text(value).font(.system(size: small ? 12 : 19, weight: .semibold))
+            MARCLiveNumberText(text: value, value: numericValue)
+                .font(.system(size: small ? 12 : 19, weight: .semibold))
                 .foregroundStyle(color).lineLimit(1)
                 .minimumScaleFactor(0.7).monospacedDigit()
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -268,6 +276,7 @@ private struct DetailStat: View {
 private struct SystemPanel<Content: View>: View {
     let title: String
     let subtitle: String
+    var numericSubtitle: Double? = nil
     @ViewBuilder var content: Content
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
@@ -277,7 +286,7 @@ private struct SystemPanel<Content: View>: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.system(size: 15, weight: .semibold))
                 Spacer()
-                Text(subtitle).font(.system(size: 11)).foregroundStyle(p.muted)
+                MARCLiveNumberText(text: subtitle, value: numericSubtitle).font(.system(size: 11)).foregroundStyle(p.muted)
                     .lineLimit(1).minimumScaleFactor(0.7)
             }
             content
@@ -307,7 +316,8 @@ private struct CompactMetricRing: View {
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-            Text(MARCStatisticsData.percent(value))
+                .modifier(MARCLiveValueMotion(value: fraction))
+            MARCLiveNumberText(text: MARCStatisticsData.percent(value), value: value)
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
@@ -333,9 +343,8 @@ private struct ReferenceCorePills: View {
     }
 
     var body: some View {
-        let active = Int(
-            (min(100, max(0, usage.isFinite ? usage : 0)) / 100 * Double(count)).rounded()
-        )
+        let safeUsage = min(100, max(0, usage.isFinite ? usage : 0))
+        let active = Int((safeUsage / 100 * Double(count)).rounded())
 
         GeometryReader { geometry in
             let gap = min(4.0, geometry.size.width / Double(count * 3))
@@ -352,6 +361,7 @@ private struct ReferenceCorePills: View {
                 }
             }
             .frame(width: geometry.size.width, alignment: .leading)
+            .modifier(MARCLiveValueMotion(value: safeUsage))
         }
         .frame(height: 10)
         .accessibilityElement(children: .ignore)
@@ -364,6 +374,8 @@ private struct ReferenceIORow: View {
     let third: String
     var header = false
     var color: Color = .primary
+    var secondNumber: Double? = nil
+    var thirdNumber: Double? = nil
 
     var body: some View {
         GeometryReader { geometry in
@@ -372,9 +384,9 @@ private struct ReferenceIORow: View {
                 Text(first)
                     .foregroundStyle(header ? Color.secondary : color)
                     .frame(width: width, alignment: .leading)
-                Text(second)
+                MARCLiveNumberText(text: second, value: secondNumber)
                     .frame(width: width, alignment: .center)
-                Text(third)
+                MARCLiveNumberText(text: third, value: thirdNumber)
                     .frame(width: width, alignment: .trailing)
             }
             .font(.system(
