@@ -341,6 +341,58 @@ struct MacSnapshot: Decodable, Sendable {
 python3 -u - <<'MARC_COLLECTOR'
 import json, subprocess, re, time, socket, plistlib, ctypes, sys, os, getpass
 
+# MARC_HISTORY_WRITER_BEGIN
+class MARCHistoryWriter:
+    def __init__(self):
+        self.db = None
+        self.last_saved = None
+        self.last_pruned = None
+        self.retry_at = 0
+
+    def save(self, timestamp, payload):
+        now = time.monotonic()
+        if now < self.retry_at or (self.last_saved is not None and now - self.last_saved < 5):
+            return
+        try:
+            if self.db is None:
+                import sqlite3
+                from pathlib import Path
+                folder = Path.home() / '.local/share/marc'
+                folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+                path = folder / 'history.sqlite'
+                if path.is_symlink():
+                    raise OSError('History database must be a regular file.')
+                try:
+                    fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    pass
+                else:
+                    os.close(fd)
+                self.db = sqlite3.connect(str(path), timeout=0.15)
+                self.db.execute('CREATE TABLE IF NOT EXISTS marc_samples_v1 (ts REAL PRIMARY KEY, payload TEXT NOT NULL)')
+                self.db.commit()
+            self.db.execute('INSERT OR REPLACE INTO marc_samples_v1 (ts, payload) VALUES (?, ?)',
+                            (timestamp, payload))
+            if self.last_pruned is None or now - self.last_pruned >= 60:
+                # Prune only MARC's live-session rows; keep any legacy collector table intact.
+                self.db.execute('DELETE FROM marc_samples_v1 WHERE ts < ?', (timestamp - 7200,))
+                self.last_pruned = now
+            self.db.commit()
+            self.last_saved = now
+        except Exception:
+            # Optional persistence must never turn a valid live reading into a collector failure.
+            if self.db is not None:
+                try:
+                    self.db.close()
+                except Exception:
+                    pass
+            self.db = None
+            self.last_pruned = None
+            self.retry_at = now + 60
+
+history_writer = MARCHistoryWriter()
+# MARC_HISTORY_WRITER_END
+
 def run(*args):
     return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=8)
 
@@ -549,10 +601,13 @@ while True:
             architecture=architecture, username=username, users=users,
             batteryPercent=battery_percent, powerSource=power_source,
             batteryState=battery_state, hasBattery=has_battery)
-        print(json.dumps(dict(hostname=hostname, cpu=cpu, memoryUsed=used,
+        sample = dict(hostname=hostname, cpu=cpu, memoryUsed=used,
             memoryTotal=total, diskUsed=disk_used, diskTotal=disk_total,
             diskAvailable=disk_available, interface=interface, received=received, sent=sent,
-            diskReadBytes=disk_read, diskWriteBytes=disk_write, details=details, sampledAt=time.time())), flush=True)
+            diskReadBytes=disk_read, diskWriteBytes=disk_write, details=details, sampledAt=time.time())
+        payload = json.dumps(sample)
+        print(payload, flush=True)
+        history_writer.save(sample['sampledAt'], payload)
     except BrokenPipeError:
         break
     except Exception as exc:
@@ -571,6 +626,17 @@ private struct MARCArchivePoint: Decodable {
     let upload: Double?
     let read: Double?
     let write: Double?
+}
+
+private struct MARCArchiveFailure: Decodable {
+    let error: String
+    var message: String {
+        switch error {
+        case "missing": return "History is starting on this Mac. Keep MARC connected, then try again shortly."
+        case "schema": return "Saved history is not ready on this Mac. Reconnect to start collecting."
+        default: return "This Mac’s saved history could not be read. Check access to its history database."
+        }
+    }
 }
 
 extension SSHMonitor {
@@ -604,15 +670,31 @@ import sqlite3, pathlib, json, time, sys
 path = pathlib.Path.home() / '.local/share/marc/history.sqlite'
 duration = int(sys.argv[1])
 if not path.exists():
-    raise RuntimeError('History collector is not installed on this Mac.')
-db = sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True)
+    print(json.dumps({'error': 'missing'}))
+    sys.exit(0)
 end = time.time()
 start = end - duration
 bucket = {900: 5, 1800: 5, 3600: 10}[duration]
-rows = db.execute(
-    'SELECT ts, payload FROM samples WHERE ts >= ? AND ts <= ? ORDER BY ts',
-    (start - 120, end)
-)
+try:
+    db = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=0.25)
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if not tables.intersection({'samples', 'marc_samples_v1'}):
+        print(json.dumps({'error': 'schema'}))
+        sys.exit(0)
+    def read_table(name):
+        # Names are selected only from the fixed internal table names above.
+        return list(db.execute('SELECT ts, payload FROM ' + name +
+                               ' WHERE ts >= ? AND ts <= ? ORDER BY ts', (start - 120, end)))
+    live = read_table('marc_samples_v1') if 'marc_samples_v1' in tables else []
+    legacy = read_table('samples') if 'samples' in tables else []
+    # Preserve the existing collector's interval; use session samples outside it.
+    if legacy:
+        live = [row for row in live if row[0] < legacy[0][0] or row[0] > legacy[-1][0]]
+    rows = sorted(legacy + live, key=lambda row: row[0])
+    db.close()
+except sqlite3.Error:
+    print(json.dumps({'error': 'unreadable'}))
+    sys.exit(0)
 groups = {}
 previous = None
 
@@ -664,6 +746,13 @@ MARC_HISTORY
                 command, maxResponseSize: 524288, mergeStreams: true
             )
             let data = Data(buffer.readableBytesView)
+            if let failure = try? JSONDecoder().decode(MARCArchiveFailure.self, from: data) {
+                guard !Task.isCancelled, generation == connectionGeneration,
+                      archiveRequest == request, server?.id == serverID else { return }
+                archivedHistory = []
+                archiveError = failure.message
+                return
+            }
             let rows = try JSONDecoder().decode([MARCArchivePoint].self, from: data)
             guard !Task.isCancelled, generation == connectionGeneration,
                   archiveRequest == request, server?.id == serverID else { return }
