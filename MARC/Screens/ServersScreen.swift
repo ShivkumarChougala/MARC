@@ -23,6 +23,8 @@ struct AddServerScreen: View {
     @State private var busy = false
     @State private var failure: String?
     @State private var pending: ServerProfile?
+    @State private var requestTask: Task<Void, Never>?
+    @State private var requestID = UUID()
 
     private var matchingLogin: ServerProfile? {
         guard let number = Int(port), (1...65535).contains(number) else {
@@ -51,7 +53,6 @@ struct AddServerScreen: View {
 
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @State private var revealPassword = false
     @State private var testMessage: String?
 
     var body: some View {
@@ -60,7 +61,10 @@ struct AddServerScreen: View {
         VStack(spacing: 0) {
             HStack {
                 Button("Cancel") {
-                    if let pending { store.remove(pending) }
+                    if let pending, !store.remove(pending) {
+                        failure = store.storageError
+                        return
+                    }
                     dismiss()
                 }
                 .disabled(busy)
@@ -220,9 +224,9 @@ struct AddServerScreen: View {
         }) { server in
             SSHConnectScreen(server: server, monitor: store.monitor)
         }
-        .onDisappear { loginDraft.clear(); discovery.stop(clearResults: true); trust.cancel() }
+        .onDisappear { stopRequest(); loginDraft.clear(); discovery.stop(clearResults: true) }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { discovery.stop(); trust.cancel() }
+            if phase != .active { discovery.stop(); stopRequest() }
         }
     }
 
@@ -236,7 +240,6 @@ struct AddServerScreen: View {
                     Button("Change Mac") {
                         selectedNearby = nil
                         name = ""; host = ""; port = "22"; loginDraft.clear()
-                        revealPassword = false
                         failure = nil; testMessage = nil
                     }
                     .font(.system(size: 12)).tint(p.accent)
@@ -315,7 +318,7 @@ struct AddServerScreen: View {
         selectedNearby = device
         name = device.name; host = device.host; port = String(device.port)
         username = ""
-        loginDraft.clear(); revealPassword = false
+        loginDraft.clear()
         discovery.stop()
         failure = nil; testMessage = nil
     }
@@ -361,19 +364,28 @@ struct AddServerScreen: View {
         failure = nil
         testMessage = nil
 
-        Task { @MainActor in
-            defer { busy = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { busy = false; requestTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 let verifiedKey = try await trust.keyForConnection(server: server)
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 _ = try await SSHConnectionTest.run(
                     server: server,
                     login: submittedLogin,
                     publicHostKey: verifiedKey
                 )
+                try Task.checkCancellation()
+                guard requestID == request else { return }
                 testMessage = "Connection successful. Ready to save."
             } catch is CancellationError {
-                failure = nil
+                if requestID == request { failure = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
@@ -398,15 +410,24 @@ struct AddServerScreen: View {
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
             requiresHostKey: true
         )
-        if let pending { store.remove(pending) }
+        if let pending {
+            guard store.remove(pending) else { failure = store.storageError; return }
+            self.pending = nil
+        }
         busy = true
         failure = nil
         let submittedLogin = loginDraft.credentials()
 
-        Task { @MainActor in
-            defer { busy = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { busy = false; requestTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 let verifiedKey = try await trust.keyForConnection(server: profile)
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 pending = profile
                 store.add(profile)
                 try await store.monitor.connect(
@@ -414,16 +435,28 @@ struct AddServerScreen: View {
                     login: submittedLogin,
                     hostKey: verifiedKey
                 )
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 pending = nil
                 loginDraft.clear()
                 dismiss()
             } catch is CancellationError {
-                failure = nil
-                if pending != nil { store.remove(profile); pending = nil }
+                if requestID == request { failure = nil }
+                if pending?.id == profile.id, store.remove(profile) { pending = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: submittedLogin)
-                if pending != nil { store.remove(profile); pending = nil }
+                if pending?.id == profile.id, store.remove(profile) { pending = nil }
             }
         }
     }
+    private func stopRequest() {
+        requestID = UUID()
+        requestTask?.cancel()
+        requestTask = nil
+        busy = false
+        trust.cancel()
+        if let pending, store.remove(pending) { self.pending = nil }
+    }
+
 }

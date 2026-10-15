@@ -7,6 +7,10 @@ struct SSHConnectScreen: View {
     @State private var loginDraft = MARCLoginDraft()
     @State private var publicHostKey = ""
     @State private var testing = false
+    @State private var loaded = false
+    @State private var requestTask: Task<Void, Never>?
+    @State private var requestID = UUID()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var trust = MARCHostTrust()
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
@@ -46,35 +50,60 @@ struct SSHConnectScreen: View {
                     }.font(.system(size: 14, weight: .medium))
                         .frame(maxWidth: .infinity, minHeight: 46)
                         .background(p.accent, in: RoundedRectangle(cornerRadius: 12)).foregroundStyle(.white)
-                }.disabled(testing || !loginDraft.hasLogin)
+                }.disabled(testing || !loaded || !loginDraft.hasLogin)
             }.padding(16).padding(.top, 12)
         }.marcCanvas().interactiveDismissDisabled(testing)
             .onAppear {
-                let saved = MARCCredentials.read(server.id)
-                publicHostKey = saved?.hostKey ?? ""
-                loginDraft = MARCLoginDraft(saved: saved)
+                guard !loaded else { return }
+                do {
+                    let saved = try MARCCredentials.readChecked(server.id)
+                    publicHostKey = saved?.hostKey ?? ""
+                    loginDraft = MARCLoginDraft(saved: saved)
+                    loaded = true
+                } catch { failure = error.localizedDescription }
             }
             .hostTrustPrompt(trust)
         .marcConnectionAlert($failure)
-            .onDisappear { loginDraft.clear(); trust.cancel() }
+            .onDisappear { stopRequest(); loginDraft.clear() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { stopRequest() }
+            }
     }
 
     private func startTest() {
+        guard !testing, loaded, loginDraft.hasLogin, !monitor.connecting else { return }
         testing = true
         failure = nil
         let submittedLogin = loginDraft.credentials()
         let submittedKey = publicHostKey
-        Task { @MainActor in
-            defer { testing = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { testing = false; requestTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 try await monitor.connect(server: server, login: submittedLogin, hostKey: verifiedKey)
+                try Task.checkCancellation()
+                guard requestID == request else { return }
                 dismiss()
             } catch is CancellationError {
-                failure = nil
+                if requestID == request { failure = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
     }
+    private func stopRequest() {
+        requestID = UUID()
+        requestTask?.cancel()
+        requestTask = nil
+        testing = false
+        trust.cancel()
+    }
+
 }

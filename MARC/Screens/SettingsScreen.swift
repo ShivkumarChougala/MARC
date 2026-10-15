@@ -50,7 +50,7 @@ struct SettingsScreen: View {
                     settingsSection(item)
                 }
                 if let error = store.storageError { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
-            }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 100)
+            }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 16)
         }.scrollIndicators(.hidden).marcCanvas().toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $customizingSettings) {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
@@ -64,12 +64,13 @@ struct SettingsScreen: View {
             .alert(support ?? "", isPresented: Binding(get: { support != nil }, set: { if !$0 { support = nil } })) {
                 Button("OK") { support = nil }
             } message: {
-                Text(support == "SSH logs" ? "SSH test results appear in the Test SSH sheet. Persistent session logging is not enabled yet." : "Use the saved server’s menu → Connect, then open Home for live macOS readings. Monitoring pauses when the app goes into the background. Terminal sessions and file transfers are still pending.")
+                Text(support == "SSH logs" ? "SSH test results appear in the Test SSH sheet. Persistent session logging is not enabled yet." : "Use the saved server’s menu → Connect, then open Home for live macOS readings. Monitoring pauses when the app goes into the background. Use Terminal for SSH commands and Files to browse and transfer files.")
             }
             .sheet(item: $removing) { server in
-                MARCRemoveServerSheet(server: server) {
-                    store.remove(server)
-                    removing = nil
+                MARCRemoveServerSheet(server: server, store: store) {
+                    let removed = store.remove(server)
+                    if removed { removing = nil }
+                    return removed
                 }
             }
     }
@@ -105,7 +106,7 @@ struct SettingsScreen: View {
                                 Menu {
                                     Button("Edit server") { editingServer = server }
                                     if store.monitor.server?.id == server.id && store.monitor.connected {
-                                        Button("Disconnect") { Task { await store.monitor.disconnect() } }
+                                        Button("Disconnect") { store.monitor.cancelConnection() }
                                     }
                                     Button("Test SSH") { store.selectedID = server.id; testingServer = server }
                                     Button("Remove server", role: .destructive) { removing = server }
@@ -222,9 +223,14 @@ struct SettingsScreen: View {
             return
         }
 
-        guard MARCCredentials.read(server.id) != nil else {
-            store.selectedID = server.id
-            connectingServer = server
+        do {
+            guard try MARCCredentials.readChecked(server.id) != nil else {
+                store.selectedID = server.id
+                connectingServer = server
+                return
+            }
+        } catch {
+            store.storageError = error.localizedDescription
             return
         }
 
@@ -255,6 +261,9 @@ private struct MARCEditServerScreen: View {
     @State private var loaded = false
     @State private var busy = false
     @State private var failure: String?
+    @State private var requestTask: Task<Void, Never>?
+    @State private var requestID = UUID()
+    @Environment(\.scenePhase) private var scenePhase
 
     private var valid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -265,7 +274,6 @@ private struct MARCEditServerScreen: View {
 
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @State private var revealPassword = false
     @State private var testMessage: String?
 
     var body: some View {
@@ -387,14 +395,19 @@ private struct MARCEditServerScreen: View {
             host = server.host
             port = String(server.port)
             username = server.username
-            let saved = MARCCredentials.read(server.id)
-            hostKey = saved?.hostKey ?? ""
-            loginDraft = MARCLoginDraft(saved: saved)
-            loaded = true
+            do {
+                let saved = try MARCCredentials.readChecked(server.id)
+                hostKey = saved?.hostKey ?? ""
+                loginDraft = MARCLoginDraft(saved: saved)
+                loaded = true
+            } catch { failure = error.localizedDescription }
         }
         .hostTrustPrompt(trust)
         .marcConnectionAlert($failure)
-        .onDisappear { loginDraft.clear(); trust.cancel() }
+        .onDisappear { stopRequest(); loginDraft.clear() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { stopRequest() }
+        }
     }
 
     private func inputRow(
@@ -427,25 +440,37 @@ private struct MARCEditServerScreen: View {
             username: username.trimmingCharacters(in: .whitespacesAndNewlines),
             requiresHostKey: self.server.requiresHostKey
         )
-        let submittedLogin = loginDraft.credentials(fallback: MARCCredentials.read(server.id))
+        let remembered: MARCCredentials.Saved?
+        do { remembered = try MARCCredentials.readChecked(server.id) }
+        catch { failure = error.localizedDescription; return }
+        let submittedLogin = loginDraft.credentials(fallback: remembered)
         let submittedKey = existingKey(host: server.host, port: server.port)
         busy = true
         failure = nil
         testMessage = nil
 
-        Task { @MainActor in
-            defer { busy = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { busy = false; requestTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 _ = try await SSHConnectionTest.run(
                     server: server,
                     login: submittedLogin,
                     publicHostKey: verifiedKey
                 )
+                try Task.checkCancellation()
+                guard requestID == request else { return }
                 testMessage = "Connection successful. Ready to save."
             } catch is CancellationError {
-                failure = nil
+                if requestID == request { failure = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
@@ -458,7 +483,13 @@ private struct MARCEditServerScreen: View {
             return
         }
 
-        let remembered = MARCCredentials.read(server.id)
+        guard store.servers.contains(self.server) else {
+            failure = "This saved server changed. Close and reopen Edit Server."
+            return
+        }
+        let remembered: MARCCredentials.Saved?
+        do { remembered = try MARCCredentials.readChecked(server.id) }
+        catch { failure = error.localizedDescription; return }
         let chosenLogin = loginDraft.credentials(fallback: remembered)
         guard chosenLogin.hasLogin else {
             failure = "Enter a password or select a saved SSH key."
@@ -472,14 +503,30 @@ private struct MARCEditServerScreen: View {
         updated.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.requiresHostKey = true
         let key = existingKey(host: updated.host, port: updated.port)
-        let reconnect = store.selectedID == server.id
+        let endpoint = HostKeyIdentity.endpoint(host: updated.host, port: updated.port)
+        guard !store.servers.contains(where: {
+            $0.id != updated.id && $0.username == updated.username &&
+            HostKeyIdentity.endpoint(host: $0.host, port: $0.port) == endpoint
+        }) else {
+            failure = "This Mac and username are already saved. Edit that saved login instead."
+            return
+        }
+        let reconnect = store.monitor.connected && store.monitor.server?.id == server.id
 
         busy = true
         failure = nil
-        Task { @MainActor in
-            defer { busy = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { busy = false; requestTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
                 let verifiedKey = try await trust.keyForConnection(server: updated, existingKey: key)
+                try Task.checkCancellation()
+                guard requestID == request, store.servers.contains(self.server) else {
+                    throw CancellationError()
+                }
                 _ = try SSHConnectionTest.hostKeyValidator(server: updated, publicHostKey: verifiedKey)
                 if reconnect {
                     // Validate the edited connection before saving the profile.
@@ -491,26 +538,44 @@ private struct MARCEditServerScreen: View {
                 } else {
                     // Check the edited login before replacing its Keychain item.
                     _ = try await SSHConnectionTest.run(server: updated, login: chosenLogin, publicHostKey: verifiedKey)
+                    try Task.checkCancellation()
+                    guard requestID == request, store.servers.contains(self.server) else {
+                        throw CancellationError()
+                    }
                     try MARCCredentials.save(
                         server.id, login: chosenLogin, hostKey: verifiedKey
                     )
+                }
+                try Task.checkCancellation()
+                guard requestID == request, store.servers.contains(self.server) else {
+                    throw CancellationError()
                 }
                 store.update(updated)
                 loginDraft.clear()
                 dismiss()
             } catch is CancellationError {
-                failure = nil
+                if requestID == request { failure = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: chosenLogin)
             }
         }
     }
+    private func stopRequest() {
+        requestID = UUID()
+        requestTask?.cancel()
+        requestTask = nil
+        busy = false
+        trust.cancel()
+    }
+
 }
 
 
 private struct MARCRemoveServerSheet: View {
     let server: ServerProfile
-    let remove: () -> Void
+    let store: ServerStore
+    let remove: () -> Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
@@ -529,6 +594,9 @@ private struct MARCRemoveServerSheet: View {
             Text("This removes the saved profile and login from MARC. The Mac and its files are unaffected.")
                 .font(.system(size: 12))
                 .foregroundStyle(p.muted)
+            if let error = store.storageError {
+                Text(error).font(.system(size: 12)).foregroundStyle(.red)
+            }
             HStack(spacing: 12) {
                 Button {
                     dismiss()
@@ -539,8 +607,7 @@ private struct MARCRemoveServerSheet: View {
                         .foregroundStyle(p.text)
                 }
                 Button {
-                    remove()
-                    dismiss()
+                    if remove() { dismiss() }
                 } label: {
                     Text("Remove")
                         .frame(maxWidth: .infinity, minHeight: 46)
@@ -557,7 +624,7 @@ private struct MARCRemoveServerSheet: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .marcCanvas()
-        .presentationDetents([.height(285)])
+        .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }
 }

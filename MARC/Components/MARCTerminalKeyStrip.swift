@@ -44,6 +44,8 @@ struct MARCTerminalKeyStrip: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .frame(minWidth: 0, maxWidth: .infinity)
+            .clipped()
             .disabled(!session.ready)
             Button {
                 guard let view = session.view else { return }
@@ -53,7 +55,9 @@ struct MARCTerminalKeyStrip: View {
                 Image(systemName: "keyboard.chevron.compact.down")
                     .font(.system(size: 20)).frame(width: 44, height: 44)
                     .background(p.raised, in: RoundedRectangle(cornerRadius: 12))
-            }.accessibilityLabel("Show or hide terminal keyboard")
+            }
+            .fixedSize()
+            .accessibilityLabel("Show or hide terminal keyboard")
         }
         .buttonStyle(.plain)
         .foregroundStyle(p.accent)

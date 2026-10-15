@@ -13,6 +13,9 @@ struct SSHTestScreen: View {
     @State private var latency: Double?
     @State private var output: String?
     @State private var failure: String?
+    @State private var requestTask: Task<Void, Never>?
+    @State private var requestID = UUID()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -89,51 +92,81 @@ struct SSHTestScreen: View {
         .marcCanvas()
         .interactiveDismissDisabled(busy)
         .onAppear {
-            let saved = MARCCredentials.read(server.id)
-            hostKey = saved?.hostKey ?? ""
-            loginDraft = MARCLoginDraft(saved: saved)
+            do {
+                let saved = try MARCCredentials.readChecked(server.id)
+                hostKey = saved?.hostKey ?? ""
+                loginDraft = MARCLoginDraft(saved: saved)
+            } catch { failure = error.localizedDescription }
         }
         .hostTrustPrompt(trust)
         .marcConnectionAlert($failure)
-        .onDisappear { loginDraft.clear(); trust.cancel() }
+        .onDisappear { stopRequest(); loginDraft.clear() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { stopRequest() }
+        }
     }
 
     private func run(authenticate: Bool) {
         guard !busy else { return }
+        let saved: MARCCredentials.Saved?
+        do {
+            if authenticate { saved = try MARCCredentials.readChecked(server.id) }
+            else { saved = nil }
+        }
+        catch { failure = error.localizedDescription; return }
         busy = true
         failure = nil
         latency = nil
         output = nil
-        let saved = MARCCredentials.read(server.id)
         let submittedLogin = loginDraft.credentials(fallback: saved)
         let submittedKey = hostKey
 
-        Task { @MainActor in
-            defer { busy = false }
+        let request = UUID()
+        requestID = request
+        requestTask = Task { @MainActor in
+            defer { if requestID == request { busy = false; requestTask = nil } }
             do {
-                latency = try await MARCPortProbe.check(
+                try Task.checkCancellation()
+                guard requestID == request else { throw CancellationError() }
+                let measuredLatency = try await MARCPortProbe.check(
                     host: server.host, port: server.port
                 )
+                try Task.checkCancellation()
+                guard requestID == request else { return }
+                latency = measuredLatency
                 if authenticate {
                     guard submittedLogin.hasLogin else {
                         failure = "Server is reachable. Enter a password or select a saved SSH key to test login."
                         return
                     }
                     let verifiedKey = try await trust.keyForConnection(server: server, existingKey: submittedKey)
+                    try Task.checkCancellation()
+                    guard requestID == request else { throw CancellationError() }
                     let result = try await SSHConnectionTest.run(
                         server: server,
                         login: submittedLogin,
                         publicHostKey: verifiedKey
                     )
+                    try Task.checkCancellation()
+                    guard requestID == request else { return }
                     output = result.output
                 }
             } catch is CancellationError {
-                failure = nil
+                if requestID == request { failure = nil }
             } catch {
+                guard requestID == request, !Task.isCancelled else { return }
                 failure = MARCConnectionIssue.message(error, login: submittedLogin)
             }
         }
     }
+    private func stopRequest() {
+        requestID = UUID()
+        requestTask?.cancel()
+        requestTask = nil
+        busy = false
+        trust.cancel()
+    }
+
 }
 
 @MainActor

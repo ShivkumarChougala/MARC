@@ -66,7 +66,7 @@ struct LiveSystemDetailScreen: View {
                                         system: nil
                                     )
                                     .accessibilityLabel(
-                                        "Core \(index + 1), \(Int(values[index])) percent"
+                                        "Core \(index + 1), \(MARCStatisticsData.percent(values[index]))"
                                     )
                                 }
                             }
@@ -183,26 +183,20 @@ struct LiveSystemDetailScreen: View {
                         .font(.system(size: 14)).foregroundStyle(p.muted)
                     Button("Open Settings", action: openSettings)
                 }
-            }.padding(16).padding(.bottom, 110)
+            }.padding(16).padding(.bottom, 16)
         }.scrollIndicators(.visible).marcCanvas()
             .navigationTitle("System").navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
     }
 
     private func percent(_ value: Double?) -> String {
-        value.map { String(format: "%.0f%%", $0) } ?? "—"
+        MARCStatisticsData.percent(value)
     }
     private func bytes(_ value: Double?) -> String {
-        guard let value else { return "—" }
-        return ByteCountFormatter.string(
-            fromByteCount: Int64(max(0, value)), countStyle: .binary)
+        MARCStatisticsData.byteCount(value)
     }
     private func uptime(_ value: Double?) -> String {
-        guard let value else { return "—" }
-        let minutes = Int(value / 60)
-        return minutes >= 1440
-            ? "\(minutes / 1440)d \((minutes % 1440) / 60)h"
-            : "\(minutes / 60)h \(minutes % 60)m"
+        MARCStatisticsData.uptime(value)
     }
 
 }
@@ -251,7 +245,7 @@ private struct CompactMetricRing: View {
     let color: Color
 
     private var fraction: Double {
-        min(1, max(0, value / 100))
+        value.isFinite ? min(1, max(0, value / 100)) : 0
     }
 
     var body: some View {
@@ -265,14 +259,14 @@ private struct CompactMetricRing: View {
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-            Text(String(format: "%.0f%%", value))
+            Text(MARCStatisticsData.percent(value))
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
         .frame(width: 44, height: 44)
         .padding(3)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Usage \(Int(value)) percent")
+        .accessibilityLabel("Usage \(MARCStatisticsData.percent(value))")
     }
 }
 
@@ -284,10 +278,10 @@ private struct ReferenceCorePills: View {
 
     var body: some View {
         let active = Int(
-            (min(100, max(0, usage)) / 100 * Double(count)).rounded()
+            (min(100, max(0, usage.isFinite ? usage : 0)) / 100 * Double(count)).rounded()
         )
         let red = min(active, Int(
-            (min(100, max(0, system ?? 0)) / 100 * Double(count)).rounded()
+            (min(100, max(0, system?.isFinite == true ? (system ?? 0) : 0)) / 100 * Double(count)).rounded()
         ))
 
         GeometryReader { geometry in
@@ -355,8 +349,28 @@ private struct ReferenceStatistics: View {
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
 
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var metric: String { selection == "Load" ? "Server Load" : selection }
+
+    private var chartEnd: Date {
+        // Use the Mac's sampling clock, not the phone's clock or an old archive row.
+        monitor.snapshot.map { Date(timeIntervalSince1970: $0.sampledAt) } ?? Date()
+    }
+
     private var points: [SystemHistoryPoint] {
-        period == 300 ? monitor.history : monitor.archivedHistory
+        let history = period == 300 ? monitor.history :
+            (monitor.archivedHistorySeconds == period ? monitor.archivedHistory : [])
+        return MARCStatisticsData.window(history, end: chartEnd, duration: Double(period))
+    }
+
+    private var emptyMessage: String {
+        if !monitor.connected { return "Disconnected. Showing last available readings." }
+        if period == 300 { return "Collecting chart samples…" }
+        if monitor.archivedHistorySeconds != period || monitor.archiveLoading {
+            return "Loading saved history…"
+        }
+        return monitor.archiveError ?? "No saved samples for this period."
     }
 
     private func label(_ seconds: Int) -> String {
@@ -370,6 +384,7 @@ private struct ReferenceStatistics: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
+        let chartPoints = points
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Text("Statistics")
@@ -410,18 +425,35 @@ private struct ReferenceStatistics: View {
             }
             .pickerStyle(.segmented)
 
-            if points.count < 2 {
-                Text(period == 300
-                    ? "Collecting chart samples…"
-                    : (monitor.archiveError ?? "Collecting saved history…"))
+            if period != 300, monitor.archivedHistorySeconds == period,
+               !chartPoints.isEmpty, let error = monitor.archiveError {
+                Text(error).font(.system(size: 12)).foregroundStyle(.orange)
+            }
+            if chartPoints.count < 2 {
+                VStack(spacing: 10) {
+                    if period != 300 && monitor.connected &&
+                        (monitor.archivedHistorySeconds != period || monitor.archiveLoading) {
+                        ProgressView().tint(p.accent)
+                    }
+                    Text(emptyMessage)
+                }
+                    .font(.system(size: 12))
+                    .foregroundStyle(p.muted)
+                    .frame(maxWidth: .infinity, minHeight: 150)
+            } else if !chartPoints.contains(where: {
+                MARCStatisticsData.value($0, metric: metric) != nil ||
+                MARCStatisticsData.value($0, metric: metric, secondary: true) != nil
+            }) {
+                Text("No samples available for this metric.")
                     .font(.system(size: 12))
                     .foregroundStyle(p.muted)
                     .frame(maxWidth: .infinity, minHeight: 150)
             } else {
                 ReferenceMetricChart(
-                    history: points,
-                    metric: selection == "Load" ? "Server Load" : selection,
-                    duration: Double(period)
+                    history: chartPoints,
+                    metric: metric,
+                    duration: Double(period),
+                    end: chartEnd
                 )
             }
         }
@@ -431,10 +463,16 @@ private struct ReferenceStatistics: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(p.border.opacity(0.65), lineWidth: 0.5)
         )
-        .task(id: "\(period)-\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)") {
-            guard period != 300 else { return }
+        .task(id: "\(period)-\(monitor.statisticsConnectionID)-\(monitor.connected)-\(scenePhase)") {
+            let requestedPeriod = period
+            let connection = monitor.statisticsConnectionID
+            guard !Task.isCancelled, requestedPeriod != 300,
+                  monitor.connected, scenePhase == .active else { return }
             while !Task.isCancelled {
-                await monitor.loadArchivedHistory(seconds: period)
+                await monitor.loadArchivedHistory(seconds: requestedPeriod,
+                                                  expectedConnection: connection)
+                guard !Task.isCancelled, monitor.connected,
+                      monitor.statisticsConnectionID == connection else { return }
                 do {
                     try await Task.sleep(for: .seconds(30))
                 } catch { return }
@@ -451,16 +489,11 @@ private struct ReferenceMetricChart: View {
     private let green = Color(marcHex: 0x2dcc58)
     private let orange = Color(marcHex: 0xff8f24)
 
-    private var end: Date {
-        history.last?.date ?? Date()
-    }
+    let end: Date
     private var start: Date {
         end.addingTimeInterval(-duration)
     }
 
-    private var samples: [SystemHistoryPoint] {
-        history.filter { $0.date >= start && $0.date <= end }
-    }
     private var percentage: Bool {
         metric == "CPU" || metric == "Memory"
     }
@@ -471,7 +504,7 @@ private struct ReferenceMetricChart: View {
         if percentage { return 100.0 }
 
         var highest: Double = 0.0
-        for point in samples {
+        for point in history {
             let firstValue: Double = self.primary(point) ?? 0.0
             let secondValue: Double = self.secondary(point) ?? 0.0
             highest = Swift.max(highest, firstValue)
@@ -479,25 +512,16 @@ private struct ReferenceMetricChart: View {
         }
 
         let minimum: Double = metric == "Server Load" ? 1.0 : 0.1
-        return Swift.max(minimum, highest * 1.15)
+        return Swift.max(minimum, highest > Double.greatestFiniteMagnitude / 1.15
+                         ? highest : highest * 1.15)
     }
 
     private func primary(_ point: SystemHistoryPoint) -> Double? {
-        switch metric {
-        case "CPU": return point.cpu
-        case "Server Load": return point.load
-        case "Memory": return point.memory
-        case "Network": return point.download.map { $0 / 1024 }
-        default: return point.read.map { $0 / 1024 }
-        }
+        MARCStatisticsData.value(point, metric: metric)
     }
 
     private func secondary(_ point: SystemHistoryPoint) -> Double? {
-        switch metric {
-        case "Network": return point.upload.map { $0 / 1024 }
-        case "Disk": return point.write.map { $0 / 1024 }
-        default: return nil
-        }
+        MARCStatisticsData.value(point, metric: metric, secondary: true)
     }
 
     private func axisLabel(_ value: Double) -> String {
@@ -527,7 +551,7 @@ private struct ReferenceMetricChart: View {
             .font(.system(size: 10))
 
             Chart {
-                ForEach(samples) { point in
+                ForEach(history) { point in
                     if let value = primary(point) {
                         if !paired {
                             AreaMark(

@@ -15,6 +15,8 @@ struct MARCFileInfo: Decodable, Sendable {
     let directory: Bool
     let symlink: Bool
     let fingerprint: [String]
+    var editorSupported: Bool? = nil
+    var editorReason: String? = nil
 
     var permissions: String { MARCFileFormatting.permissions(mode) }
     var octal: String { String(mode & 0o7777, radix: 8) }
@@ -45,16 +47,53 @@ import os, sys, json, base64, stat, pwd, grp, tempfile, shutil, tarfile, ctypes,
 def fingerprint(s):
     return [str(s.st_dev), str(s.st_ino), str(s.st_size), str(s.st_mtime_ns), str(s.st_ctime_ns)]
 
+def editor_support(path, s):
+    if not stat.S_ISREG(s.st_mode):
+        return False, 'Text editing requires a regular file.'
+    if s.st_size > 1048576:
+        return False, 'Over the 1 MB text editing limit. Use Preview or Download.'
+    binary_extensions = {
+        '.png', '.jpg', '.jpeg', '.heic', '.heif', '.gif', '.webp', '.bmp', '.tif', '.tiff',
+        '.ico', '.icns', '.pdf', '.mp4', '.mov', '.mkv', '.mp3', '.m4a', '.wav', '.flac',
+        '.zip', '.gz', '.tar', '.7z', '.rar', '.dmg', '.pkg', '.sqlite', '.db',
+        '.woff', '.woff2', '.ttf', '.otf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+        '.exe', '.dylib', '.so', '.o', '.a', '.class', '.jar', '.pyc'
+    }
+    if os.path.splitext(path)[1].lower() in binary_extensions:
+        return False, 'Use Preview or Download for this file type.'
+    try:
+        # Bounded local inspection, in the existing metadata request. No extra
+        # SSH round trip, and never follow a replacement symlink or block on FIFO.
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as file:
+            current = os.fstat(file.fileno())
+            if not stat.S_ISREG(current.st_mode) or fingerprint(current) != fingerprint(s):
+                return False, 'This file changed. Reopen its details.'
+            data = file.read(1048577)
+            if len(data) > 1048576:
+                return False, 'Over the 1 MB text editing limit. Use Preview or Download.'
+            if any(byte < 32 and byte not in (9, 10, 12, 13) for byte in data):
+                return False, 'This is not a supported text file. Use Preview or Download.'
+            data.decode('utf-8')
+            if fingerprint(os.fstat(file.fileno())) != fingerprint(s):
+                return False, 'This file changed. Reopen its details.'
+        return True, 'UTF-8 text files up to 1 MB'
+    except UnicodeError:
+        return False, 'This is not UTF-8 text. Use Preview or Download.'
+    except OSError:
+        return False, 'Text editing is unavailable. Try Preview or Download.'
+
 def info(path):
     s = os.lstat(path)
     try: owner = pwd.getpwuid(s.st_uid).pw_name
     except KeyError: owner = str(s.st_uid)
     try: group = grp.getgrgid(s.st_gid).gr_name
     except KeyError: group = str(s.st_gid)
+    supported, reason = editor_support(path, s)
     return dict(path=path, size=s.st_size, modified=s.st_mtime, accessed=s.st_atime,
                 mode=s.st_mode, owner=owner, group=group, uid=s.st_uid, gid=s.st_gid,
                 directory=stat.S_ISDIR(s.st_mode), symlink=stat.S_ISLNK(s.st_mode),
-                fingerprint=fingerprint(s))
+                fingerprint=fingerprint(s), editorSupported=supported, editorReason=reason)
 
 def valid_path(value):
     if not isinstance(value, str) or not value.startswith('/') or '\0' in value:

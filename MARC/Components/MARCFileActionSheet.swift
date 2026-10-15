@@ -98,10 +98,16 @@ struct MARCFileActionSheet: View {
                         if entry.directory {
                             action("Open folder", "folder", palette: p, perform: open)
                         } else {
-                            action("View and edit", "doc.text", subtitle: "UTF-8 text files up to 1 MB", palette: p) {
-                                panel = .edit
+                            if info?.editorSupported == true {
+                                action("View and edit", "doc.text", subtitle: "UTF-8 text files up to 1 MB", palette: p) {
+                                    panel = .edit
+                                }
+                            } else if let reason = info?.editorReason {
+                                Text(reason)
+                                    .font(.system(size: 11)).foregroundStyle(p.muted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(16)
                             }
-                            .disabled(info?.symlink == true)
                             action("Preview", "eye", palette: p, perform: open)
                         }
                         action(entry.directory ? "Download folder" : "Download", "arrow.down",
@@ -239,6 +245,13 @@ private struct MARCRemoteTextEditor: View {
                 .font(.system(size: 13, design: .monospaced))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .disabled(loading || saving || fingerprint == nil)
+                .overlay {
+                    if loading {
+                        ProgressView("Opening text file…")
+                            .padding(18)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                }
                 .padding(12)
                 .navigationTitle(entry.name).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -252,11 +265,12 @@ private struct MARCRemoteTextEditor: View {
                             .disabled(loading || saving || fingerprint == nil || text == original)
                     }
                 }
-                .marcDelayedActivity(active: loading || saving, title: saving ? "Saving text" : "Opening text file")
+                .marcDelayedActivity(active: saving, title: "Saving text")
                 .task {
                     defer { loading = false }
                     do {
                         let response = try await files.perform("readText", entry: entry)
+                        try Task.checkCancellation()
                         guard let content = response.text, let info = response.info else {
                             throw MARCAIError.message("The server did not return this text file.")
                         }
@@ -264,7 +278,12 @@ private struct MARCRemoteTextEditor: View {
                     } catch is CancellationError {} catch { failure = error.localizedDescription }
                 }
                 .alert("Text editor", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
-                    Button("OK", role: .cancel) { failure = nil }
+                    Button("OK", role: .cancel) {
+                        failure = nil
+                        // A failed open has no document to leave in the editor.
+                        // Save errors keep the loaded text available for retry.
+                        if fingerprint == nil { dismiss() }
+                    }
                 } message: { Text(failure ?? "") }
                 .confirmationDialog("Discard unsaved edits?", isPresented: $discard, titleVisibility: .visible) {
                     Button("Discard edits", role: .destructive) { dismiss() }

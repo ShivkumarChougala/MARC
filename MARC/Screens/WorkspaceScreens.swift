@@ -9,56 +9,26 @@ import UIKit
 import SwiftUI
 struct ProcessesScreen: View {
     let monitor: SSHMonitor
+    var onClose: (() -> Void)? = nil
     @State private var query = ""
-    @State private var terminating: MARCProcess?
+    @State private var terminating: MARCProcessTarget?
     @State private var scrolling = false
-    @State private var scrollOrder: [Int] = []
+    @State private var scrollOrder: [String] = []
+    @State private var processConnection: UUID?
     @State private var sorting = "CPU"
     @State private var processes: [MARCProcess] = []
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
 
-    private func sortedRows(_ rows: [MARCProcess]) -> [MARCProcess] {
-        rows.sorted {
-            switch sorting {
-            case "Memory":
-                return $0.memory == $1.memory
-                    ? $0.pid < $1.pid : $0.memory > $1.memory
-            case "Name":
-                let order = $0.name.localizedCaseInsensitiveCompare($1.name)
-                return order == .orderedSame
-                    ? $0.pid < $1.pid : order == .orderedAscending
-            default:
-                return $0.cpu == $1.cpu
-                    ? $0.pid < $1.pid : $0.cpu > $1.cpu
-            }
-        }
+    private var currentConnection: Bool {
+        monitor.connected && processConnection == monitor.processConnectionID
     }
 
     private var visible: [MARCProcess] {
-        let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let candidates: [MARCProcess]
-        if search.isEmpty {
-            candidates = Array(processes.prefix(50))
-        } else {
-            candidates = processes.filter {
-                $0.name.localizedCaseInsensitiveContains(search) ||
-                $0.user.localizedCaseInsensitiveContains(search) ||
-                String($0.pid).contains(search)
-            }
-        }
-
-        let sorted = sortedRows(candidates)
-        guard scrolling, !scrollOrder.isEmpty else { return sorted }
-        let positions = Dictionary(
-            uniqueKeysWithValues: scrollOrder.enumerated().map { ($0.element, $0.offset) }
-        )
-        return sorted.sorted {
-            let left = positions[$0.pid] ?? Int.max
-            let right = positions[$1.pid] ?? Int.max
-            return left == right ? $0.pid < $1.pid : left < right
-        }
+        guard currentConnection else { return [] }
+        return MARCProcessRows.visible(processes, query: query, sorting: sorting,
+                                       frozenOrder: scrolling ? scrollOrder : [])
     }
 
     private func accept(_ result: [MARCProcess]) {
@@ -73,15 +43,36 @@ struct ProcessesScreen: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
+        let rows = visible
         VStack(alignment: .leading, spacing: 12) {
-                HStack {
+                HStack(spacing: 8) {
+                    Group {
+                        if let onClose {
+                            Button(action: onClose) {
+                                Label("Back", systemImage: "chevron.left")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(p.accent)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Return to previous screen")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     Text("Processes")
-                        .font(.system(size: 22, weight: .semibold))
-                    Spacer()
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(p.muted)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                     Text("\(monitor.connected ? monitor.processTotalCount : 0) total")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(p.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                .frame(minHeight: 44)
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
@@ -119,8 +110,8 @@ struct ProcessesScreen: View {
                     Text("Connect to a Mac in Settings to view running processes.")
                         .font(.system(size: 13))
                         .foregroundStyle(p.muted)
-                } else if processes.isEmpty {
-                    Text("Loading processes…")
+                } else if !currentConnection || processes.isEmpty {
+                    Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
                         .font(.system(size: 13))
                         .foregroundStyle(p.muted)
                 } else {
@@ -134,7 +125,7 @@ struct ProcessesScreen: View {
                     .foregroundStyle(p.muted)
                     .padding(.horizontal, 12)
 
-                    ForEach(visible) { process in
+                    ForEach(rows) { process in
                         HStack(spacing: 8) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(process.name)
@@ -152,7 +143,7 @@ struct ProcessesScreen: View {
                                 .frame(width: 52, alignment: .trailing)
 
                             Text(ByteCountFormatter.string(
-                                fromByteCount: Int64(process.memory),
+                                fromByteCount: MARCProcessRows.memoryBytes(process.memory),
                                 countStyle: .binary
                             ))
                             .frame(width: 72, alignment: .trailing)
@@ -165,13 +156,13 @@ struct ProcessesScreen: View {
                         )
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            guard monitor.connected else { return }
-                            terminating = process
+                            guard currentConnection else { return }
+                            terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
                         }
                         .accessibilityHint("Tap for termination confirmation")
                     }
 
-                    if visible.isEmpty {
+                    if rows.isEmpty {
                         Text("No matching processes.")
                             .font(.system(size: 12))
                             .foregroundStyle(p.muted)
@@ -180,7 +171,7 @@ struct ProcessesScreen: View {
 
                 }
                     }
-                    .padding(.bottom, 96)
+                    .padding(.bottom, 16)
                 }
                 .scrollIndicators(.visible)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -189,39 +180,55 @@ struct ProcessesScreen: View {
             .padding(.top, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .marcCanvas()
-        .sheet(item: $terminating) { process in
-            MARCTerminationSheet(process: process) {
-                try await monitor.terminateProcess(process)
+        .sheet(item: $terminating) { target in
+            MARCTerminationSheet(process: target.process) {
+                try await monitor.terminateProcess(target.process, expectedConnection: target.connection)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .onScrollPhaseChange { _, phase in
             if phase != .idle && !scrolling {
-                scrollOrder = visible.map(\.pid)
+                scrollOrder = visible.map(\.id)
             }
             scrolling = phase != .idle
             if !scrolling { scrollOrder = [] }
         }
-        .task(id: "\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)") {
+        .onChange(of: query) { _, _ in scrolling = false; scrollOrder = [] }
+        .onChange(of: sorting) { _, _ in scrolling = false; scrollOrder = [] }
+        .onDisappear {
+            processConnection = nil
+            terminating = nil
+            scrolling = false
+            scrollOrder = []
+        }
+        .task(id: "\(monitor.processConnectionID)-\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)") {
+            guard !Task.isCancelled else { return }
+            let connection = monitor.processConnectionID
+            processConnection = connection
+            terminating = nil
+            scrolling = false
             processes = []
             scrollOrder = []
             failure = nil
             guard monitor.connected else { return }
 
-            while !Task.isCancelled && monitor.connected {
+            while !Task.isCancelled && monitor.connected && monitor.processConnectionID == connection {
                 do {
-                    let stream = try await monitor.processUpdates()
+                    let stream = try await monitor.processUpdates(expectedConnection: connection)
                     for try await response in stream {
-                        guard !Task.isCancelled else { return }
+                        guard !Task.isCancelled, monitor.connected,
+                              monitor.processConnectionID == connection else { return }
                         accept(response.processes)
                         failure = nil
                     }
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled, monitor.connected,
+                          monitor.processConnectionID == connection else { return }
                     failure = "Process stream stopped. Retrying…"
                 } catch is CancellationError {
                     return
                 } catch {
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled, monitor.connected,
+                          monitor.processConnectionID == connection else { return }
                     failure = "Updates delayed. Reconnecting process stream…"
                 }
                 do {
@@ -243,9 +250,9 @@ struct MARCRemoteEntry: Identifiable {
     var id: String { path }
 }
 
-private struct MARCFileExport: Identifiable {
-    let id = UUID()
-    let url: URL
+struct MARCFileDestination: Equatable {
+    let connection: UUID
+    let path: String
 }
 
 @MainActor @Observable
@@ -267,7 +274,7 @@ final class MARCRemoteFiles {
     var activity = ""
     var failure: String?
     var notice: String?
-    var downloaded: URL?
+    var downloaded: MARCLocalDownload?
     var lastUploadedPath: String?
     var completionTitle: String?
     var completionEvent = UUID()
@@ -287,6 +294,22 @@ final class MARCRemoteFiles {
         ready = false
         busy = false
         transferring = false
+        progress = 0
+        transferName = ""
+        transferBytes = 0
+        transferTotal = nil
+        transferPhase = ""
+        previewTransfer = false
+        uploadingTransfer = false
+        cancellingTransfer = false
+        lastProgressUpdate = nil
+        activity = ""
+        failure = nil
+        notice = nil
+        completionTitle = nil
+        completionPath = ""
+        lastUploadedPath = nil
+        downloaded = nil
         entries = []
         path = ""
         home = ""
@@ -301,12 +324,14 @@ final class MARCRemoteFiles {
     }
 
     func prepare(server: ServerProfile) async {
+        guard !Task.isCancelled else { return }
         if folderServerID == server.id && ready { return }
         stop()
         await connect(server: server)
     }
 
     func connect(server: ServerProfile) async {
+        guard !Task.isCancelled else { return }
         folderServerID = server.id
         let id = generation
         busy = true
@@ -331,10 +356,10 @@ final class MARCRemoteFiles {
             settings.connectTimeout = .seconds(10)
             let connection = try await SSHClient.connect(to: settings)
             opened = connection
+            try checkOperation(id)
             let client = try await connection.openSFTP()
             subsystem = client
-            try Task.checkCancellation()
-            guard generation == id else { throw CancellationError() }
+            try checkOperation(id)
 
             let initial = try await client.getRealPath(atPath: ".")
             let preferenceKey = "marc.files.lastFolder.\(server.id.uuidString)"
@@ -352,14 +377,13 @@ final class MARCRemoteFiles {
                     rows = try await listing(canonical, using: client)
                     destination = canonical
                 } catch {
-                    try Task.checkCancellation()
+                    try checkOperation(id)
                     rows = try await listing(initial, using: client)
                 }
             } else {
                 rows = try await listing(initial, using: client)
             }
-            try Task.checkCancellation()
-            guard generation == id else { throw CancellationError() }
+            try checkOperation(id)
 
             ssh = connection
             sftp = client
@@ -409,6 +433,11 @@ final class MARCRemoteFiles {
             }
     }
 
+    private func checkOperation(_ id: UUID) throws {
+        try Task.checkCancellation()
+        guard generation == id else { throw CancellationError() }
+    }
+
     private func joined(_ parent: String, _ name: String) -> String {
         parent == "/" ? "/" + name : parent + "/" + name
     }
@@ -424,7 +453,9 @@ final class MARCRemoteFiles {
         operation = Task { @MainActor in
             defer { if generation == id { busy = false; operation = nil } }
             do {
+                try checkOperation(id)
                 let canonical = try await client.getRealPath(atPath: requested)
+                try checkOperation(id)
                 let rows = try await listing(canonical, using: client)
                 try Task.checkCancellation()
                 guard generation == id else { return }
@@ -479,7 +510,20 @@ final class MARCRemoteFiles {
         lastProgressUpdate = nil
     }
 
-    func upload(_ url: URL) {
+    func captureDestination() -> MARCFileDestination? {
+        guard ready, !busy else { return nil }
+        return MARCFileDestination(connection: generation, path: path)
+    }
+
+    func matchesDestination(_ destination: MARCFileDestination) -> Bool {
+        ready && generation == destination.connection && path == destination.path
+    }
+
+    func upload(_ url: URL, to expectedDestination: MARCFileDestination? = nil) {
+        if let expectedDestination, !matchesDestination(expectedDestination) {
+            failure = "The upload destination changed. Select the file again."
+            return
+        }
         guard ready, !busy, let client = sftp else { return }
         let id = generation
         let folder = path
@@ -523,6 +567,7 @@ final class MARCRemoteFiles {
             var created = false
 
             do {
+                try checkOperation(id)
                 let values = try url.resourceValues(
                     forKeys: [.isRegularFileKey, .fileSizeKey]
                 )
@@ -539,15 +584,14 @@ final class MARCRemoteFiles {
                 )
                 remote = file
                 created = true
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
                 transferPhase = "Uploading"
                 var offset: UInt64 = 0
 
                 while true {
-                    try Task.checkCancellation()
-                    guard generation == id else { throw CancellationError() }
+                    try checkOperation(id)
                     let data = try await input.readChunk()
+                    try checkOperation(id)
                     if data.isEmpty { break }
                     var buffer = ByteBuffer()
                     buffer.writeBytes(data)
@@ -563,8 +607,7 @@ final class MARCRemoteFiles {
                         "The local file changed during upload. Select it again."
                     )
                 }
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
                 transferBytes = offset
                 progress = 1
                 transferPhase = "Verifying upload"
@@ -580,15 +623,14 @@ final class MARCRemoteFiles {
                 remote = nil
                 try await input.close()
                 local = nil
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
 
                 transferPhase = "Finishing upload"
                 try await client.rename(at: temporary, to: destination)
                 created = false
-                let rows = try await listing(folder, using: client)
                 guard generation == id else { return }
-                entries = rows
+                // The rename committed the verified file. A refresh failure or
+                // late cancellation must not claim that this upload failed.
                 progress = 1
                 path = folder
                 lastUploadedPath = destination
@@ -596,6 +638,15 @@ final class MARCRemoteFiles {
                 completionTitle = "Upload complete"
                 completionPath = destination
                 notice = nil
+                do {
+                    let rows = try await listing(folder, using: client)
+                    try checkOperation(id)
+                    entries = rows
+                } catch {
+                    if generation == id, !Task.isCancelled {
+                        failure = "Upload complete, but the folder could not refresh. Tap Refresh."
+                    }
+                }
             } catch {
                 try? await remote?.close()
                 try? await local?.close()
@@ -640,9 +691,12 @@ final class MARCRemoteFiles {
             }
             var remote: SFTPFile?
             var local: MARCTransferIO?
-            var directory: URL?
+            var localDownload: MARCLocalDownload?
+            // Keep the local lease through handle cleanup on every error path.
+            defer { withExtendedLifetime(localDownload) {} }
 
             do {
+                try checkOperation(id)
                 let attributes = try await client.getAttributes(at: entry.path)
                 if let mode = attributes.permissions,
                    (mode & 0xF000) != 0x8000 {
@@ -652,17 +706,12 @@ final class MARCRemoteFiles {
                     throw MARCAIError.message("The server did not provide this file’s size.")
                 }
 
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
                 transferTotal = total
                 transferPhase = forPreview ? "Preparing preview" : "Downloading"
-                let folder = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("MARC-\(UUID().uuidString)", isDirectory: true)
-                directory = folder
-                try FileManager.default.createDirectory(
-                    at: folder, withIntermediateDirectories: true
-                )
-                let destination = folder.appendingPathComponent(entry.name)
+                let artifact = try MARCLocalDownload(name: entry.name, forPreview: forPreview)
+                localDownload = artifact
+                let destination = artifact.url
                 guard FileManager.default.createFile(
                     atPath: destination.path, contents: nil
                 ) else {
@@ -678,10 +727,10 @@ final class MARCRemoteFiles {
                 var offset: UInt64 = 0
 
                 while offset < total {
-                    try Task.checkCancellation()
-                    guard generation == id else { throw CancellationError() }
+                    try checkOperation(id)
                     let length = UInt32(min(UInt64(32768), total - offset))
                     let buffer = try await file.read(from: offset, length: length)
+                    try checkOperation(id)
                     guard buffer.readableBytes > 0 else {
                         throw MARCAIError.message("The remote file changed during download.")
                     }
@@ -692,8 +741,7 @@ final class MARCRemoteFiles {
                     }
                 }
 
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
                 transferBytes = offset
                 progress = 1
                 transferPhase = forPreview ? "Opening preview" : "Verifying download"
@@ -708,19 +756,18 @@ final class MARCRemoteFiles {
                 remote = nil
                 try await output.close()
                 local = nil
-                try Task.checkCancellation()
-                guard generation == id else { throw CancellationError() }
+                try checkOperation(id)
 
                 progress = 1
                 // Quick Look / the save sheet is the completion feedback.
                 // Preview needs a temporary local copy, not a second download toast.
                 completionTitle = nil
                 notice = nil
-                downloaded = destination
+                downloaded = artifact
             } catch {
                 try? await remote?.close()
                 try? await local?.close()
-                if let directory { try? FileManager.default.removeItem(at: directory) }
+                localDownload = nil
                 guard generation == id else { return }
                 if Task.isCancelled {
                     notice = forPreview ? "Preview cancelled." : "Download cancelled."
@@ -732,7 +779,14 @@ final class MARCRemoteFiles {
     }
     func perform(_ action: String, entry: MARCRemoteEntry,
                  extras: [String: Any] = [:], refresh: Bool = false) async throws -> MARCFileReply {
-        guard ready, !busy, let ssh else {
+        try await perform(action, entry: entry, extras: extras, refresh: refresh, reservedArchive: false)
+    }
+
+    private func perform(_ action: String, entry: MARCRemoteEntry,
+                         extras: [String: Any], refresh: Bool,
+                         reservedArchive: Bool) async throws -> MARCFileReply {
+        try Task.checkCancellation()
+        guard ready, (!busy || reservedArchive), let ssh else {
             throw MARCAIError.message("Wait for the current operation, or reconnect Files.")
         }
         let token = generation
@@ -746,7 +800,7 @@ final class MARCRemoteFiles {
         case "saveText": activity = "Saving text file"
         default: activity = "Loading file details"
         }
-        defer { if generation == token { busy = false } }
+        defer { if generation == token, !reservedArchive { busy = false } }
         var request = extras
         request["action"] = action
         request["path"] = entry.path
@@ -770,14 +824,14 @@ final class MARCRemoteFiles {
                     filePath: temporary, flags: [.write, .create, .forceCreate]
                 )
                 stagedFile = file
+                try checkOperation(token)
                 _ = try await MARCFileBridge.request(
                     ["action": "permissions", "path": temporary, "mode": 0o600],
                     using: ssh
                 )
                 var offset = 0
                 while offset < data.count {
-                    try Task.checkCancellation()
-                    guard generation == token else { throw CancellationError() }
+                    try checkOperation(token)
                     let end = min(data.count, offset + 32768)
                     var buffer = ByteBuffer()
                     buffer.writeBytes(data[offset..<end])
@@ -789,6 +843,7 @@ final class MARCRemoteFiles {
                 request.removeValue(forKey: "data")
                 request["staged"] = temporary
             }
+            try checkOperation(token)
             let reply = try await MARCFileBridge.request(request, using: ssh)
             if let staged, let stagingClient { try? await stagingClient.remove(at: staged) }
             staged = nil
@@ -805,7 +860,8 @@ final class MARCRemoteFiles {
                     entries = rows
                 } catch is CancellationError { throw CancellationError() }
                 catch {
-                    if generation == token { failure = "The action completed, but the folder could not refresh. Tap Refresh." }
+                    try checkOperation(token)
+                    failure = "The action completed, but the folder could not refresh. Tap Refresh."
                 }
             }
             return reply
@@ -819,19 +875,43 @@ final class MARCRemoteFiles {
     func downloadFolder(_ entry: MARCRemoteEntry) {
         guard ready, !busy else { return }
         let token = generation
+        // Reserve ownership before the task is scheduled, as file transfers do.
+        busy = true
+        transferring = true
+        beginTransfer(name: entry.name)
+        transferPhase = "Preparing folder"
+        activity = "Preparing folder archive"
+        failure = nil
+        notice = nil
         operation = Task { @MainActor in
+            var handedOff = false
+            defer {
+                if generation == token, !handedOff {
+                    busy = false
+                    transferring = false
+                    operation = nil
+                }
+            }
             do {
-                let result = try await perform("archive", entry: entry)
-                guard generation == token, let path = result.archive,
-                      let folder = result.archiveDirectory else { return }
+                try checkOperation(token)
+                let result = try await perform("archive", entry: entry, extras: [:],
+                                               refresh: false, reservedArchive: true)
+                try checkOperation(token)
+                guard let path = result.archive, let folder = result.archiveDirectory else {
+                    throw MARCAIError.message("The folder archive could not be prepared.")
+                }
                 let archive = MARCRemoteEntry(
                     name: (path as NSString).lastPathComponent, path: path,
                     directory: false, size: nil, modified: nil, mode: nil
                 )
+                // Download is synchronous: ownership transfers without an await gap.
+                busy = false
+                handedOff = true
                 download(archive, archiveDirectory: folder)
             } catch {
-                guard generation == token, !Task.isCancelled else { return }
-                failure = error.localizedDescription
+                guard generation == token else { return }
+                if Task.isCancelled { notice = "Folder download cancelled." }
+                else { failure = error.localizedDescription }
             }
         }
     }
@@ -845,16 +925,18 @@ struct FilesScreen: View {
     var onClose: (() -> Void)? = nil
     @State private var selectedEntry: MARCRemoteEntry?
     @State private var actionSheetVisible = false
-    @State private var pendingDownloadURL: URL?
+    @State private var pendingDownload: MARCLocalDownload?
     @State private var search = ""
     @State private var showHidden = false
     @State private var importing = false
     @State private var choosingPhoto = false
     @State private var photoSelection: PhotosPickerItem?
     @State private var preparingPhoto = false
-    @State private var export: MARCFileExport?
-    @State private var preview: MARCFileExport?
-    @State private var previewRequested = false
+    @State private var photoPreparationID = UUID()
+    @State private var photoDestination: MARCFileDestination?
+    @State private var importDestination: MARCFileDestination?
+    @State private var export: MARCLocalDownload?
+    @State private var preview: MARCLocalDownload?
     @State private var showTransferProgress = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -876,38 +958,37 @@ struct FilesScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
 
         VStack(spacing: 12) {
-            HStack {
-                if let onClose {
-                    Button(action: onClose) {
-                        Image(systemName: "chevron.left").frame(width: 36, height: 44)
-                    }.tint(p.accent).accessibilityLabel("Return to Terminal")
+            HStack(spacing: 8) {
+                Group {
+                    if let onClose {
+                        Button(action: onClose) {
+                            Label("Back", systemImage: "chevron.left")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(p.accent)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Return to previous screen")
+                    }
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Files")
-                        .font(.system(size: 22, weight: .semibold))
-                    Text(monitor.server?.name ?? "No connected Mac")
-                        .font(.system(size: 11))
-                        .foregroundStyle(p.muted)
-                }
-                Spacer()
-                Button {
-                    files.browse(files.path)
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .frame(width: 40, height: 40)
-                }
-                .disabled(!files.ready || files.busy)
-                .accessibilityLabel("Refresh folder")
-
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Files")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(p.muted)
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 Menu {
                     Button {
-                        importing = true
+                        importDestination = files.captureDestination()
+                        importing = importDestination != nil
                     } label: {
                         Label("Files", systemImage: "folder")
                     }
                     Button {
                         photoSelection = nil
-                        choosingPhoto = true
+                        photoDestination = files.captureDestination()
+                        choosingPhoto = photoDestination != nil
                     } label: {
                         Label("Photos & Videos", systemImage: "photo.on.rectangle")
                     }
@@ -917,8 +998,22 @@ struct FilesScreen: View {
                 }
                 .disabled(!files.ready || files.busy || preparingPhoto)
                 .accessibilityLabel("Choose upload source")
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
+            .frame(minHeight: 44)
             .foregroundStyle(p.accent)
+
+            if preparingPhoto || files.transferring {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini).tint(p.accent)
+                    Text(preparingPhoto ? "Preparing media…" :
+                         (files.cancellingTransfer ? "Cancelling…" : files.transferPhase))
+                        .font(.system(size: 11))
+                        .foregroundStyle(p.muted)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+            }
 
             HStack(spacing: 10) {
                 Button {
@@ -987,7 +1082,7 @@ struct FilesScreen: View {
                             filename: files.transferName,
                             symbol: files.previewTransfer ? "eye" : (files.uploadingTransfer ? "arrow.up" : "arrow.down"),
                             detail: transferDetail,
-                            progress: files.transferTotal == nil ? nil : files.progress,
+                            progress: files.transferTotal == nil || files.progress >= 1 ? nil : files.progress,
                             cancel: files.cancellingTransfer ? nil : { files.cancelTransfer() }
                         )
                     } else if let title = files.completionTitle {
@@ -1073,6 +1168,8 @@ struct FilesScreen: View {
                 }
             }
             .contentMargins(.bottom, 16, for: .scrollContent)
+            // Keep rows inside the list's allocated viewport above navigation.
+            .clipped()
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: files.lastUploadedPath) { _, uploaded in
@@ -1132,7 +1229,12 @@ struct FilesScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: connectionID) { _, _ in
             selectedEntry = nil
-            pendingDownloadURL = nil
+            pendingDownload = nil
+            importing = false
+            choosingPhoto = false
+            photoSelection = nil
+            photoPreparationID = UUID()
+            preparingPhoto = false
         }
         .task(id: connectionID) {
             guard scenePhase != .background, monitor.connected,
@@ -1146,13 +1248,15 @@ struct FilesScreen: View {
             preferredItemEncoding: .current
         )
         .task(id: photoSelection) {
-            guard let item = photoSelection else { return }
-            let serverID = monitor.server?.id
-            let folder = files.path
+            guard !Task.isCancelled, let item = photoSelection,
+                  let destination = photoDestination else { return }
+            let preparation = UUID()
+            photoPreparationID = preparation
+            let folder = destination.path
             preparingPhoto = true
             var imported: URL?
 
-            defer { preparingPhoto = false }
+            defer { if photoPreparationID == preparation { preparingPhoto = false } }
 
             do {
                 guard let media = try await item.loadTransferable(
@@ -1166,27 +1270,26 @@ struct FilesScreen: View {
                 try Task.checkCancellation()
 
                 guard scenePhase != .background,
-                      monitor.server?.id == serverID,
-                      files.path == folder,
+                      files.matchesDestination(destination),
                       files.ready, !files.busy else {
                     throw MARCAIError.message(
                         "The destination changed. Select the item again."
                     )
                 }
 
-                let destination = folder == "/"
+                let destinationPath = folder == "/"
                     ? "/" + media.url.lastPathComponent
                     : folder + "/" + media.url.lastPathComponent
 
                 guard !files.entries.contains(where: {
-                    $0.path == destination
+                    $0.path == destinationPath
                 }) else {
                     throw MARCAIError.message(
                         "A file with this name already exists in this folder."
                     )
                 }
 
-                files.upload(media.url)
+                files.upload(media.url, to: destination)
                 imported = nil
             } catch {
                 if let imported {
@@ -1194,7 +1297,8 @@ struct FilesScreen: View {
                         at: imported.deletingLastPathComponent()
                     )
                 }
-                if !Task.isCancelled {
+                if !Task.isCancelled, photoPreparationID == preparation,
+                   files.matchesDestination(destination) {
                     files.failure = error.localizedDescription
                 }
             }
@@ -1204,14 +1308,25 @@ struct FilesScreen: View {
             allowedContentTypes: [.item]
         ) { result in
             switch result {
-            case .success(let url): files.upload(url)
-            case .failure(let error): files.failure = error.localizedDescription
+            case .success(let url):
+                guard let importDestination else { return }
+                files.upload(url, to: importDestination)
+            case .failure(let error):
+                if let importDestination, files.matchesDestination(importDestination) {
+                    files.failure = error.localizedDescription
+                }
             }
         }
-        .onChange(of: files.downloaded) { _, url in
-            guard let url else { return }
-            pendingDownloadURL = url
-            presentDownloadedFile()
+        .onAppear { receiveDownloadedFile() }
+        .onDisappear {
+            pendingDownload = nil
+            if files.transferring && files.previewTransfer { files.cancelTransfer() }
+        }
+        .onChange(of: files.downloaded?.id) { _, _ in
+            receiveDownloadedFile()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { presentDownloadedFile() }
         }
         .alert("Files", isPresented: Binding(
             get: { files.failure != nil },
@@ -1228,7 +1343,6 @@ struct FilesScreen: View {
                 open: { selectedEntry = nil; open(entry) },
                 download: {
                     selectedEntry = nil
-                    previewRequested = false
                     if entry.directory { files.downloadFolder(entry) }
                     else { files.download(entry) }
                 },
@@ -1239,11 +1353,11 @@ struct FilesScreen: View {
                 }
             )
         }
-        .sheet(item: $preview, onDismiss: cleanLocalDownload) { item in
-            MARCRemoteFilePreview(url: item.url)
+        .sheet(item: $preview, onDismiss: presentDownloadedFile) { item in
+            MARCRemoteFilePreview(file: item)
         }
-        .sheet(item: $export, onDismiss: cleanLocalDownload) { item in
-            MARCFilesShareSheet(url: item.url)
+        .sheet(item: $export, onDismiss: presentDownloadedFile) { item in
+            MARCFilesShareSheet(file: item)
         }
     }
 
@@ -1251,7 +1365,10 @@ struct FilesScreen: View {
         func bytes(_ count: UInt64) -> String {
             ByteCountFormatter.string(fromByteCount: Int64(clamping: count), countStyle: .file)
         }
-        guard let total = files.transferTotal else { return "Connecting to your Mac…" }
+        guard let total = files.transferTotal else {
+            return files.transferPhase == "Preparing folder"
+                ? "Packaging folder contents…" : "Connecting to your Mac…"
+        }
         return "\(bytes(files.transferBytes)) of \(bytes(total))"
     }
 
@@ -1260,29 +1377,25 @@ struct FilesScreen: View {
             search = ""
             files.browse(entry.path)
         } else {
-            previewRequested = true
             files.download(entry, forPreview: true)
         }
     }
 
-    private func presentDownloadedFile() {
-        guard !actionSheetVisible, let url = pendingDownloadURL else { return }
-        pendingDownloadURL = nil
-        if previewRequested { preview = MARCFileExport(url: url) }
-        else { export = MARCFileExport(url: url) }
+    private func receiveDownloadedFile() {
+        guard let file = files.downloaded else { return }
+        // Transfer ownership out of the connection model before presenting.
+        pendingDownload = file
+        files.downloaded = nil
+        presentDownloadedFile()
     }
 
-    private func cleanLocalDownload() {
-        pendingDownloadURL = nil
-        guard let url = files.downloaded else { return }
-        let folder = url.deletingLastPathComponent()
-        if folder.lastPathComponent.hasPrefix("MARC-") &&
-            folder.deletingLastPathComponent().standardizedFileURL ==
-            FileManager.default.temporaryDirectory.standardizedFileURL {
-            try? FileManager.default.removeItem(at: folder)
-        }
-        files.downloaded = nil
-        previewRequested = false
+    private func presentDownloadedFile() {
+        guard scenePhase == .active, !actionSheetVisible,
+              selectedEntry == nil, preview == nil, export == nil,
+              let file = pendingDownload else { return }
+        pendingDownload = nil
+        if file.forPreview { preview = file }
+        else { export = file }
     }
 
     private func detail(_ entry: MARCRemoteEntry) -> String {
@@ -1297,11 +1410,18 @@ struct FilesScreen: View {
 }
 
 private struct MARCFilesShareSheet: UIViewControllerRepresentable {
-    let url: URL
+    let file: MARCLocalDownload
+
+    func makeCoordinator() -> Coordinator { Coordinator(file: file) }
+
+    final class Coordinator {
+        let file: MARCLocalDownload
+        init(file: MARCLocalDownload) { self.file = file }
+    }
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(
-            activityItems: [url], applicationActivities: nil
+            activityItems: [context.coordinator.file.url], applicationActivities: nil
         )
     }
 
@@ -1329,10 +1449,13 @@ struct ControlsScreen: View {
     @State private var refreshing = false
     @State private var failure: String?
     @State private var notice: String?
-    @State private var wirelessReadAt: Date?
+    @State private var wirelessReadAt: TimeInterval?
     @State private var revision = UUID()
+    @State private var actionTask: Task<Void, Never>?
+    @State private var visible = false
+    @State private var controlConnection: UUID?
 
-@State private var confirmWiFiOff = false
+    @State private var confirmWiFiOff = false
     @State private var mediaPlayer = 0
     @State private var confirmLock = false
     @State private var showControlDetails = false
@@ -1341,9 +1464,12 @@ struct ControlsScreen: View {
     @State private var showDisplayActions = false
     private var controlsEnabled: Bool { usable && !busy && !refreshing }
 
-    private var usable: Bool { monitor.connected && scenePhase == .active }
+    private var usable: Bool {
+        visible && monitor.connected && scenePhase == .active &&
+            controlConnection == monitor.controlConnectionID
+    }
     private var connectionID: String {
-        "\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)-\(scenePhase)"
+        "\(visible)-\(monitor.controlConnectionID)-\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)-\(scenePhase)"
     }
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -1378,7 +1504,6 @@ struct ControlsScreen: View {
                             send(.playPause, value: playbackTarget)
                         }
                     }
-                    controlFeedback(for: [.lock, .displaySleep], palette: p)
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -1405,7 +1530,6 @@ struct ControlsScreen: View {
                         action: .bluetooth, palette: p
                     )
 
-                    controlFeedback(for: [.wifi, .bluetooth], palette: p)
                 }
                 .padding(16)
                 .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
@@ -1419,7 +1543,7 @@ struct ControlsScreen: View {
                             title: "Mac volume",
                             symbol: "speaker.wave.2.fill",
                             available: state?.volume != nil,
-                            enabled: controlsEnabled,
+                            enabled: controlsEnabled && !editingBrightness,
                             palette: p
                         ) { editing in
                             editingVolume = editing
@@ -1445,7 +1569,7 @@ struct ControlsScreen: View {
                             title: "Display brightness",
                             symbol: "sun.max.fill",
                             available: state?.brightness != nil,
-                            enabled: controlsEnabled,
+                            enabled: controlsEnabled && !editingVolume,
                             palette: p
                         ) { editing in
                             editingBrightness = editing
@@ -1498,7 +1622,6 @@ struct ControlsScreen: View {
                     .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
                 }
 
-                controlFeedback(for: [.volume, .brightness], palette: p)
 
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -1567,7 +1690,6 @@ struct ControlsScreen: View {
                         )
                     }
 
-                    controlFeedback(for: [.mute, .output], palette: p)
 
                 }
                 .padding(16)
@@ -1729,37 +1851,35 @@ struct ControlsScreen: View {
                 Text("Display on wakes the screen. A locked Mac stays locked.")
             }
 
+            .onAppear { visible = true }
             .task(id: connectionID) {
-                revision = UUID()
-                busy = false
-                refreshing = false
-                editingVolume = false
-                editingBrightness = false
-                feedbackAction = nil
+                guard !Task.isCancelled else { return }
+                stopControlWork()
+                controlConnection = monitor.controlConnectionID
                 brightness = 0
                 selectedDisplayID = nil
                 state = nil
                 volume = 0
-                failure = nil
-                notice = nil
                 wirelessReadAt = nil
                 guard usable else { return }
                 while !Task.isCancelled && usable {
-                    let wireless = wirelessReadAt.map { Date().timeIntervalSince($0) >= 30 } ?? true
+                    let wireless = wirelessReadAt.map { ProcessInfo.processInfo.systemUptime - $0 >= 30 } ?? true
                     await refresh(wireless: wireless)
                     do { try await Task.sleep(for: .seconds(5)) }
                     catch { return }
                 }
             }
             .onDisappear {
-                revision = UUID()
-                busy = false
-                notice = nil
+                visible = false
+                controlConnection = nil
+                stopControlWork()
             }
             .task(id: noticeEvent) {
                 guard notice != nil else { return }
+                let event = noticeEvent
                 do { try await Task.sleep(for: .seconds(2)) }
                 catch { return }
+                guard !Task.isCancelled, noticeEvent == event, usable else { return }
                 notice = nil
             }
     }
@@ -1769,12 +1889,6 @@ struct ControlsScreen: View {
             state?.brightnessError, state?.audioOutputError, state?.audioError
         ].compactMap { $0 }.filter { !$0.isEmpty }
         return Array(Set(errors)).sorted().joined(separator: "\n\n")
-    }
-
-    private func controlFeedback(
-        for actions: [MARCControlAction], palette: MARCPalette
-    ) -> some View {
-        EmptyView()
     }
 
     @ViewBuilder
@@ -1959,21 +2073,46 @@ struct ControlsScreen: View {
         }
         if !editingVolume, let actual = response.volume { volume = Double(actual) }
         if !editingBrightness, let actual = response.brightness { brightness = Double(actual) }
-        if response.wirelessIncluded { wirelessReadAt = Date() }
+        if response.wirelessIncluded { wirelessReadAt = ProcessInfo.processInfo.systemUptime }
+    }
+    @MainActor
+    private func stopControlWork() {
+        revision = UUID()
+        actionTask?.cancel()
+        actionTask = nil
+        busy = false
+        refreshing = false
+        editingVolume = false
+        editingBrightness = false
+        feedbackAction = nil
+        lastValue = nil
+        failure = nil
+        notice = nil
+        confirmWiFiOff = false
+        confirmLock = false
+        showDisplayActions = false
+        showControlDetails = false
+        showMediaSetup = false
+        copiedMediaCommand = false
     }
     @MainActor
     private func refresh(wireless: Bool) async {
-        guard usable, !busy, !refreshing, !editingVolume, !editingBrightness else { return }
+        guard !Task.isCancelled, usable, !busy, !refreshing,
+              !editingVolume, !editingBrightness else { return }
         refreshing = true
         let token = revision
+        let connection = monitor.controlConnectionID
+        let display = selectedDisplayID
         defer { if revision == token { refreshing = false } }
         do {
-            let response = try await monitor.marcControlRequest(includeWireless: wireless, displayID: selectedDisplayID)
-            guard revision == token, !busy, !editingVolume, !editingBrightness, !Task.isCancelled else { return }
+            let response = try await monitor.marcControlRequest(includeWireless: wireless,
+                displayID: display, expectedConnection: connection)
+            guard revision == token, usable, selectedDisplayID == display,
+                  !busy, !editingVolume, !editingBrightness, !Task.isCancelled else { return }
             accept(response)
             if failure == "Live controls could not refresh. Tap refresh to retry." { failure = nil }
         } catch is CancellationError {} catch {
-            guard revision == token, !Task.isCancelled else { return }
+            guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
             feedbackAction = nil
             failure = "Live controls could not refresh. Tap refresh to retry."
         }
@@ -1981,6 +2120,8 @@ struct ControlsScreen: View {
     @MainActor
     private func send(_ action: MARCControlAction, value: Int) {
         guard controlsEnabled else { return }
+        let connection = monitor.controlConnectionID
+        let display = selectedDisplayID
         // Avoid sending unchanged settings back to the Mac.
         switch action {
         case .volume: if state?.volume == value { return }
@@ -1998,12 +2139,16 @@ struct ControlsScreen: View {
         notice = nil
         revision = UUID()
         let token = revision
-        Task { @MainActor in
-            defer { if revision == token { busy = false } }
+        actionTask = Task { @MainActor in
+            defer { if revision == token { busy = false; actionTask = nil } }
             do {
+                try Task.checkCancellation()
+                guard revision == token, usable, selectedDisplayID == display,
+                      controlConnection == connection else { throw CancellationError() }
                 let response = try await monitor.marcControlRequest(action, value: value,
-                    includeWireless: action == .wifi || action == .bluetooth, displayID: selectedDisplayID)
-                guard revision == token, usable else { return }
+                    includeWireless: action == .wifi || action == .bluetooth,
+                    displayID: display, expectedConnection: connection)
+                guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
                 accept(response)
                 if let error = response.actionError {
                     failure = error
@@ -2028,7 +2173,7 @@ struct ControlsScreen: View {
                 }
                 noticeEvent = UUID()
             } catch is CancellationError {} catch {
-                guard revision == token else { return }
+                guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 if action == .wifi && value == 0 {
                     failure = "Could not confirm Wi-Fi off. The SSH connection may have stopped."
@@ -2050,6 +2195,9 @@ private struct MARCTerminationSheet: View {
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     @State private var busy = false
     @State private var failure: String?
+    @State private var visible = false
+    @State private var requestID = UUID()
+    @State private var task: Task<Void, Never>?
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -2084,7 +2232,7 @@ private struct MARCTerminationSheet: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Memory").foregroundStyle(p.muted)
                         Text(ByteCountFormatter.string(
-                            fromByteCount: Int64(process.memory),
+                            fromByteCount: MARCProcessRows.memoryBytes(process.memory),
                             countStyle: .binary
                         ))
                     }
@@ -2116,19 +2264,7 @@ private struct MARCTerminationSheet: View {
                     }
                     .disabled(busy)
 
-                    Button {
-                        busy = true
-                        failure = nil
-                        Task { @MainActor in
-                            defer { busy = false }
-                            do {
-                                try await terminate()
-                                dismiss()
-                            } catch {
-                                failure = error.localizedDescription
-                            }
-                        }
-                    } label: {
+                    Button(action: confirmTermination) {
                         HStack(spacing: 8) {
                             if busy { ProgressView().tint(.white) }
                             Text(busy ? "Terminating…" : "Terminate")
@@ -2140,7 +2276,7 @@ private struct MARCTerminationSheet: View {
                         )
                         .foregroundStyle(.white)
                     }
-                    .disabled(busy)
+                    .disabled(busy || process.pid <= 1 || process.started == nil)
                 }
                 .font(.system(size: 14, weight: .semibold))
                 .buttonStyle(.plain)
@@ -2152,6 +2288,41 @@ private struct MARCTerminationSheet: View {
         .presentationDetents([.height(350), .medium])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(busy)
+        .onAppear { visible = true }
+        .onDisappear { stopTermination() }
+    }
+
+    @MainActor
+    private func stopTermination() {
+        visible = false
+        requestID = UUID()
+        task?.cancel()
+        task = nil
+        busy = false
+    }
+
+    @MainActor
+    private func confirmTermination() {
+        guard visible, !busy, process.pid > 1, process.started != nil else { return }
+        busy = true
+        failure = nil
+        let request = UUID()
+        requestID = request
+        task = Task { @MainActor in
+            defer { if requestID == request { busy = false; task = nil } }
+            do {
+                try Task.checkCancellation()
+                guard visible, requestID == request else { throw CancellationError() }
+                try await terminate()
+                try Task.checkCancellation()
+                guard visible, requestID == request else { return }
+                dismiss()
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled, visible, requestID == request else { return }
+                failure = error.localizedDescription
+            }
+        }
     }
 }
 
@@ -2320,10 +2491,10 @@ private struct MARCFileCompletionCard: View {
 
 
 private struct MARCRemoteFilePreview: UIViewControllerRepresentable {
-    let url: URL
+    let file: MARCLocalDownload
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(url: url)
+        Coordinator(file: file)
     }
 
     func makeUIViewController(context: Context) -> UINavigationController {
@@ -2345,11 +2516,11 @@ private struct MARCRemoteFilePreview: UIViewControllerRepresentable {
     ) {}
 
     final class Coordinator: NSObject, QLPreviewControllerDataSource {
-        let url: URL
+        let file: MARCLocalDownload
         weak var navigation: UINavigationController?
 
-        init(url: URL) {
-            self.url = url
+        init(file: MARCLocalDownload) {
+            self.file = file
         }
 
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
@@ -2360,7 +2531,7 @@ private struct MARCRemoteFilePreview: UIViewControllerRepresentable {
             _ controller: QLPreviewController,
             previewItemAt index: Int
         ) -> QLPreviewItem {
-            url as NSURL
+            file.url as NSURL
         }
 
         @objc func close() {

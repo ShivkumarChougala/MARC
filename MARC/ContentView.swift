@@ -8,6 +8,7 @@ struct ContentView: View {
     @AppStorage("marc.appearance") private var appearance = "system"
     @State private var tab = 0
     @State private var terminalReturnTab = 0
+    @State private var workspaceReturnTab = 0
     @State private var initialConnectionCheck = true
     @State private var terminalKeyboardVisible = false
     @Environment(\.scenePhase) private var scenePhase
@@ -15,40 +16,43 @@ struct ContentView: View {
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        Group {
-            switch tab {
-            case 1: NavigationStack { ProcessesScreen(monitor: store.monitor) }
-            case 2:
-                    MARCKeyboardContainer {
-                        TerminalScreen(
-                            monitor: store.monitor,
-                            workspace: terminalWorkspace,
-                            navigate: { destination in
-                                UIApplication.shared.sendAction(
-                                    #selector(UIResponder.resignFirstResponder),
-                                    to: nil, from: nil, for: nil
-                                )
-                                tab = destination < 0 ? terminalReturnTab : destination
-                            }
-                        )
-                        .environment(\.colorScheme, scheme)
+        VStack(spacing: 0) {
+            Group {
+                switch tab {
+                case 1:
+                    NavigationStack {
+                        ProcessesScreen(monitor: store.monitor, onClose: closeWorkspace)
                     }
-                    .background(p.background.ignoresSafeArea(.container, edges: .top))
-            case 3:
-                NavigationStack {
-                    FilesScreen(monitor: store.monitor, files: remoteFiles, onShowTerminal: { path in
-                        guard terminalWorkspace.stageDirectory(path) else { return }
-                        terminalReturnTab = 3
-                        tab = 2
-                    })
+                case 2:
+                        MARCKeyboardContainer {
+                            TerminalScreen(
+                                monitor: store.monitor,
+                                workspace: terminalWorkspace,
+                                navigate: { destination in
+                                    UIApplication.shared.sendAction(
+                                        #selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil
+                                    )
+                                    tab = destination < 0 ? terminalReturnTab : destination
+                                }
+                            )
+                            .environment(\.colorScheme, scheme)
+                        }
+                        .background(p.background.ignoresSafeArea(.container, edges: .top))
+                case 3:
+                    NavigationStack {
+                        FilesScreen(monitor: store.monitor, files: remoteFiles, onShowTerminal: { path in
+                            guard terminalWorkspace.stageDirectory(path) else { return }
+                            terminalReturnTab = 3
+                            tab = 2
+                        }, onClose: closeWorkspace)
+                    }
+                case 4: NavigationStack { SettingsScreen(store: store) }
+                default: NavigationStack { HomeScreen(store: store, openSettings: { tab = 4 }) }
                 }
-            case 4: NavigationStack { SettingsScreen(store: store) }
-            default: NavigationStack { HomeScreen(store: store, openSettings: { tab = 4 }) }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if tab != 2 {
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if tab != 1 && tab != 2 && tab != 3 {
             HStack(spacing: 2) {
                 navItem("Status", symbol: "gauge.with.needle", index: 0, palette: p)
                 navItem("Processes", symbol: "slider.horizontal.3", index: 1, palette: p)
@@ -87,7 +91,7 @@ struct ContentView: View {
         .marcCanvas()
         .overlay {
             if !store.servers.isEmpty &&
-                (initialConnectionCheck ||
+                ((initialConnectionCheck && store.monitor.error == nil) ||
                  store.monitor.connecting ||
                  (store.monitor.connected &&
                   store.monitor.snapshot == nil &&
@@ -96,18 +100,12 @@ struct ContentView: View {
                     serverName: store.monitor.server?.name ?? "your Mac",
                     cancel: {
                         initialConnectionCheck = false
-                        Task { await store.monitor.disconnect() }
+                        store.monitor.cancelConnection()
                     }
                 )
             }
         }
         .task(id: scenePhase) {
-            if scenePhase == .background {
-                terminalWorkspace.pause()
-                remoteFiles.stop()
-                await store.monitor.disconnect()
-                return
-            }
             guard scenePhase == .active else { return }
             while !Task.isCancelled {
                 await store.reconnectRememberedServer()
@@ -120,10 +118,17 @@ struct ContentView: View {
                 }
             }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                terminalWorkspace.pause()
+                remoteFiles.stop()
+                store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
+            }
+        }
         .onDisappear {
             terminalWorkspace.pause()
             remoteFiles.stop()
-            Task { await store.monitor.disconnect() }
+            store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
         }
         .onChange(of: store.monitor.connected) { _, connected in
             if !connected { terminalWorkspace.pause(); remoteFiles.stop() }
@@ -134,9 +139,18 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
     }
+    private func closeWorkspace() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
+        tab = workspaceReturnTab
+    }
+
     private func navItem(_ title: String, symbol: String, index: Int, palette: MARCPalette) -> some View {
         Button {
             if index == 2 && tab != 2 { terminalReturnTab = tab }
+            if index == 1 || index == 3 { workspaceReturnTab = tab }
             tab = index
         } label: {
             VStack(spacing: 4) {

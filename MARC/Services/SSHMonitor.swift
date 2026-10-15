@@ -60,6 +60,9 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var history: [SystemHistoryPoint] = []
     private(set) var archivedHistory: [SystemHistoryPoint] = []
     private(set) var archiveError: String?
+    private(set) var archivedHistorySeconds: Int?
+    private(set) var archiveLoading = false
+    var statisticsConnectionID: UUID { generation }
     @ObservationIgnored private var archiveRequest = UUID()
 
     private(set) var snapshot: MacSnapshot?
@@ -70,20 +73,25 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var processTotalCount = 0
     private(set) var connecting = false
     private(set) var connected = false
+    private(set) var automaticReconnectEnabled = true
     private(set) var error: String?
     private(set) var connectionIssue: MARCConnectionIssue?
     private(set) var updatedAt: Date?
     @ObservationIgnored private var client: SSHClient?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var collectorWatchdog: Task<Void, Never>?
+    @ObservationIgnored private var collectorHealth = MARCCollectorHealth()
 
     func connect(server: ServerProfile, password: String, hostKey: String) async throws {
         try await connect(server: server, login: .init(password: password, hostKey: hostKey), hostKey: hostKey)
     }
 
     func connect(server: ServerProfile, login: MARCCredentials.Saved, hostKey: String) async throws {
+        automaticReconnectEnabled = true
         let previous = resetConnection()
         let token = generation
+        self.server = server
         connecting = true
         error = nil
         defer { if generation == token { connecting = false } }
@@ -105,6 +113,7 @@ struct MacSnapshot: Decodable, Sendable {
             guard generation == token, !Task.isCancelled else { try? await opened.close(); throw CancellationError() }
             client = opened
             self.server = server
+            startCollectorWatchdog(token: token)
             let stream = try await opened.executeCommandStream(Self.command)
             guard generation == token, !Task.isCancelled else {
                 try? await opened.close()
@@ -120,7 +129,6 @@ struct MacSnapshot: Decodable, Sendable {
             polling = Task { @MainActor [weak self] in
                 var pending = Data()
                 var failures = 0
-                var lastPublished = 0.0
                 do {
                     for try await event in stream {
                         guard !Task.isCancelled, let self,
@@ -150,10 +158,11 @@ struct MacSnapshot: Decodable, Sendable {
                                     let interval = Double(
                                         [1, 2, 5].contains(choice) ? choice : 2
                                     )
-                                    if lastPublished == 0 ||
-                                       next.sampledAt - lastPublished >= interval - 0.05 {
+                                    if self.collectorHealth.received(
+                                        at: ProcessInfo.processInfo.systemUptime,
+                                        publishInterval: interval
+                                    ) {
                                         self.publish(next)
-                                        lastPublished = next.sampledAt
                                     }
                                 } else {
                                     failures += 1
@@ -172,18 +181,12 @@ struct MacSnapshot: Decodable, Sendable {
                         }
                     }
                     guard let self, self.generation == token else { return }
-                    self.connected = false
-                    self.client = nil
-                    self.polling = nil
-                    self.error = "Collector stopped. Showing last readings. Reconnect in Settings."
-                    try? await opened.close()
+                    self.finishCollector(token: token,
+                        message: "The Mac stopped sending live readings. Reconnecting when available.")
                 } catch {
                     guard let self, self.generation == token else { return }
-                    self.connected = false
-                    self.client = nil
-                    self.polling = nil
-                    self.error = "Live updates stopped. Reconnect to resume readings."
-                    try? await opened.close()
+                    self.finishCollector(token: token,
+                        message: "Live updates stopped. Reconnecting when available.")
                 }
             }
         } catch {
@@ -200,13 +203,64 @@ struct MacSnapshot: Decodable, Sendable {
         }
     }
 
-    func disconnect() async {
+    // Invalidate ownership synchronously; closing an old transport must never
+    // reset a newer connection after a task has been scheduled.
+    func cancelConnection(reconnectAutomatically: Bool = false) {
+        automaticReconnectEnabled = reconnectAutomatically
         let previous = resetConnection()
-        if let previous { try? await previous.close() }
+        if let previous {
+            Task { try? await previous.close() }
+        }
+    }
+
+    private func startCollectorWatchdog(token: UUID) {
+        collectorHealth.start(at: ProcessInfo.processInfo.systemUptime)
+        collectorWatchdog?.cancel()
+        collectorWatchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(5)) }
+                catch { return }
+                guard !Task.isCancelled, let self,
+                      self.generation == token else { return }
+                self.checkCollectorHealth(token: token, at: ProcessInfo.processInfo.systemUptime)
+            }
+        }
+    }
+
+    private func checkCollectorHealth(token: UUID, at now: TimeInterval) {
+        guard generation == token, let timeout = collectorHealth.timeout(at: now) else { return }
+        finishCollector(token: token, message: timeout == .startup
+            ? "The Mac did not start sending readings within 90 seconds. Reconnecting when available."
+            : "No valid readings received for 90 seconds. Reconnecting when available.")
+    }
+
+    /// Retain the last readings for the existing stale-data label, invalidate all
+    /// old callbacks, and close only this connection's captured transport.
+    private func finishCollector(token: UUID, message: String) {
+        guard generation == token else { return }
+        generation = UUID()
+        collectorWatchdog?.cancel()
+        collectorWatchdog = nil
+        collectorHealth.reset()
+        polling?.cancel()
+        polling = nil
+        let previous = client
+        client = nil
+        connected = false
+        connecting = false
+        archiveRequest = UUID()
+        archiveLoading = false
+        error = message
+        connectionIssue = MARCConnectionIssue(kind: .session,
+            title: "Live monitoring interrupted", detail: message)
+        if let previous { Task { try? await previous.close() } }
     }
 
     private func resetConnection() -> SSHClient? {
         generation = UUID()
+        collectorWatchdog?.cancel()
+        collectorWatchdog = nil
+        collectorHealth.reset()
         polling?.cancel()
         polling = nil
         let previous = client
@@ -214,6 +268,12 @@ struct MacSnapshot: Decodable, Sendable {
         connected = false
         connecting = false
         snapshot = nil
+        archiveRequest = UUID()
+        archivedHistory.removeAll(keepingCapacity: true)
+        archiveError = nil
+        archivedHistorySeconds = nil
+        archiveLoading = false
+        processTotalCount = 0
         history.removeAll(keepingCapacity: true)
         downloadRate = nil
         uploadRate = nil
@@ -252,7 +312,6 @@ struct MacSnapshot: Decodable, Sendable {
         uploadRate = newUpload
         diskReadRate = newDiskRead
         diskWriteRate = newDiskWrite
-        print("[MARC] CPU=\(next.cpu), RAM=\(next.memoryPercent), RX=\(String(describing: next.received)), TX=\(String(describing: next.sent))")
         history.append(SystemHistoryPoint(
             date: Date(timeIntervalSince1970: next.sampledAt),
             load: next.details?.load, cpu: next.cpu, memory: next.memoryPercent,
@@ -515,15 +574,30 @@ private struct MARCArchivePoint: Decodable {
 }
 
 extension SSHMonitor {
-    func loadArchivedHistory(seconds: Int) async {
+    func loadArchivedHistory(seconds: Int, expectedConnection: UUID? = nil) async {
+        guard !Task.isCancelled,
+              expectedConnection == nil || expectedConnection == generation else { return }
+        let connectionGeneration = generation
         let request = UUID()
         archiveRequest = request
+        let duration = [900, 1800, 3600].contains(seconds) ? seconds : 3600
+        if archivedHistorySeconds != duration {
+            archivedHistory = []
+            archiveError = nil
+        }
+        archivedHistorySeconds = duration
+        archiveLoading = false
         guard let client, connected, let serverID = server?.id else {
             archivedHistory = []
             archiveError = "Connect to load saved history."
             return
         }
-        let duration = [900, 1800, 3600].contains(seconds) ? seconds : 3600
+        archiveLoading = true
+        defer {
+            if generation == connectionGeneration, archiveRequest == request {
+                archiveLoading = false
+            }
+        }
         let command = """
 python3 - \(duration) <<'MARC_HISTORY'
 import sqlite3, pathlib, json, time, sys
@@ -536,8 +610,8 @@ end = time.time()
 start = end - duration
 bucket = {900: 5, 1800: 5, 3600: 10}[duration]
 rows = db.execute(
-    'SELECT ts, payload FROM samples WHERE ts >= ? ORDER BY ts',
-    (start - 120,)
+    'SELECT ts, payload FROM samples WHERE ts >= ? AND ts <= ? ORDER BY ts',
+    (start - 120, end)
 )
 groups = {}
 previous = None
@@ -591,8 +665,8 @@ MARC_HISTORY
             )
             let data = Data(buffer.readableBytesView)
             let rows = try JSONDecoder().decode([MARCArchivePoint].self, from: data)
-            guard !Task.isCancelled, archiveRequest == request,
-                  server?.id == serverID else { return }
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  archiveRequest == request, server?.id == serverID else { return }
             archivedHistory = rows.map {
                 SystemHistoryPoint(
                     date: Date(timeIntervalSince1970: $0.date),
@@ -603,7 +677,8 @@ MARC_HISTORY
             }
             archiveError = nil
         } catch {
-            guard !Task.isCancelled, archiveRequest == request else { return }
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  archiveRequest == request else { return }
             archivedHistory = []
             archiveError = "Saved history could not be loaded."
         }
@@ -618,11 +693,15 @@ struct MARCProcess: Codable, Identifiable, Equatable, Sendable {
     let cpu: Double
     let memory: Double
     let name: String
-    var id: Int { pid }
+    var id: String { "\(pid):\(started ?? "")" }
 }
 
 extension SSHMonitor {
-    func terminateProcess(_ process: MARCProcess) async throws {
+    var processConnectionID: UUID { generation }
+
+    func terminateProcess(_ process: MARCProcess, expectedConnection: UUID? = nil) async throws {
+        try Task.checkCancellation()
+        if let expectedConnection, expectedConnection != generation { throw CancellationError() }
         guard let client, connected, process.pid > 1,
               process.started != nil else {
             throw NSError(domain: "MARC", code: 11, userInfo: [
@@ -630,6 +709,7 @@ extension SSHMonitor {
             ])
         }
         let encoded = try JSONEncoder().encode(process).base64EncodedString()
+        let connection = generation
         let command = """
 python3 - \(encoded) <<'MARC_TERMINATE'
 import subprocess, json, os, sys, base64, signal
@@ -662,6 +742,8 @@ MARC_TERMINATE
         let buffer = try await client.executeCommand(
             command, maxResponseSize: 8192, mergeStreams: true
         )
+        try Task.checkCancellation()
+        guard connected, generation == connection else { throw CancellationError() }
         let output = String(decoding: buffer.readableBytesView, as: UTF8.self)
         guard output.trimmingCharacters(in: .whitespacesAndNewlines) == "MARC_TERMINATE_OK" else {
             throw NSError(domain: "MARC", code: 12, userInfo: [
@@ -681,13 +763,16 @@ struct MARCProcessResponse: Decodable, Sendable {
 
 
 extension SSHMonitor {
-    func processUpdates() async throws -> AsyncThrowingStream<MARCProcessResponse, Error> {
+    func processUpdates(expectedConnection: UUID? = nil) async throws -> AsyncThrowingStream<MARCProcessResponse, Error> {
+        try Task.checkCancellation()
+        if let expectedConnection, expectedConnection != generation { throw CancellationError() }
         guard let client, connected, let serverID = server?.id else {
             throw NSError(domain: "MARC", code: 20, userInfo: [
                 NSLocalizedDescriptionKey: "Connect to a Mac to view processes."
             ])
         }
         let token = UUID().uuidString
+        let connection = generation
         let command = """
 python3 -u - \(token) <<'MARC_PROCESS_STREAM'
 import subprocess, json, os, datetime, time, pathlib, sys
@@ -769,6 +854,11 @@ finally:
 MARC_PROCESS_STREAM
 """
         let remote = try await client.executeCommandStream(command)
+        guard !Task.isCancelled, connected, generation == connection else {
+            // Cleanup must not inherit cancellation from the abandoned opener.
+            Task { @MainActor in await Self.stopProcessStream(token, using: client) }
+            throw CancellationError()
+        }
 
         return AsyncThrowingStream { continuation in
             let reader = Task { @MainActor [weak self] in
@@ -776,7 +866,8 @@ MARC_PROCESS_STREAM
                 do {
                     for try await event in remote {
                         guard !Task.isCancelled, let self,
-                              self.connected, self.server?.id == serverID else {
+                              self.connected, self.server?.id == serverID,
+                              self.generation == connection else {
                             throw CancellationError()
                         }
                         switch event {
@@ -806,17 +897,16 @@ MARC_PROCESS_STREAM
                     continuation.finish(throwing: error)
                 }
             }
-            continuation.onTermination = { @Sendable [weak self] _ in
+            continuation.onTermination = { @Sendable _ in
                 reader.cancel()
                 Task { @MainActor in
-                    await self?.stopProcessStream(token)
+                    await Self.stopProcessStream(token, using: client)
                 }
             }
         }
     }
 
-    private func stopProcessStream(_ token: String) async {
-        guard let client else { return }
+    private static func stopProcessStream(_ token: String, using client: SSHClient) async {
         let command = """
 python3 - <<'MARC_STOP_PROCESSES'
 import pathlib
@@ -831,10 +921,12 @@ MARC_STOP_PROCESSES
 
 extension SSHMonitor {
     func marcInstalledAIModels() async throws -> [String] {
+        try Task.checkCancellation()
         guard connected, let client else {
             throw MARCAIError.message("Connect a Mac first.")
         }
         let serverID = server?.id
+        let connection = generation
         let command = """
         python3 - <<'MARC_MODELS'
         import json, urllib.request
@@ -860,7 +952,7 @@ extension SSHMonitor {
             command, maxResponseSize: 262144, mergeStreams: false
         )
         try Task.checkCancellation()
-        guard connected, server?.id == serverID else {
+        guard connected, server?.id == serverID, generation == connection else {
             throw CancellationError()
         }
         let data = Data(output.readableBytesView)
@@ -941,9 +1033,13 @@ private struct MARCControlRequest: Encodable {
 }
 
 extension SSHMonitor {
+    var controlConnectionID: UUID { generation }
+
     func marcControlRequest(_ action: MARCControlAction = .read,
-                            value: Int? = nil, includeWireless: Bool = true, displayID: Int? = nil) async throws -> MARCControlState {
+                            value: Int? = nil, includeWireless: Bool = true, displayID: Int? = nil,
+                            expectedConnection: UUID? = nil) async throws -> MARCControlState {
         try Task.checkCancellation()
+        if let expectedConnection, expectedConnection != generation { throw CancellationError() }
         guard connected, let client else {
             throw MARCAIError.message("Connect to a Mac in Settings first.")
         }

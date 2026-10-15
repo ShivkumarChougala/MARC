@@ -16,15 +16,22 @@ import Observation
     func add(_ profile: ServerProfile) {
         servers.append(profile); selectedID = profile.id; persist()
     }
-    func remove(_ profile: ServerProfile) {
-        MARCCredentials.remove(profile.id)
+    @discardableResult
+    func remove(_ profile: ServerProfile) -> Bool {
+        guard servers.contains(where: { $0.id == profile.id }) else { return true }
+        do { try MARCCredentials.removeChecked(profile.id) }
+        catch {
+            storageError = error.localizedDescription
+            return false
+        }
         if UserDefaults.standard.string(forKey: "marc.autoServer") == profile.id.uuidString {
             UserDefaults.standard.removeObject(forKey: "marc.autoServer")
         }
-        if monitor.server?.id == profile.id { Task { await monitor.disconnect() } }
+        if monitor.server?.id == profile.id { monitor.cancelConnection() }
         servers.removeAll { $0.id == profile.id }
         if selectedID == profile.id { selectedID = servers.first?.id }
         persist()
+        return true
     }
     func update(_ profile: ServerProfile) {
         guard let index = servers.firstIndex(where: { $0.id == profile.id }) else { return }
@@ -116,27 +123,40 @@ enum MARCCredentials {
     }
 
     static func remove(_ id: UUID) {
-        SecItemDelete(query(id) as CFDictionary)
+        try? removeChecked(id)
+    }
+
+    static func removeChecked(_ id: UUID) throws {
+        let status = SecItemDelete(query(id) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw MARCKeyStoreError.storage(status)
+        }
     }
 }
 
 extension ServerStore {
     func reconnectRememberedServer() async {
-        guard !monitor.connected, !monitor.connecting,
+        guard !Task.isCancelled, monitor.automaticReconnectEnabled,
+              monitor.connectionIssue?.canRetry != false,
+              !monitor.connected, !monitor.connecting,
               let text = UserDefaults.standard.string(forKey: "marc.autoServer"),
               let id = UUID(uuidString: text),
-              let server = servers.first(where: { $0.id == id }),
-              let saved = MARCCredentials.read(id) else { return }
+              let server = servers.first(where: { $0.id == id }) else { return }
 
-        selectedID = id
         do {
+            guard let saved = try MARCCredentials.readChecked(id) else { return }
+            try Task.checkCancellation()
+            selectedID = id
             try await monitor.connect(
                 server: server,
                 login: saved,
                 hostKey: saved.hostKey
             )
+        } catch is CancellationError {
+            return
         } catch {
-            // The monitor presents the connection error.
+            // Connection failures are presented by the monitor; also expose Keychain failures.
+            if monitor.connectionIssue == nil { storageError = error.localizedDescription }
         }
     }
 }
@@ -144,15 +164,18 @@ extension ServerStore {
 
 extension ServerStore {
     func switchToSavedServer(_ server: ServerProfile) async throws {
+        try Task.checkCancellation()
         guard !monitor.connecting else { return }
-        guard servers.contains(where: { $0.id == server.id }) else { return }
+        // A queued row action must use the current saved profile, not its old snapshot.
+        guard let current = servers.first(where: { $0.id == server.id }) else { return }
+        let server = current
 
         if monitor.connected && monitor.server?.id == server.id {
             selectedID = server.id
             return
         }
 
-        guard let saved = MARCCredentials.read(server.id) else {
+        guard let saved = try MARCCredentials.readChecked(server.id) else {
             throw NSError(domain: "MARC", code: 30, userInfo: [
                 NSLocalizedDescriptionKey:
                     "Connect to this server once to save its login."
@@ -160,9 +183,7 @@ extension ServerStore {
         }
 
         selectedID = server.id
-        UserDefaults.standard.set(
-            server.id.uuidString, forKey: "marc.autoServer"
-        )
+        // SSHMonitor remembers the new target only after connection succeeds.
         try await monitor.connect(
             server: server,
             login: saved,

@@ -17,6 +17,24 @@ xcrun swiftc -swift-version 5 \
     MARC/Services/HostKeyIdentity.swift \
     Tests/DiscoveryChecks.swift \
     -o "$marc_build/discovery-checks"
+xcrun swiftc -swift-version 5 \
+    MARC/Services/MARCCollectorHealth.swift \
+    Tests/CollectorHealthChecks.swift \
+    -o "$marc_build/collector-health-checks"
+"$marc_build/collector-health-checks"
+python3 Tests/ConnectionLifecycleChecks.py
+python3 Tests/TerminalFilesTaskChecks.py
+python3 Tests/TerminalScrollChecks.py
+python3 Tests/AIRequestChecks.py
+python3 Tests/ControlTaskChecks.py
+python3 Tests/ProcessChecks.py
+python3 Tests/SystemStatisticsChecks.py
+python3 Tests/SettingsChecks.py
+xcrun swiftc -swift-version 5 \
+    MARC/Services/MARCLocalDownload.swift \
+    Tests/LocalDownloadChecks.swift \
+    -o "$marc_build/local-download-checks"
+"$marc_build/local-download-checks"
 python3 Tests/FileActionChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/MARCFileFormatting.swift \

@@ -11,7 +11,6 @@ import NIOCore
 @Observable
 final class MARCTerminalSession {
     private(set) var aiServerID: UUID?
-    var aiCommandHistory: [String] = []
     var aiHistory: [MARCAIHistoryRecord] = []
     var controlArmed = false
     var altArmed = false
@@ -41,6 +40,7 @@ final class MARCTerminalSession {
     @ObservationIgnored private var writer: TTYStdinWriter?
     @ObservationIgnored private var token = UUID()
     @ObservationIgnored private var writes: Task<Void, Never>?
+    @ObservationIgnored private var resizing: Task<Void, Never>?
     @ObservationIgnored private var cols = 80
     @ObservationIgnored private var rows = 24
 
@@ -68,6 +68,7 @@ final class MARCTerminalSession {
     }
 
     func run(server: ServerProfile) async {
+        guard !Task.isCancelled else { return }
         aiServerID = server.id
         let current = UUID()
         token = current
@@ -82,7 +83,7 @@ final class MARCTerminalSession {
         var opened: SSHClient?
 
         do {
-            guard let saved = try MARCCredentials.read(server.id) else {
+            guard let saved = MARCCredentials.read(server.id) else {
                 throw NSError(
                     domain: "MARC", code: 1,
                     userInfo: [NSLocalizedDescriptionKey:
@@ -159,6 +160,10 @@ final class MARCTerminalSession {
             client = nil
             writes?.cancel()
             writes = nil
+            resizing?.cancel()
+            resizing = nil
+            controlArmed = false
+            altArmed = false
         }
         if let opened {
             try? await opened.close()
@@ -169,7 +174,11 @@ final class MARCTerminalSession {
         aiServerID = nil
         token = UUID()
         ready = false
+        controlArmed = false
+        altArmed = false
         writer = nil
+        resizing?.cancel()
+        resizing = nil
         writes?.cancel()
         writes = nil
         let previous = client
@@ -253,22 +262,28 @@ final class MARCTerminalSession {
         guard self.cols != cols || self.rows != rows else { return }
         self.cols = cols
         self.rows = rows
-        guard let writer else { return }
+        guard let writer, resizing == nil else { return }
         let current = token
-        Task { @MainActor [weak self] in
-            guard let self, self.token == current else { return }
-            do {
-                try await writer.changeSize(
-                    cols: cols, rows: rows,
-                    pixelWidth: 0, pixelHeight: 0
-                )
-            } catch {
-                if self.token == current {
-                    self.failure = error.localizedDescription
+        resizing = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if self.token == current { self.resizing = nil } }
+            while !Task.isCancelled && self.token == current {
+                let latestCols = self.cols
+                let latestRows = self.rows
+                do {
+                    try await writer.changeSize(cols: latestCols, rows: latestRows,
+                                                pixelWidth: 0, pixelHeight: 0)
+                } catch {
+                    if self.token == current, !Task.isCancelled {
+                        self.failure = error.localizedDescription
+                    }
+                    return
                 }
+                guard self.cols != latestCols || self.rows != latestRows else { return }
             }
         }
     }
+
 }
 
 struct MARCTerminalSurface: UIViewRepresentable {
@@ -280,9 +295,12 @@ struct MARCTerminalSurface: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> SwiftTerm.TerminalView {
-        let view = session.view ?? SwiftTerm.TerminalView(frame: .zero)
+        let view = session.view ?? MARCScrollbackTerminalView(frame: .zero)
         // The SwiftUI scrolling strip owns terminal shortcuts.
         view.inputAccessoryView = nil
+        view.isOpaque = false
+        view.contentMode = .redraw
+        view.layer.shouldRasterize = false
         view.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         view.terminalDelegate = context.coordinator
         session.view = view
@@ -314,12 +332,21 @@ struct MARCTerminalSurface: UIViewRepresentable {
     }
 
     private func applyTheme(_ view: SwiftTerm.TerminalView) {
-        view.nativeBackgroundColor = dark
+        let background = dark
             ? UIColor(red: 17/255, green: 17/255, blue: 19/255, alpha: 1)
             : UIColor(red: 245/255, green: 245/255, blue: 247/255, alpha: 1)
-        view.nativeForegroundColor = dark
+        let foreground = dark
             ? UIColor(white: 0.93, alpha: 1)
             : UIColor(white: 0.13, alpha: 1)
+        // Colour setters invalidate SwiftTerm's render caches. Ordinary SwiftUI
+        // updates must not repeatedly invalidate an unchanged terminal palette.
+        if !view.nativeBackgroundColor.isEqual(background) {
+            view.nativeBackgroundColor = background
+            view.setNeedsDisplay(view.bounds)
+        }
+        if !view.nativeForegroundColor.isEqual(foreground) {
+            view.nativeForegroundColor = foreground
+        }
     }
 
     static func dismantleUIView(
@@ -365,6 +392,46 @@ struct MARCTerminalSurface: UIViewRepresentable {
     }
 }
 
+
+// CG drawing reads SwiftTerm's prepared snapshot, not the live terminal buffer.
+// Refresh that snapshot when UIKit scrolls, rather than repainting stale rows.
+private final class MARCScrollbackTerminalView: SwiftTerm.TerminalView {
+    private var synchronizingViewport = false
+    private var lastMomentumRow: Int?
+
+    override var contentOffset: CGPoint {
+        didSet {
+            guard contentOffset != oldValue, !synchronizingViewport else { return }
+
+            // SwiftTerm tracks finger-down scrolling itself. During momentum,
+            // keep its buffer viewport aligned with UIKit using the public API.
+            // Leave programmatic offsets and alternate screens to SwiftTerm.
+            if isDecelerating && !isTracking {
+                let rows = terminalDimensions.rows
+                let gridHeight = getOptimalFrameSize().height
+                if rows > 0, gridHeight > 0, contentSize.height > gridHeight {
+                    let cellHeight = gridHeight / CGFloat(rows)
+                    let maximum = max(0, contentSize.height - bounds.height + adjustedContentInset.bottom)
+                    let offsetY = min(max(contentOffset.y, 0), maximum)
+                    let row = Int(floor(offsetY / cellHeight))
+                    if row != lastMomentumRow {
+                        synchronizingViewport = true
+                        // SwiftTerm's scroller leaves the physical offset alone
+                        // while decelerating, until it reaches the live bottom.
+                        scrollTo(row: row, notifyAccessibility: false)
+                        synchronizingViewport = false
+                        lastMomentumRow = row
+                    }
+                }
+            } else {
+                lastMomentumRow = nil
+            }
+            // setNeedsDisplay alone draws the previous prepared snapshot.
+            // SwiftTerm coalesces this signal through its frame driver.
+            requestRedraw()
+        }
+    }
+}
 
 @MainActor @Observable
 final class MARCTerminalSlot: Identifiable {
@@ -760,6 +827,7 @@ struct TerminalScreen: View {
 
 extension MARCTerminalSession {
     func localAI(body: Data) async throws -> Data {
+        try Task.checkCancellation()
         guard ready, let client else {
             throw MARCAIError.message("Connect the terminal first.")
         }
@@ -823,6 +891,8 @@ struct MARCTerminalAI: View {
     @State private var prompt = ""
     @State private var command = ""
     @State private var historyPrompt: String?
+    @State private var commandConnection: UUID?
+    @State private var commandConfiguration: [String]?
     @State private var failure: String?
     @State private var busy = false
     @State private var requestTask: Task<Void, Never>?
@@ -831,6 +901,14 @@ struct MARCTerminalAI: View {
 
     private let credentialID =
         UUID(uuidString: "8769682D-2807-4706-81D8-28512948AB21")!
+
+    private var configuration: [String] {
+        if provider == "local" {
+            return [provider, localModel.trimmingCharacters(in: .whitespacesAndNewlines), localServer]
+        }
+        return [provider, apiModel.trimmingCharacters(in: .whitespacesAndNewlines),
+                endpoint.trimmingCharacters(in: .whitespacesAndNewlines)]
+    }
 
     private var canRequest: Bool {
         guard session.ready, !busy,
@@ -848,6 +926,8 @@ struct MARCTerminalAI: View {
     private var insertable: Bool {
         let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
         return session.ready && !busy && !value.isEmpty &&
+            commandConnection == session.aiConnectionID &&
+            commandConfiguration == configuration &&
             !value.unicodeScalars.contains {
                 $0.value < 32 || $0.value == 127 ||
                 (0x80...0x9f).contains($0.value) ||
@@ -887,6 +967,8 @@ struct MARCTerminalAI: View {
                             Button {
                                 command = previous.command
                                 historyPrompt = previous.prompt
+                                commandConnection = session.aiConnectionID
+                                commandConfiguration = configuration
                                 failure = nil
                             } label: {
                                 HStack(spacing: 7) {
@@ -925,9 +1007,7 @@ struct MARCTerminalAI: View {
                 .focused($promptFocused)
                 .onChange(of: prompt) { old, new in
                     if old != new && !busy {
-                        command = ""
-                        historyPrompt = nil
-                        failure = nil
+                        clearSuggestion()
                     }
                 }
                 .textInputAutocapitalization(.never)
@@ -986,7 +1066,7 @@ struct MARCTerminalAI: View {
                     .disabled(!insertable)
                     .accessibilityLabel("Run generated command")
 
-                    Button { command = "" } label: {
+                    Button { clearSuggestion() } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 11))
                             .foregroundStyle(p.muted)
@@ -1014,13 +1094,11 @@ struct MARCTerminalAI: View {
         .onChange(of: promptFocused) { _, focused in focusChanged(focused) }
         .onChange(of: session.aiConnectionID) { _, _ in
             cancelRequest()
-            command = ""
-            failure = nil
+            clearSuggestion()
         }
-        .onChange(of: provider) { _, _ in
+        .onChange(of: configuration) { _, _ in
             cancelRequest()
-            command = ""
-            failure = nil
+            clearSuggestion()
         }
         .onDisappear { cancelRequest(); focusChanged(false) }
     }
@@ -1031,17 +1109,17 @@ struct MARCTerminalAI: View {
         promptFocused = false
         session.view?.resignFirstResponder()
         session.rememberAI(prompt: historyPrompt ?? prompt, command: value)
-        historyPrompt = nil
-        session.aiCommandHistory.removeAll { $0 == value }
-        session.aiCommandHistory.insert(value, at: 0)
-        if session.aiCommandHistory.count > 8 {
-            session.aiCommandHistory.removeLast(
-                session.aiCommandHistory.count - 8
-            )
-        }
         session.send(Array((value + "\r").utf8))
-        command = ""
+        clearSuggestion()
         prompt = ""
+    }
+
+    private func clearSuggestion() {
+        command = ""
+        historyPrompt = nil
+        commandConnection = nil
+        commandConfiguration = nil
+        failure = nil
     }
 
     private func cancelRequest() {
@@ -1055,6 +1133,7 @@ struct MARCTerminalAI: View {
         guard canRequest else { return }
         let connection = session.aiConnectionID
         let chosenProvider = provider
+        let chosenConfiguration = configuration
         let model = (provider == "local" ? localModel : apiModel)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let requestPrompt = prompt
@@ -1063,12 +1142,18 @@ struct MARCTerminalAI: View {
         let id = UUID()
         requestID = id
         busy = true
-        failure = nil
-        command = ""
+        clearSuggestion()
 
         requestTask = Task { @MainActor in
-            defer { if requestID == id { busy = false } }
+            defer {
+                if requestID == id { busy = false; requestTask = nil }
+            }
             do {
+                try Task.checkCancellation()
+                guard requestID == id, configuration == chosenConfiguration,
+                      session.aiConnectionID == connection, session.ready else {
+                    throw CancellationError()
+                }
                 guard !model.isEmpty else {
                     throw MARCAIError.message("Enter a model name.")
                 }
@@ -1128,7 +1213,8 @@ struct MARCTerminalAI: View {
                 }
 
                 try Task.checkCancellation()
-                guard requestID == id else { return }
+                guard requestID == id, configuration == chosenConfiguration,
+                      session.aiConnectionID == connection, session.ready else { return }
 
                 guard let json = try JSONSerialization.jsonObject(
                     with: data
@@ -1166,13 +1252,16 @@ struct MARCTerminalAI: View {
                         "No command returned. Try a more specific request."
                     )
                 }
-                guard session.aiConnectionID == connection,
-                      session.ready else {
-                    throw MARCAIError.message("The terminal connection changed. Generate again.")
-                }
                 command = cleaned
+                historyPrompt = requestPrompt
+                commandConnection = connection
+                commandConfiguration = chosenConfiguration
+            } catch is CancellationError {
+                // Cancellation is a state transition, not an AI failure.
             } catch {
-                guard requestID == id, !Task.isCancelled else { return }
+                guard requestID == id, !Task.isCancelled,
+                      configuration == chosenConfiguration,
+                      session.aiConnectionID == connection, session.ready else { return }
                 failure = error.localizedDescription
             }
         }
@@ -1421,6 +1510,7 @@ struct MARCTerminalAISettings: View {
 
     @MainActor
     private func discoverModels() async {
+        guard !Task.isCancelled else { return }
         models = []
         failure = nil
         notice = nil
@@ -1433,7 +1523,7 @@ struct MARCTerminalAISettings: View {
         let discovery = discoveryID
         loading = true
         defer {
-            if discoveryID == discovery { loading = false }
+            if discoveryID == discovery, !Task.isCancelled { loading = false }
         }
 
         do {
@@ -1452,8 +1542,10 @@ struct MARCTerminalAISettings: View {
             if names.count == 1, let only = names.first {
                 select(only)
             }
+        } catch is CancellationError {
         } catch {
-            guard !Task.isCancelled, discoveryID == discovery else { return }
+            guard !Task.isCancelled, discoveryID == discovery,
+                  monitor.connected, monitor.server?.id == serverID else { return }
             failure = error.localizedDescription
         }
     }
