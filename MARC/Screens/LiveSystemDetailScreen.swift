@@ -60,10 +60,7 @@ struct LiveSystemDetailScreen: View {
                         if let values = r.details?.coreUsage, !values.isEmpty {
                             VStack(spacing: 4) {
                                 ForEach(values.indices, id: \.self) { index in
-                                    ReferenceCorePills(
-                                        usage: values[index],
-                                        system: nil
-                                    )
+                                    ReferenceCorePills(usage: values[index])
                                     .accessibilityLabel(
                                         "Core \(index + 1), \(MARCStatisticsData.percent(values[index]))"
                                     )
@@ -111,8 +108,6 @@ struct LiveSystemDetailScreen: View {
                             )
                         }
                     }
-
-
 
                     SystemPanel(title: "Network", subtitle: r.interface ?? "Unavailable") {
                         HStack {
@@ -175,6 +170,26 @@ struct LiveSystemDetailScreen: View {
                     }
 
 
+                    batteryPanel(r.details)
+
+                    NavigationLink {
+                        MARCStatisticsScreen(monitor: m)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Label("Open Statistics", systemImage: "chart.bar.xaxis")
+                                .font(.subheadline.weight(.medium))
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(p.muted)
+                        }
+                        .foregroundStyle(p.text)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+
 
                 } else {
                     Text("Connect to a server in Settings to view system details.")
@@ -195,6 +210,41 @@ struct LiveSystemDetailScreen: View {
     }
     private func uptime(_ value: Double?) -> String {
         MARCStatisticsData.uptime(value)
+    }
+
+    @ViewBuilder private func batteryPanel(_ details: SystemDetails?) -> some View {
+        if details?.hasBattery == false {
+            SystemPanel(title: "Power", subtitle: "") {
+                Label("No built-in battery", systemImage: "powerplug")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        } else {
+            SystemPanel(title: "Battery", subtitle: percent(details?.batteryPercent)) {
+                if let value = details?.batteryPercent, value.isFinite {
+                    ProgressView(value: min(100, max(0, value)), total: 100)
+                        .tint(value <= 20 ? .orange : Color(marcHex: 0x2dcc58))
+                        .accessibilityLabel("Battery charge")
+                        .accessibilityValue(percent(value))
+                }
+                batteryRow("Status", value: MARCSystemDetailsData.batteryStatus(
+                    state: details?.batteryState, source: details?.powerSource))
+                Divider()
+                batteryRow("Condition", value: details?.batteryCondition ?? "Unavailable")
+                Divider()
+                batteryRow("Maximum capacity", value: details?.batteryMaximumCapacity.map { percent($0) } ?? "Unavailable")
+                Divider()
+                batteryRow("Cycle count", value: details?.batteryCycleCount.map { String($0) } ?? "Unavailable")
+            }
+        }
+    }
+
+    private func batteryRow(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title).foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Text(value).multilineTextAlignment(.trailing).monospacedDigit()
+        }
+        .font(.subheadline)
     }
 
 }
@@ -271,16 +321,21 @@ private struct CompactMetricRing: View {
 
 private struct ReferenceCorePills: View {
     let usage: Double
-    let system: Double?
     private let count = 34
+
+    private var activeColor: Color {
+        switch MARCSystemDetailsData.coreLevel(usage) {
+        case .normal: return Color(marcHex: 0x2dcc58)
+        case .elevated: return Color(marcHex: 0xe5a000)
+        case .high: return Color(marcHex: 0xff565f)
+        case .unavailable: return .secondary
+        }
+    }
 
     var body: some View {
         let active = Int(
             (min(100, max(0, usage.isFinite ? usage : 0)) / 100 * Double(count)).rounded()
         )
-        let red = min(active, Int(
-            (min(100, max(0, system?.isFinite == true ? (system ?? 0) : 0)) / 100 * Double(count)).rounded()
-        ))
 
         GeometryReader { geometry in
             let gap = min(4.0, geometry.size.width / Double(count * 3))
@@ -292,11 +347,7 @@ private struct ReferenceCorePills: View {
             HStack(spacing: gap) {
                 ForEach(0..<count, id: \.self) { index in
                     Capsule()
-                        .fill(index < red
-                            ? Color(marcHex: 0xff565f)
-                            : (index < active
-                                ? Color(marcHex: 0x2dcc58)
-                                : Color.secondary.opacity(0.20)))
+                        .fill(index < active ? activeColor : Color.secondary.opacity(0.20))
                         .frame(width: pillWidth, height: 10)
                 }
             }

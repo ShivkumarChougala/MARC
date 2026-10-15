@@ -22,6 +22,9 @@ struct SystemDetails: Decodable, Sendable {
     let powerSource: String?
     let batteryState: String?
     let hasBattery: Bool?
+    var batteryCondition: String? = nil
+    var batteryMaximumCapacity: Double? = nil
+    var batteryCycleCount: Int? = nil
 }
 
 struct SystemHistoryPoint: Identifiable {
@@ -484,6 +487,83 @@ def parse_power(output):
         return (None, source_name, None, False)
     return (None, None, None, None)
 
+# MARC_BATTERY_HEALTH_BEGIN
+# Optional slow hardware information never blocks the live sampling loop.
+import threading
+
+def parse_battery_health(payload):
+    entries = payload.get('SPPowerDataType', []) if isinstance(payload, dict) else []
+    if not isinstance(entries, list):
+        return {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        health = entry.get('sppower_battery_health_info')
+        if not isinstance(health, dict):
+            continue
+        result = {}
+        condition = health.get('sppower_battery_health')
+        if isinstance(condition, str) and condition.strip():
+            condition = condition.strip()
+            result['batteryCondition'] = {
+                'Good': 'Normal', 'Check Battery': 'Service recommended',
+                'Poor': 'Service recommended'
+            }.get(condition, condition[:80])
+        cycles = health.get('sppower_battery_cycle_count')
+        if type(cycles) is int and 0 <= cycles <= 100000:
+            result['batteryCycleCount'] = cycles
+        # Read the explicit percentage, never confuse mAh or current charge with health.
+        capacity = health.get('sppower_battery_health_maximum_capacity')
+        if isinstance(capacity, str):
+            match = re.fullmatch(r'\s*(\d+(?:\.\d+)?)\s*%\s*', capacity)
+            if match:
+                value = float(match.group(1))
+                if 0 <= value <= 100:
+                    result['batteryMaximumCapacity'] = value
+        return result
+    return {}
+
+class MARCBatteryHealth:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.values = {}
+        self.running = False
+        self.next_read = 0
+
+    def read(self, has_battery):
+        if has_battery is not True:
+            return {}
+        now = time.monotonic()
+        with self.lock:
+            values = dict(self.values)
+            if self.running or now < self.next_read:
+                return values
+            self.running = True
+            self.next_read = now + 60
+        try:
+            threading.Thread(target=self._refresh, daemon=True).start()
+        except Exception:
+            with self.lock:
+                self.running = False
+        return values
+
+    def _refresh(self):
+        values = {}
+        try:
+            raw = subprocess.check_output(
+                ['/usr/sbin/system_profiler', 'SPPowerDataType', '-json'],
+                stderr=subprocess.DEVNULL, timeout=3)
+            values = parse_battery_health(json.loads(raw))
+        except Exception:
+            pass
+        finally:
+            with self.lock:
+                self.values = values
+                self.running = False
+
+battery_health = MARCBatteryHealth()
+# MARC_BATTERY_HEALTH_END
+
 while True:
     time.sleep(1)
     try:
@@ -601,6 +681,7 @@ while True:
             architecture=architecture, username=username, users=users,
             batteryPercent=battery_percent, powerSource=power_source,
             batteryState=battery_state, hasBattery=has_battery)
+        details.update(battery_health.read(has_battery))
         sample = dict(hostname=hostname, cpu=cpu, memoryUsed=used,
             memoryTotal=total, diskUsed=disk_used, diskTotal=disk_total,
             diskAvailable=disk_available, interface=interface, received=received, sent=sent,
