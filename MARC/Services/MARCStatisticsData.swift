@@ -48,3 +48,57 @@ enum MARCStatisticsData {
         return metric == "CPU" || metric == "Memory" ? min(100, raw) : raw
     }
 }
+
+// Prepare each visible card's values and axis scale once per input update.
+struct MARCStatisticsSeries {
+    struct Sample: Identifiable {
+        let id: UUID
+        let date: Date
+        let primary: Double?
+        let secondary: Double?
+    }
+
+    let samples: [Sample]
+    let metric: String
+    let ceiling: Double
+    let primaryCount: Int
+    let secondaryCount: Int
+
+    var paired: Bool { metric == "Network" || metric == "Disk" }
+    var hasSamples: Bool { primaryCount > 0 || secondaryCount > 0 }
+    var rateDivisor: Double { paired && ceiling >= 1024 ? 1024 : 1 }
+    var rateUnit: String { rateDivisor == 1024 ? "MB/s" : "KB/s" }
+
+    init(history: [SystemHistoryPoint], metric: String) {
+        self.metric = metric
+        var prepared: [Sample] = []
+        prepared.reserveCapacity(history.count)
+        var highest = 0.0
+        var primaryCount = 0
+        var secondaryCount = 0
+        for point in history {
+            let primary = MARCStatisticsData.value(point, metric: metric)
+            let secondary = MARCStatisticsData.value(point, metric: metric, secondary: true)
+            if let primary { primaryCount += 1; highest = max(highest, primary) }
+            if let secondary { secondaryCount += 1; highest = max(highest, secondary) }
+            prepared.append(Sample(id: point.id, date: point.date,
+                                   primary: primary, secondary: secondary))
+        }
+        samples = prepared
+        self.primaryCount = primaryCount
+        self.secondaryCount = secondaryCount
+        if metric == "CPU" || metric == "Memory" {
+            ceiling = 100
+        } else {
+            let padded = highest > Double.greatestFiniteMagnitude / 1.15 ? highest : highest * 1.15
+            ceiling = max(metric == "Server Load" ? 1 : 0.1, padded)
+        }
+    }
+
+    func axisLabel(_ value: Double) -> String {
+        guard value.isFinite else { return "—" }
+        if metric == "CPU" || metric == "Memory" { return String(format: "%.0f%%", value) }
+        if metric == "Server Load" { return String(format: "%.2f", value) }
+        return String(format: "%.1f", value / rateDivisor)
+    }
+}

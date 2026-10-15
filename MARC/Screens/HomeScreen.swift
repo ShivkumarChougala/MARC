@@ -19,7 +19,7 @@ struct HomeScreen: View {
     @AppStorage("marc.alerts.memory") private var showMemoryAlerts = true
     @AppStorage("marc.alerts.connection") private var showConnectionAlerts = true
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.status.order") private var sectionOrder = "system,powerStorage,alerts"
+    @AppStorage("marc.status.order") private var sectionOrder = "system,statistics,powerStorage,alerts"
     @AppStorage("marc.status.hidden") private var hiddenSections = ""
     @AppStorage("marc.refreshInterval") private var refreshInterval = 2
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
@@ -257,6 +257,29 @@ struct HomeScreen: View {
             } label: {
                 MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
             }.buttonStyle(.plain)
+        case .statistics:
+            NavigationLink {
+                MARCStatisticsScreen(monitor: store.monitor)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 21)).foregroundStyle(palette.accent)
+                        .frame(width: 30)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Statistics")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(palette.text)
+                        Text("CPU, load, memory, network and disk history")
+                            .font(.system(size: 11)).foregroundStyle(palette.muted)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12)).foregroundStyle(palette.muted)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .modifier(MARCOverviewSurface(palette: palette))
+            }.buttonStyle(.plain)
         case .powerStorage:
             HStack(alignment: .top, spacing: 12) {
                 MARCOverviewPowerCard(details: reading.details, palette: palette)
@@ -407,11 +430,12 @@ struct HomeScreen: View {
 }
 
 private enum MARCStatusSection: String, CaseIterable, Identifiable {
-    case system, powerStorage, alerts
+    case system, statistics, powerStorage, alerts
     var id: String { rawValue }
     var title: String {
         switch self {
         case .system: return "System"
+        case .statistics: return "Statistics"
         case .powerStorage: return "Power & Storage"
         case .alerts: return "Needs attention"
         }
@@ -490,7 +514,7 @@ private struct MARCStatusCustomizeSheet: View {
                 }
                 Section {
                     Button("Reset layout") {
-                        order = "system,powerStorage,alerts"
+                        order = "system,statistics,powerStorage,alerts"
                         hidden = ""
                     }.foregroundStyle(p.accent)
                 }

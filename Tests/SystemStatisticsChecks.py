@@ -114,6 +114,28 @@ checks = r'''
         precondition(MARCStatisticsData.value(point(1, network: 2048), metric: "Network") == 2)
         precondition(MARCStatisticsData.value(point(1), metric: "Server Load") == nil)
 
+        let cpuPoint = point(1, cpu: 150)
+        let cpuSeries = MARCStatisticsSeries(history: [point(0, cpu: .nan), cpuPoint], metric: "CPU")
+        precondition(cpuSeries.ceiling == 100 && cpuSeries.primaryCount == 1)
+        precondition(cpuSeries.samples[1].id == cpuPoint.id && cpuSeries.samples[1].primary == 100)
+        precondition(cpuSeries.axisLabel(50) == "50%")
+        let network = MARCStatisticsSeries(history: [point(1, network: 2_097_152)], metric: "Network")
+        precondition(network.samples[0].primary == 2048 && network.rateUnit == "MB/s")
+        precondition(network.axisLabel(1024) == "1.0" && network.primaryCount == 1)
+        let smallNetwork = MARCStatisticsSeries(history: [point(1, network: 2048)], metric: "Network")
+        precondition(smallNetwork.rateUnit == "KB/s" && smallNetwork.axisLabel(2) == "2.0")
+        let secondaryOnly = SystemHistoryPoint(date: Date(), load: nil, cpu: 0, memory: 0,
+            download: nil, upload: 4096, read: nil, write: nil)
+        let upload = MARCStatisticsSeries(history: [secondaryOnly], metric: "Network")
+        precondition(upload.hasSamples && upload.primaryCount == 0 && upload.secondaryCount == 1)
+        let noLoad = MARCStatisticsSeries(history: [point(1)], metric: "Server Load")
+        precondition(!noLoad.hasSamples && noLoad.ceiling == 1 && noLoad.axisLabel(1.42) == "1.42")
+        let hugeLoad = SystemHistoryPoint(date: Date(), load: Double.greatestFiniteMagnitude,
+            cpu: 0, memory: 0, download: nil, upload: nil, read: nil, write: nil)
+        precondition(MARCStatisticsSeries(history: [hugeLoad], metric: "Server Load").ceiling.isFinite)
+        precondition(!MARCStatisticsSeries(history: [], metric: "Disk").hasSamples)
+        print("PASS: prepared chart scales, rate units, stable sample identity and independent series counts")
+
         let monitor = SSHMonitor()
         let client = monitor.client!
         monitor.archivedHistory = [point(990)]
