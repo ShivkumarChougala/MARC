@@ -17,7 +17,6 @@ struct SystemDetails: Decodable, Sendable {
     let osVersion: String?
     let architecture: String?
     let username: String?
-    let users: [String]?
     let batteryPercent: Double?
     let powerSource: String?
     let batteryState: String?
@@ -472,7 +471,7 @@ os_version = run('/usr/bin/sw_vers', '-productVersion').strip()
 architecture = run('/usr/bin/uname', '-m').strip()
 username = getpass.getuser()
 slow_updated = 0
-tasks, swap, local_ip, users = None, None, None, []
+tasks, swap, local_ip = None, None, None
 power_updated = 0
 battery_percent, power_source, battery_state, has_battery = None, None, None, None
 
@@ -665,10 +664,6 @@ while True:
                 swap = float(match.group(1)) * (
                     1024 ** (2 if match.group(2) == 'M' else 3)
                 ) if match else None
-                users = sorted(set(
-                    line.split()[0] for line in run('/usr/bin/who').splitlines()
-                    if line.split()
-                ))
                 local_ip = None
                 if interface:
                     try:
@@ -693,7 +688,7 @@ while True:
             uptime=time.time() - boot if boot else None,
             load=os.getloadavg()[0], swap=swap, ip=local_ip,
             model=model, osVersion=os_version,
-            architecture=architecture, username=username, users=users,
+            architecture=architecture, username=username,
             batteryPercent=battery_percent, powerSource=power_source,
             batteryState=battery_state, hasBattery=has_battery)
         details.update(battery_health.read(has_battery))

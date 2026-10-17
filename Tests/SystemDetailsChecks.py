@@ -88,13 +88,14 @@ checks = '''
         precondition(MARCSystemDetailsData.batteryStatus(state: "not charging", source: "AC Power") == "Not charging")
         precondition(MARCSystemDetailsData.batteryStatus(state: "charging", source: "AC Power") == "Charging")
         precondition(MARCSystemDetailsData.batteryStatus(state: nil, source: nil) == "Unavailable")
-        precondition(MARCSystemDetailsData.signedInUsers(["bob", "amy", "bob", " "]) == ["amy", "bob"])
-        precondition(MARCSystemDetailsData.signedInUsers(nil).isEmpty)
         let legacy = try JSONDecoder().decode(SystemDetails.self, from: Data("{}".utf8))
         precondition(legacy.batteryCondition == nil && legacy.batteryMaximumCapacity == nil && legacy.batteryCycleCount == nil)
         let current = try JSONDecoder().decode(SystemDetails.self, from: Data("{\\"batteryCondition\\":\\"Normal\\",\\"batteryMaximumCapacity\\":91,\\"batteryCycleCount\\":286}".utf8))
         precondition(current.batteryCondition == "Normal" && current.batteryMaximumCapacity == 91 && current.batteryCycleCount == 286)
-        print("PASS: per-core colour thresholds, battery status, signed-in users and older collector payloads")
+        let oldUsersPayload = #"{"users":["bob","amy"],"username":"bob","batteryPercent":72}"#
+        let oldUsers = try JSONDecoder().decode(SystemDetails.self, from: Data(oldUsersPayload.utf8))
+        precondition(oldUsers.username == "bob" && oldUsers.batteryPercent == 72)
+        print("PASS: per-core colour thresholds, battery status and older collector payloads with retired user lists")
     }
 }
 '''

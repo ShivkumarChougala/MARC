@@ -24,8 +24,4 @@ enum MARCSystemDetailsData {
         }
     }
 
-    static func signedInUsers(_ users: [String]?) -> [String] {
-        Array(Set((users ?? []).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }))
-            .sorted()
-    }
 }
