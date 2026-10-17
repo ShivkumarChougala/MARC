@@ -564,6 +564,42 @@ class MARCBatteryHealth:
 battery_health = MARCBatteryHealth()
 # MARC_BATTERY_HEALTH_END
 
+# MARC_DISK_COUNTERS_BEGIN
+def parse_disk_counters(raw):
+    counters = []
+    def walk(node):
+        if isinstance(node, dict):
+            stats = node.get('Statistics')
+            if isinstance(stats, dict) and 'Bytes (Read)' in stats and 'Bytes (Write)' in stats:
+                counters.append((int(stats['Bytes (Read)']), int(stats['Bytes (Write)'])))
+            for key, value in node.items():
+                if key != 'Statistics':
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+    walk(plistlib.loads(raw))
+    if not counters:
+        return None, None
+    return sum(item[0] for item in counters), sum(item[1] for item in counters)
+
+def read_disk_counters():
+    # Driver roots expose the counters; omit their unrelated child properties.
+    # Keep fresh cumulative counters on every sample so existing rate math holds.
+    command = ['/usr/sbin/ioreg', '-r', '-c', 'IOBlockStorageDriver']
+    for depth in (['-d', '1'], []):
+        try:
+            raw = subprocess.check_output(command + depth + ['-a'],
+                                          stderr=subprocess.DEVNULL, timeout=5)
+            counters = parse_disk_counters(raw)
+            if counters[0] is not None:
+                return counters
+        except (OSError, ValueError, TypeError, OverflowError, subprocess.SubprocessError,
+                plistlib.InvalidFileException):
+            return None, None
+    return None, None
+# MARC_DISK_COUNTERS_END
+
 while True:
     time.sleep(1)
     try:
@@ -620,28 +656,7 @@ while True:
                         break
         except (ValueError, subprocess.SubprocessError):
             pass
-        disk_read, disk_write = None, None
-        try:
-            raw = subprocess.check_output(['/usr/sbin/ioreg', '-r', '-c', 'IOBlockStorageDriver', '-a'], stderr=subprocess.DEVNULL, timeout=5)
-            tree = plistlib.loads(raw)
-            counters = []
-            def walk(node):
-                if isinstance(node, dict):
-                    stats = node.get('Statistics')
-                    if isinstance(stats, dict) and 'Bytes (Read)' in stats and 'Bytes (Write)' in stats:
-                        counters.append((int(stats['Bytes (Read)']), int(stats['Bytes (Write)'])))
-                    for key, value in node.items():
-                        if key != 'Statistics':
-                            walk(value)
-                elif isinstance(node, list):
-                    for item in node:
-                        walk(item)
-            walk(tree)
-            if counters:
-                disk_read = sum(item[0] for item in counters)
-                disk_write = sum(item[1] for item in counters)
-        except (ValueError, TypeError, subprocess.SubprocessError, plistlib.InvalidFileException):
-            pass
+        disk_read, disk_write = read_disk_counters()
         if time.time() - slow_updated >= 5:
             try:
                 tasks = len(run('/bin/ps', '-axo', 'pid=').splitlines())
