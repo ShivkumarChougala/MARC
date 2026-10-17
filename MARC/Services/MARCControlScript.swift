@@ -547,7 +547,8 @@ if not result['actionError']:
         result['actionError'] = 'The Mac did not confirm this brightness. Refresh and try again.'
 if action in ('playPause', 'previousTrack', 'nextTrack'):
     read_now_playing()
-result['screenLocked'] = session_locked()
+if action == 'lock':
+    result['screenLocked'] = session_locked()
 if request.get('includeApplications') is True:
     try:
         result['applications'] = installed_apps()

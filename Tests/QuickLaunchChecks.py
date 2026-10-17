@@ -67,4 +67,18 @@ for action, value, should_launch in (('read', None, False), ('read', 0, False),
         assert namespace['result']['actionError'] is None
     else:
         assert namespace['result']['actionError']
+# Execute the production final lock-state read independently of device APIs.
+# Ordinary refresh/control requests must not query the session lock state.
+lock_state = next(node for node in ast.parse(python).body if isinstance(node, ast.If)
+    and any(isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+            and child.func.id == 'session_locked' for child in ast.walk(node)))
+lock_code = compile(ast.fix_missing_locations(ast.Module(body=[lock_state], type_ignores=[])),
+                    '<production-lock-state>', 'exec')
+for action in ('read', 'volume', 'brightness', 'output', 'launchApp', 'nextTrack', 'lock'):
+    locked = Mock(return_value=True)
+    state = dict(action=action, result={'screenLocked': None}, session_locked=locked)
+    exec(lock_code, state)
+    assert locked.call_count == int(action == 'lock')
+    assert state['result']['screenLocked'] is (True if action == 'lock' else None)
 print('PASS: Quick Launch app allowlist, signed-in user, bounded failures and read-only refresh routing')
+print('PASS: routine controls skip lock-state polling; explicit lock retains confirmation')
