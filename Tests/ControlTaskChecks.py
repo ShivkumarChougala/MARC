@@ -8,8 +8,8 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-screen = (root / 'MARC/Screens/WorkspaceScreens.swift').read_text()
-screen = screen[screen.index('struct ControlsScreen:'):screen.index('private struct MARCTerminationSheet:')]
+screen = (root / 'MARC/Screens/ControlsScreen.swift').read_text()
+screen = screen[screen.index('struct ControlsScreen:'):]
 monitor = (root / 'MARC/Services/SSHMonitor.swift').read_text()
 transport_start = monitor.index('extension SSHMonitor {\n    var controlConnectionID:')
 types = monitor[monitor.index('// MARK: - MARC live Control Center'):transport_start]

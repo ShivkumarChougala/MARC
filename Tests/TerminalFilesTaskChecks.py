@@ -9,12 +9,12 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 terminal = (root / 'MARC/Screens/MARCTerminalScreen.swift').read_text()
-files = (root / 'MARC/Screens/WorkspaceScreens.swift').read_text()
+files = (root / 'MARC/Services/MARCRemoteFiles.swift').read_text()
 operations = (root / 'MARC/Services/MARCFileOperations.swift').read_text()
 terminal_session = terminal[:terminal.index('struct MARCTerminalSurface:')]
 terminal_session = '\n'.join(line for line in terminal_session.splitlines() if 'import ' not in line)
 workspace = terminal[terminal.index('@MainActor @Observable\nfinal class MARCTerminalSlot:'):terminal.index('struct TerminalScreen:')]
-remote_files = files[files.index('struct MARCRemoteEntry:'):files.index('struct FilesScreen:')]
+remote_files = files[files.index('struct MARCRemoteEntry:'):files.index('private actor MARCTransferIO {')]
 transfer_io = files[files.index('private actor MARCTransferIO {'):]
 reply_types = operations[operations.index('struct MARCFileInfo:'):operations.index('enum MARCFileBridge {')]
 formatting = (root / 'MARC/Services/MARCFileFormatting.swift').read_text()

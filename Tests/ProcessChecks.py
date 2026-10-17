@@ -16,13 +16,13 @@ from unittest.mock import patch
 
 root = Path(__file__).resolve().parents[1]
 monitor = (root / 'MARC/Services/SSHMonitor.swift').read_text()
-screen = (root / 'MARC/Screens/WorkspaceScreens.swift').read_text()
+screen = (root / 'MARC/Screens/ProcessesScreen.swift').read_text()
 types = monitor[monitor.index('struct MARCProcess:'):monitor.index('extension SSHMonitor {\n    var processConnectionID:')]
 terminate = monitor[monitor.index('extension SSHMonitor {\n    var processConnectionID:'):monitor.index('struct MARCProcessResponse:')]
 response_type = monitor[monitor.index('struct MARCProcessResponse:'):monitor.index('extension SSHMonitor {\n    func processUpdates(')]
 stream = monitor[monitor.index('extension SSHMonitor {\n    func processUpdates('):monitor.index('extension SSHMonitor {\n    func marcInstalledAIModels(')]
 rows = (root / 'MARC/Services/MARCProcessRows.swift').read_text()
-sheet = screen[screen.index('private struct MARCTerminationSheet:'):screen.index('private struct MARCPhotoImport:')]
+sheet = screen[screen.index('private struct MARCTerminationSheet:'):]
 sheet_methods = sheet[sheet.index('    @MainActor\n    private func stopTermination()'):sheet.rfind('\n}')]
 remote_python = terminate[terminate.index('import subprocess, json, os, sys, base64, signal'):terminate.index('\nMARC_TERMINATE\n')]
 
