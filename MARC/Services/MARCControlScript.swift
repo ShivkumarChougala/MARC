@@ -396,10 +396,13 @@ def launch_installed_app(bundle):
         raise RuntimeError('Could not open this app. It may have been moved or removed.') from None
 # MARC_INSTALLED_APPS_END
 
-read_now_playing()
-
+# MARC_MEDIA_REQUEST_BEGIN
 action = request.get('action')
 value = request.get('value')
+# Automatic media commands perform their own fresh preflight in control_active_media.
+if action not in ('playPause', 'previousTrack', 'nextTrack') or value != 2:
+    read_now_playing()
+# MARC_MEDIA_REQUEST_END
 blueutil = find_blueutil()
 audio_controller = None
 brightness_controller = None
@@ -545,8 +548,10 @@ if not result['actionError']:
         result['actionError'] = 'The Mac did not confirm the audio-output change.'
     elif action == 'brightness' and (result['brightness'] is None or abs(result['brightness'] - value) > 2):
         result['actionError'] = 'The Mac did not confirm this brightness. Refresh and try again.'
+# MARC_MEDIA_FEEDBACK_BEGIN
 if action in ('playPause', 'previousTrack', 'nextTrack'):
     read_now_playing()
+# MARC_MEDIA_FEEDBACK_END
 if action == 'lock':
     result['screenLocked'] = session_locked()
 if request.get('includeApplications') is True:
