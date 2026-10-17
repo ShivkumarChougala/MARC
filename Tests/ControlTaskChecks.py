@@ -275,6 +275,42 @@ checks = r'''
         await failedLaunch.actionTask?.value
         precondition(failedLaunch.failure == "Launch refused" && failedLaunch.notice == nil && !failedLaunch.busy)
         SSHClient.hook = nil
+        // Each output/wireless action must retain its original connection ownership.
+        for action in [MARCControlAction.output, .wifi, .bluetooth] {
+            SSHClient.hook = nil
+            let queuedControl = ControlsHarness()
+            let beforeQueued = SSHClient.requests.count
+            queuedControl.dispatch(action, action == .output ? 20 : 0)
+            let pending = queuedControl.actionTask
+            queuedControl.leave()
+            await pending?.value
+            precondition(SSHClient.requests.count == beforeQueued && !queuedControl.busy)
+
+            for oldReplyFails in [false, true] {
+                let control = ControlsHarness()
+                let gate = Gate()
+                SSHClient.hook = { request in
+                    await gate.wait()
+                    if oldReplyFails { throw FixtureError.expected }
+                    return SSHClient.reply(request, volume: 99)
+                }
+                control.dispatch(action, action == .output ? 20 : 0)
+                let oldTask = control.actionTask
+                await waitFor { gate.entered }
+                control.leave()
+                control.monitor.generation = UUID()
+                control.returnToConnection()
+                SSHClient.hook = nil
+                await control.read()
+                precondition(control.volume == 30 && control.failure == nil)
+                gate.open()
+                await oldTask?.value
+                precondition(control.volume == 30 && control.failure == nil && !control.busy)
+                precondition(control.actionTask == nil && control.notice == nil)
+            }
+        }
+        SSHClient.hook = nil
+        print("PASS: audio/wireless queued cancellation and stale success/failure after changing Macs")
         print("PASS: Quick Launch target encoding, duplicate taps, invalid apps and queued cancellation")
         print("PASS: Control Center queued cancellation, connection/display binding, duplicate taps and stale task checks")
         print("PASS: control reads preserve editing values, current feedback and cached wireless state")
