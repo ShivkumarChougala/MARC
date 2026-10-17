@@ -27,6 +27,10 @@ python3 Tests/TerminalFilesTaskChecks.py
 python3 Tests/TerminalScrollChecks.py
 python3 Tests/AIRequestChecks.py
 python3 Tests/ControlTaskChecks.py
+python3 Tests/ControlSliderChecks.py
+python3 Tests/QuickLaunchChecks.py
+python3 Tests/InstalledAppChecks.py
+python3 Tests/QuickLaunchSelectionChecks.py
 python3 Tests/ProcessChecks.py
 python3 Tests/SystemStatisticsChecks.py
 python3 Tests/SystemDetailsChecks.py

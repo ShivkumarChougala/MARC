@@ -331,6 +331,71 @@ def lock_session():
         time.sleep(0.15)
     raise RuntimeError('Lock was requested, but macOS did not confirm it. Check the Mac before relying on it being locked.')
 
+# MARC_QUICK_LAUNCH_BEGIN
+def launch_app(value):
+    apps = {0: 'com.apple.Safari', 1: 'com.apple.Terminal', 2: 'com.apple.Music'}
+    if isinstance(value, bool) or not isinstance(value, int) or value not in apps:
+        raise RuntimeError('Choose Safari, Terminal or Music.')
+    if os.stat('/dev/console').st_uid != os.getuid():
+        raise RuntimeError('Connect as the Mac user who is signed in to open apps.')
+    try:
+        run('/usr/bin/open', '-b', apps[value], timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError('Could not confirm the app launch. Check your Mac and try again.') from None
+# MARC_QUICK_LAUNCH_END
+
+# MARC_INSTALLED_APPS_BEGIN
+def installed_apps(roots=None):
+    import plistlib
+    roots = roots if roots is not None else (
+        '/Applications', '/System/Applications', os.path.expanduser('~/Applications'),
+        '/System/Library/CoreServices/Finder.app',
+        '/System/Cryptexes/App/System/Applications')
+    found = {}
+    deadline = time.monotonic() + 3
+    pending = [(path, 0) for path in roots]
+    visited = 0
+    while pending and visited < 4096 and time.monotonic() < deadline:
+        path, depth = pending.pop(0)
+        visited += 1
+        if path.lower().endswith('.app'):
+            try:
+                info = os.path.join(path, 'Contents', 'Info.plist')
+                if os.path.getsize(info) > 1048576: continue
+                with open(info, 'rb') as stream: data = plistlib.load(stream)
+                if not isinstance(data, dict): continue
+                bundle = data.get('CFBundleIdentifier')
+                if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle): continue
+                title = data.get('CFBundleDisplayName') or data.get('CFBundleName') or os.path.basename(path)[:-4]
+                if not isinstance(title, str): title = os.path.basename(path)[:-4]
+                title = ''.join(c for c in title if c.isprintable()).strip()[:96] or bundle
+                found.setdefault(bundle, dict(id=bundle, title=title))
+            except Exception: pass
+        elif depth < 2 and not os.path.islink(path):
+            try:
+                with os.scandir(path) as entries:
+                    for entry in entries:
+                        if entry.name.startswith('.'): continue
+                        if entry.is_dir(follow_symlinks=True): pending.append((entry.path, depth + 1))
+                        if len(pending) >= 4096: break
+            except OSError: pass
+    rows = []
+    for app in sorted(found.values(), key=lambda app: (app['title'].casefold(), app['id'])):
+        if len(rows) >= 200 or len(json.dumps(rows + [app]).encode()) > 40000: break
+        rows.append(app)
+    return rows
+
+def launch_installed_app(bundle):
+    if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle):
+        raise RuntimeError('Choose an installed app from Quick Launch.')
+    if os.stat('/dev/console').st_uid != os.getuid():
+        raise RuntimeError('Connect as the Mac user who is signed in to open apps.')
+    try:
+        run('/usr/bin/open', '-b', bundle, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError('Could not open this app. It may have been moved or removed.') from None
+# MARC_INSTALLED_APPS_END
+
 read_now_playing()
 
 action = request.get('action')
@@ -340,13 +405,18 @@ audio_controller = None
 brightness_controller = None
 try:
     if action not in ('read', 'volume', 'mute', 'wifi', 'bluetooth', 'output', 'brightness',
-                       'lock', 'displaySleep', 'displayWake', 'playPause', 'previousTrack', 'nextTrack'):
+                       'lock', 'displaySleep', 'displayWake', 'playPause', 'previousTrack', 'nextTrack', 'launchApp'):
         raise RuntimeError('Unsupported control request.')
     if action != 'read':
         if isinstance(value, bool) or not isinstance(value, int):
             raise RuntimeError('Invalid control value.')
 
-        if action == 'lock':
+        if action == 'launchApp':
+            if request.get('applicationID') is not None:
+                launch_installed_app(request['applicationID'])
+            else:
+                launch_app(value)
+        elif action == 'lock':
             lock_session()
         elif action == 'displaySleep':
             run('/usr/bin/pmset', 'displaysleepnow')
@@ -478,6 +548,11 @@ if not result['actionError']:
 if action in ('playPause', 'previousTrack', 'nextTrack'):
     read_now_playing()
 result['screenLocked'] = session_locked()
+if request.get('includeApplications') is True:
+    try:
+        result['applications'] = installed_apps()
+    except Exception:
+        result['applicationsError'] = 'Installed apps could not be read. Try again.'
 print(json.dumps(result))
 """#
 }

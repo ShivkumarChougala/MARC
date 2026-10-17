@@ -1194,6 +1194,8 @@ struct MARCControlOutput: Decodable, Identifiable, Sendable {
     let name: String
 }
 struct MARCControlState: Decodable, Sendable {
+    var applications: [MARCLaunchApplication]?
+    var applicationsError: String?
     var volume: Int?
     var muted: Bool?
     var audioError: String?
@@ -1234,12 +1236,53 @@ struct MARCNowPlaying: Decodable, Sendable {
 enum MARCControlAction: String, Encodable, Sendable {
     case read, volume, mute, wifi, bluetooth, output, brightness
     case lock, displaySleep, displayWake, playPause, previousTrack, nextTrack
+    case launchApp
+}
+
+enum MARCQuickLaunchApp: Int, CaseIterable, Sendable {
+    case safari = 0, terminal = 1, music = 2
+    var title: String {
+        switch self {
+        case .safari: return "Safari"
+        case .terminal: return "Terminal"
+        case .music: return "Music"
+        }
+    }
+}
+struct MARCLaunchApplication: Codable, Hashable, Identifiable, Sendable {
+    let id: String
+    let title: String
+    static func validID(_ value: String) -> Bool {
+        value.range(of: "^[A-Za-z0-9][A-Za-z0-9.-]{0,254}\\z", options: .regularExpression) != nil
+    }
+    var symbol: String {
+        switch id {
+        case "com.apple.Safari": return "safari.fill"
+        case "com.apple.Terminal": return "terminal"
+        case "com.apple.Music": return "music.note"
+        case "com.apple.finder": return "folder.fill"
+        case "com.apple.systempreferences": return "gearshape.fill"
+        case "com.apple.ActivityMonitor": return "waveform.path.ecg"
+        case "com.apple.calculator": return "calculator"
+        case "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly": return "globe"
+        case "com.apple.Dictionary": return "book.closed.fill"
+        case "com.apple.Notes": return "note.text"
+        case "com.apple.mail": return "envelope.fill"
+        case "com.apple.Photos": return "photo.on.rectangle"
+        case "com.apple.Preview": return "doc.richtext"
+        case "com.microsoft.VSCode": return "chevron.left.forwardslash.chevron.right"
+        case "com.google.Chrome", "org.mozilla.firefox": return "globe"
+        default: return "app"
+        }
+    }
 }
 private struct MARCControlRequest: Encodable {
     let action: MARCControlAction
     let value: Int?
     let includeWireless: Bool
     let displayID: Int?
+    let applicationID: String?
+    let includeApplications: Bool
 }
 
 extension SSHMonitor {
@@ -1247,14 +1290,16 @@ extension SSHMonitor {
 
     func marcControlRequest(_ action: MARCControlAction = .read,
                             value: Int? = nil, includeWireless: Bool = true, displayID: Int? = nil,
-                            expectedConnection: UUID? = nil) async throws -> MARCControlState {
+                            expectedConnection: UUID? = nil, applicationID: String? = nil,
+                            includeApplications: Bool = false) async throws -> MARCControlState {
         try Task.checkCancellation()
         if let expectedConnection, expectedConnection != generation { throw CancellationError() }
         guard connected, let client else {
             throw MARCAIError.message("Connect to a Mac in Settings first.")
         }
         let connectionGeneration = generation
-        let request = MARCControlRequest(action: action, value: value, includeWireless: includeWireless, displayID: displayID)
+        let request = MARCControlRequest(action: action, value: value, includeWireless: includeWireless,
+            displayID: displayID, applicationID: applicationID, includeApplications: includeApplications)
         let encoded = try JSONEncoder().encode(request).base64EncodedString()
         let command = "python3 - " + encoded + " <<'MARC_CONTROLS'\n" + Self.marcControlPython + "\nMARC_CONTROLS\n"
         let response = try await client.executeCommand(command, maxResponseSize: 65536, mergeStreams: false)

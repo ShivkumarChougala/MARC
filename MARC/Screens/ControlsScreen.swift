@@ -3,11 +3,18 @@ import SwiftUI
 import UIKit
 
 struct ControlsScreen: View {
-    // MARC control grid v2
+    // Compact native controls with explicit Mac app launch actions.
     let monitor: SSHMonitor
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    // Observe accent changes here because MARCPalette reads the saved value directly.
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.quickLaunch.v1") private var quickLaunchStorage = "{}"
+    @State private var quickLaunchApps = MARCQuickLaunchSelection.defaults
+    @State private var quickLaunchScrollID: String?
+    @State private var showQuickLaunch = false
+    @State private var lastApplicationID: String?
     @State private var state: MARCControlState?
     @State private var volume = 0.0
     @State private var brightness = 0.0
@@ -29,12 +36,10 @@ struct ControlsScreen: View {
 
     @State private var confirmWiFiOff = false
     @State private var mediaPlayer = 0
-    @State private var confirmLock = false
     @State private var showControlDetails = false
     @State private var showMediaSetup = false
     @State private var copiedMediaCommand = false
-    @State private var showDisplayActions = false
-    private var controlsEnabled: Bool { usable && !busy && !refreshing }
+    private var controlsEnabled: Bool { usable && !busy }
 
     private var usable: Bool {
         visible && monitor.connected && scenePhase == .active &&
@@ -46,284 +51,152 @@ struct ControlsScreen: View {
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(monitor.server?.name ?? "No connected Mac")
-                            .font(.system(size: 21, weight: .semibold))
-                        if let version = monitor.snapshot?.details?.osVersion {
-                            Text("macOS " + version).font(.system(size: 12)).foregroundStyle(p.muted)
-                        }
-                    }
-                    Spacer()
+            VStack(alignment: .leading, spacing: 12) {
+                if refreshing && state == nil {
+                    ProgressView().controlSize(.small).tint(p.accent)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Reading Mac controls")
                 }
                 if !monitor.connected {
                     Text("Connect to a Mac in Settings to use these controls.")
-                        .font(.system(size: 13)).foregroundStyle(p.muted)
+                        .font(.footnote).foregroundStyle(p.muted)
+                        .padding(.bottom, 4)
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle("Quick Actions", p)
-                    HStack(spacing: 10) {
-                        quickButton("Lock Mac", "lock.fill", p) {
-                            confirmLock = true
-                        }
-                        quickButton("Display", "display", p) {
-                            showDisplayActions = true
-                        }
-                        quickButton("Play / pause", "playpause.fill", p,
-                                    available: mediaAvailable) {
-                            send(.playPause, value: playbackTarget)
-                        }
+                let wirelessLayout = dynamicType.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) :
+                    AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+                wirelessLayout {
+                    controlCard(p) {
+                        connectionRow("Wi-Fi", symbol: "wifi",
+                            enabled: state?.wifiEnabled,
+                            writable: state?.wifiEnabled != nil,
+                            action: .wifi, palette: p)
+                    }
+                    controlCard(p) {
+                        connectionRow("Bluetooth", symbol: "antenna.radiowaves.left.and.right",
+                            enabled: state?.bluetoothEnabled,
+                            writable: state?.bluetoothWritable == true && state?.bluetoothEnabled != nil,
+                            action: .bluetooth, palette: p)
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle("Connections", p)
-
-                    connectionRow(
-                        "Wi-Fi", symbol: "wifi",
-                        enabled: state?.wifiEnabled,
-                        detail: state?.wifiName ?? "Mac wireless",
-                        writable: state?.wifiEnabled != nil,
-                        action: .wifi, palette: p
-                    )
-
-                    Divider().overlay(p.border)
-
-                    connectionRow(
-                        "Bluetooth",
-                        symbol: "antenna.radiowaves.left.and.right",
-                        enabled: state?.bluetoothEnabled,
-                        detail:
-                            (state?.bluetoothWritable == true ? "Mac Bluetooth" : "Status only"),
-                        writable: state?.bluetoothWritable == true &&
-                            state?.bluetoothEnabled != nil,
-                        action: .bluetooth, palette: p
-                    )
-
-                }
-                .padding(16)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
-
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle("Volume", p)
-
-                        MARCVerticalControl(
-                            value: $volume,
-                            title: "Mac volume",
-                            symbol: "speaker.wave.2.fill",
-                            available: state?.volume != nil,
-                            enabled: controlsEnabled && !editingBrightness,
-                            palette: p
-                        ) { editing in
-                            editingVolume = editing
-                            if !editing {
-                                send(.volume, value: Int(volume.rounded()))
-                            }
-                        }
-
-                        Text(state?.audioOutputName ?? "Audio output unavailable")
-                            .font(.system(size: 12))
-                            .foregroundStyle(p.muted)
-                            .lineLimit(2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(14)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle("Brightness", p)
-
-                        MARCVerticalControl(
-                            value: $brightness,
-                            title: "Display brightness",
-                            symbol: "sun.max.fill",
-                            available: state?.brightness != nil,
-                            enabled: controlsEnabled && !editingVolume,
-                            palette: p
-                        ) { editing in
-                            editingBrightness = editing
-                            if !editing {
-                                send(.brightness, value: Int(brightness.rounded()))
-                            }
-                        }
-
-                        Menu {
-                            ForEach(state?.displays ?? []) { display in
-                                Button {
-                                    guard selectedDisplayID != display.id else { return }
-                                    selectedDisplayID = display.id
-                                    state?.brightness = nil
-                                    feedbackAction = nil
-                                    failure = nil
-                                    notice = nil
-                                    Task { await refresh(wireless: false) }
-                                } label: {
-                                    Text(display.name +
-                                         (display.supported ? "" : " · Status only"))
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text(
-                                    state?.displays?.first(where: {
-                                        $0.id == selectedDisplayID
-                                    })?.name ?? state?.displayName ?? "Choose display"
-                                )
-                                .lineLimit(2)
-
-                                Spacer(minLength: 0)
-
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 9))
-                            }
-                            .font(.system(size: 12))
-                            .foregroundStyle(p.accent)
-                            .frame(minHeight: 36)
-                        }
-                        .disabled(
-                            !controlsEnabled || editingBrightness ||
-                            (state?.displays?.isEmpty ?? true)
-                        )
-                        .accessibilityLabel("Choose Mac display")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(14)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
-                }
-
-
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "hifispeaker.fill")
-                            .foregroundStyle(p.accent)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Audio output")
-                                .font(.system(size: 13))
-                                .foregroundStyle(p.muted)
-
-                            Menu {
-                                ForEach(state?.outputs ?? []) { output in
-                                    Button {
-                                        send(.output, value: output.id)
-                                    } label: {
-                                        if output.id == state?.audioOutputID {
-                                            Label(output.name, systemImage: "checkmark")
-                                        } else {
-                                            Text(output.name)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    Text(state?.audioOutputName ?? "Unavailable")
-                                        .lineLimit(2)
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10))
-                                }
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(p.text)
-                                .frame(minHeight: 44)
-                            }
-                            .disabled(
-                                !controlsEnabled || (state?.outputs?.isEmpty ?? true)
-                            )
-                            .accessibilityLabel("Choose Mac audio output")
-                        }
-
-                        Spacer(minLength: 0)
-
+                controlCard(p) {
+                    HStack(alignment: .top, spacing: 10) {
                         Button {
                             send(.mute, value: state?.muted == true ? 0 : 1)
                         } label: {
-                            VStack(spacing: 6) {
-                                Image(systemName:
-                                    state?.muted == true ?
-                                    "speaker.slash.fill" : "speaker.wave.2.fill"
-                                )
-                                Text(state?.muted == true ? "Unmute" : "Mute")
-                                    .font(.system(size: 11))
-                            }
-                            .foregroundStyle(state?.muted == true ? p.accent : p.text)
-                            .frame(width: 64, height: 64)
-                            .background(
-                                p.accent.opacity(state?.muted == true ? 0.16 : 0.07),
-                                in: RoundedRectangle(cornerRadius: 16)
-                            )
+                            controlIcon(state?.muted == true ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                                        color: state?.muted == true ? p.accent : p.muted)
                         }
+                        .frame(minWidth: 44, minHeight: 44)
                         .buttonStyle(.plain)
-                        .disabled(!controlsEnabled || state?.muted == nil)
-                        .accessibilityLabel(
-                            state?.muted == true ? "Unmute Mac" : "Mute Mac"
-                        )
+                        .disabled(!controlsEnabled || state?.muted == nil || editingVolume || editingBrightness)
+                        .accessibilityLabel(state?.muted == true ? "Unmute Mac" : "Mute Mac")
+                        MARCCompactControl(value: $volume, title: "Volume",
+                            available: state?.volume != nil,
+                            enabled: controlsEnabled && !editingBrightness, palette: p,
+                            editing: { editingVolume = $0 },
+                            commit: { send(.volume, value: Int(volume.rounded())) })
                     }
-
-
                 }
-                .padding(16)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
-
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        sectionTitle("Now Playing", p)
-                        Spacer()
-                        Text(state?.nowPlaying?.source ??
-                             (state?.mediaHelperInstalled == true ? "Automatic" : "Music / Spotify"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(p.muted)
-                            .lineLimit(1)
-                    }
-                    if let playing = state?.nowPlaying {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(playing.title)
-                                .font(.system(size: 14, weight: .semibold))
-                                .lineLimit(2)
-                            Text(playing.artist ?? (playing.playing == true ? "Playing" : "Paused"))
-                                .font(.system(size: 12))
-                                .foregroundStyle(p.muted)
-                                .lineLimit(1)
+                controlCard(p) {
+                    HStack(alignment: .top, spacing: 10) {
+                        controlIcon("sun.max.fill", color: p.muted)
+                        VStack(alignment: .leading, spacing: 2) {
+                            if state == nil || state?.brightness != nil {
+                                MARCCompactControl(value: $brightness, title: "Brightness",
+                                    available: state?.brightness != nil,
+                                    enabled: controlsEnabled && !editingVolume, palette: p,
+                                    editing: { editingBrightness = $0 },
+                                    commit: { send(.brightness, value: Int(brightness.rounded())) })
+                            } else {
+                                Text("Brightness").font(.subheadline.weight(.medium))
+                                    .foregroundStyle(p.text)
+                                Text("Unavailable for this display. Use its brightness controls.")
+                                    .font(.caption).foregroundStyle(p.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.top, 4)
+                            }
                         }
-                        .frame(height: 54, alignment: .topLeading)
-                    } else {
-                        Text(state?.mediaHelperInstalled == true ?
-                             "Start playback on your Mac." :
-                             "Open Music or Spotify, or enable browser music below.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(p.muted)
-                            .frame(height: 54, alignment: .topLeading)
-                    }
-                    HStack(spacing: 24) {
-                        Spacer()
-                        playbackButton("Previous track", "backward.end.fill", .previousTrack, p)
-                        playbackButton("Play or pause",
-                            state?.nowPlaying?.playing == true ? "pause.fill" :
-                                (state?.nowPlaying?.playing == false ? "play.fill" : "playpause.fill"),
-                            .playPause, p)
-                        playbackButton("Next track", "forward.end.fill", .nextTrack, p)
-                        Spacer()
-                    }
-                    if state?.mediaHelperInstalled != true {
-                        Button("Enable browser music") { showMediaSetup = true }
-                            .font(.system(size: 12, weight: .medium))
-                            .tint(p.accent)
-                            .disabled(!usable)
-                    } else if state?.mediaError != nil {
-                        Button("Playback details") { showMediaSetup = true }
-                            .font(.system(size: 12))
-                            .tint(p.accent)
                     }
                 }
-                .padding(16)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
-            }.padding(16)
+
+                controlCard(p) {
+                    let pickerLayout = dynamicType.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) :
+                        AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+                    pickerLayout {
+                        audioOutputSelector(p)
+                        if (state?.displays?.count ?? 0) > 1 {
+                            if !dynamicType.isAccessibilitySize { Divider().frame(height: 40) }
+                            displaySelector(p)
+                        }
+                    }
+                }
+
+                nowPlayingCard(p)
+                controlCard(p) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            sectionTitle("Quick Launch", p)
+                            Spacer()
+                            Button("Edit") {
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                showQuickLaunch = true
+                            }
+                                .font(.caption.weight(.medium)).tint(p.accent)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .disabled(!controlsEnabled || editingVolume || editingBrightness)
+                        }
+                        if quickLaunchApps.isEmpty {
+                            Text("Tap Edit to add apps from your Mac.")
+                                .font(.caption).foregroundStyle(p.muted)
+                        }
+                        ScrollView(.horizontal) {
+                            HStack(alignment: .top, spacing: 8) {
+                                ForEach(quickLaunchApps) { app in
+                                    Button {
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                        send(.launchApp, value: 0, applicationID: app.id)
+                                    } label: {
+                                        VStack(spacing: 7) {
+                                            MARCLaunchIcon(app: app)
+                                                .overlay {
+                                                    if busy && feedbackAction == .launchApp && lastApplicationID == app.id {
+                                                        ZStack {
+                                                            RoundedRectangle(cornerRadius: 13).fill(.black.opacity(0.45))
+                                                            ProgressView().tint(.white)
+                                                        }
+                                                    }
+                                                }
+                                            Text(busy && feedbackAction == .launchApp && lastApplicationID == app.id ? "Opening…" : app.title)
+                                                .font(.caption.weight(.medium))
+                                                .foregroundStyle(p.text).lineLimit(2)
+                                                .multilineTextAlignment(.center)
+                                        }
+                                        .containerRelativeFrame(.horizontal,
+                                            count: dynamicType.isAccessibilitySize ? 1 : 3, spacing: 8)
+                                        .frame(minHeight: 72, alignment: .top)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!controlsEnabled || editingVolume || editingBrightness)
+                                    .opacity(usable ? 1 : 0.45)
+                                    .accessibilityLabel("Open \(app.title) on your Mac")
+                                    .accessibilityValue(busy && feedbackAction == .launchApp && lastApplicationID == app.id ? "Opening" : "")
+                                }
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollTargetBehavior(.viewAligned)
+                        .scrollPosition(id: $quickLaunchScrollID, anchor: .leading)
+                        .scrollIndicators(.visible)
+
+                    }
+                }
+            }.padding(.horizontal, 16).padding(.vertical, 10)
         }.scrollIndicators(.hidden).marcCanvas()
             .marcLiveReadings(enabled: usable && !editingVolume && !editingBrightness)
-            .overlay { floatingFeedback(p) }
+            .overlay(alignment: .bottom) { floatingFeedback(p) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if !controlDetails.isEmpty {
@@ -341,6 +214,35 @@ struct ControlsScreen: View {
             } message: {
                 Text(controlDetails)
             }
+            .sheet(isPresented: $showQuickLaunch) {
+                let mac = monitor.server?.id.uuidString ?? ""
+                let connection = monitor.controlConnectionID
+                MARCQuickLaunchEditor(selected: quickLaunchApps) {
+                    let response = try await monitor.marcControlRequest(includeWireless: false,
+                        expectedConnection: connection, includeApplications: true)
+                    guard usable, monitor.server?.id.uuidString == mac else { throw CancellationError() }
+                    guard let apps = response.applications, response.applicationsError == nil else {
+                        throw MARCAIError.message("Installed apps could not be read.")
+                    }
+                    return apps
+                } save: { apps in
+                    guard usable, controlConnection == connection, monitor.server?.id.uuidString == mac else { return }
+                    let previousIDs = Set(quickLaunchApps.map(\.id))
+                    let selected = MARCQuickLaunchSelection.cleaned(apps)
+                    quickLaunchStorage = MARCQuickLaunchSelection.write(selected, mac: mac, storage: quickLaunchStorage)
+                    // Update the visible source immediately; do not wait for AppStorage observation.
+                    quickLaunchApps = selected
+                    quickLaunchScrollID = selected.last(where: { !previousIDs.contains($0.id) })?.id ?? selected.first?.id
+                    if failure == nil {
+                        feedbackAction = .launchApp
+                        lastValue = nil
+                        lastApplicationID = nil
+                        notice = "Quick Launch updated"
+                        noticeEvent = UUID()
+                    }
+                }
+                .tint(p.accent)
+            }
             .navigationTitle("Control Center").navigationBarTitleDisplayMode(.inline)
             .confirmationDialog("Turn off the Mac’s Wi-Fi?", isPresented: $confirmWiFiOff,
                                 titleVisibility: .visible) {
@@ -348,16 +250,6 @@ struct ControlsScreen: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("If this SSH connection uses Wi-Fi, it will disconnect. You may need to turn Wi-Fi back on at the Mac.")
-            }
-
-            .confirmationDialog(
-                "Lock this Mac?", isPresented: $confirmLock,
-                titleVisibility: .visible
-            ) {
-                Button("Lock Mac") { send(.lock, value: 0) }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Lock the signed-in Mac session. Unlock it at the Mac when you return.")
             }
 
             .sheet(isPresented: $showMediaSetup) {
@@ -416,15 +308,9 @@ struct ControlsScreen: View {
                 }
                 .presentationDetents([.medium, .large])
             }
-            .confirmationDialog("Display", isPresented: $showDisplayActions, titleVisibility: .visible) {
-                Button("Display on") { send(.displayWake, value: 0) }
-                Button("Display off") { send(.displaySleep, value: 0) }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Display on wakes the screen. A locked Mac stays locked.")
-            }
-
             .onAppear { visible = true }
+            .onChange(of: quickLaunchStorage, initial: true) { _, _ in reloadQuickLaunch() }
+            .onChange(of: monitor.server?.id) { _, _ in reloadQuickLaunch() }
             .task(id: connectionID) {
                 guard !Task.isCancelled else { return }
                 stopControlWork()
@@ -466,12 +352,10 @@ struct ControlsScreen: View {
 
     @ViewBuilder
     private func floatingFeedback(_ p: MARCPalette) -> some View {
-        if busy || failure != nil || notice != nil {
+        // Routine actions stay in their cards; failures retain explicit retry controls.
+        if failure != nil || (notice != nil && feedbackAction == .launchApp) {
             VStack(spacing: 12) {
-                if busy {
-                    ProgressView().tint(p.accent)
-                    Text("Updating…")
-                } else if let failure {
+                if let failure {
                     Image(systemName: "exclamationmark.circle.fill")
                         .foregroundStyle(.red)
                     Text(failure)
@@ -486,10 +370,8 @@ struct ControlsScreen: View {
                             if let action = feedbackAction, let value = lastValue {
                                 if action == .wifi && value == 0 {
                                     confirmWiFiOff = true
-                                } else if action == .lock {
-                                    confirmLock = true
                                 } else {
-                                    send(action, value: value)
+                                    send(action, value: value, applicationID: lastApplicationID)
                                 }
                             } else {
                                 Task { await refresh(wireless: true) }
@@ -525,33 +407,180 @@ struct ControlsScreen: View {
 
     private func sectionTitle(_ title: String, _ p: MARCPalette) -> some View {
         Text(title)
-            .font(.system(size: 15, weight: .semibold))
+            .font(.subheadline.weight(.semibold))
             .foregroundStyle(p.text)
     }
 
-    private func quickButton(
-        _ title: String, _ symbol: String, _ p: MARCPalette,
-        available: Bool = true, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 20))
-                    .foregroundStyle(p.accent)
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(p.text)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 88)
-            .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+    private func reloadQuickLaunch() {
+        quickLaunchApps = MARCQuickLaunchSelection.read(quickLaunchStorage,
+            mac: monitor.server?.id.uuidString ?? "")
+        if !quickLaunchApps.contains(where: { $0.id == quickLaunchScrollID }) {
+            quickLaunchScrollID = quickLaunchApps.first?.id
         }
-        .buttonStyle(.plain)
-        .disabled(!controlsEnabled || !available)
-        .opacity(available ? 1 : 0.5)
     }
+
+    private func controlCard<Content: View>(
+        _ p: MARCPalette, @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(p.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(p.border.opacity(0.45), lineWidth: 0.5))
+    }
+
+    private func controlIcon(_ symbol: String, color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 17, weight: .medium))
+            .foregroundStyle(color)
+            .frame(width: 36, height: 36)
+            .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .accessibilityHidden(true)
+    }
+
+    private var selectedDisplayName: String {
+        state?.displays?.first(where: { $0.id == selectedDisplayID })?.name ??
+            state?.displayName ?? "Mac display"
+    }
+
+    private func displaySelector(_ p: MARCPalette) -> some View {
+        Menu {
+            ForEach(state?.displays ?? []) { display in
+                Button {
+                    guard selectedDisplayID != display.id else { return }
+                    selectedDisplayID = display.id
+                    // A display switch supersedes any background read of the old display.
+                    revision = UUID()
+                    refreshing = false
+                    state?.brightness = nil
+                    feedbackAction = nil
+                    failure = nil
+                    notice = nil
+                    Task { await refresh(wireless: false) }
+                } label: {
+                    if display.id == selectedDisplayID {
+                        Label(display.name + (display.supported ? "" : " · Status only"), systemImage: "checkmark")
+                    } else {
+                        Text(display.name + (display.supported ? "" : " · Status only"))
+                    }
+                }
+            }
+        } label: {
+            pickerLabel("Display", value: selectedDisplayName, updating: false, p)
+        }
+        .disabled(!controlsEnabled || editingVolume || editingBrightness)
+        .accessibilityLabel("Choose Mac display")
+        .accessibilityValue(selectedDisplayName)
+    }
+
+    private func audioOutputSelector(_ p: MARCPalette) -> some View {
+        Menu {
+            ForEach(state?.outputs ?? []) { output in
+                Button { send(.output, value: output.id) } label: {
+                    if output.id == state?.audioOutputID {
+                        Label(output.name, systemImage: "checkmark")
+                    } else { Text(output.name) }
+                }
+            }
+        } label: {
+            pickerLabel("Audio Output", value: state?.audioOutputName ?? (state == nil ? "Checking…" : "Unavailable"),
+                        updating: busy && feedbackAction == .output, p)
+        }
+        .disabled(!controlsEnabled || editingVolume || editingBrightness || (state?.outputs?.isEmpty ?? true))
+        .accessibilityLabel("Choose Mac audio output")
+        .accessibilityValue(state?.audioOutputName ?? "Unavailable")
+    }
+
+    private func pickerLabel(_ title: String, value: String, updating: Bool, _ p: MARCPalette) -> some View {
+        HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.caption).foregroundStyle(p.muted)
+                Text(value).font(.footnote.weight(.medium)).foregroundStyle(p.text)
+                    .lineLimit(dynamicType.isAccessibilitySize ? 2 : 1)
+            }
+            Spacer(minLength: 0)
+            if updating {
+                ProgressView().controlSize(.small).tint(p.accent)
+            } else {
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(p.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private func nowPlayingCard(_ p: MARCPalette) -> some View {
+        controlCard(p) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Now Playing").font(.caption.weight(.medium)).foregroundStyle(p.muted)
+                    Spacer(minLength: 8)
+                    Text(state?.nowPlaying?.source ??
+                         (state?.mediaHelperInstalled == true ? "Automatic" : "Music / Spotify"))
+                        .font(.caption2).foregroundStyle(p.muted).lineLimit(1)
+                }
+                if dynamicType.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 10) {
+                        mediaDescription(p)
+                        playbackControls(p)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        mediaDescription(p)
+                        playbackControls(p)
+                    }
+                }
+                if state?.mediaHelperInstalled != true {
+                    Button("Enable browser music") { showMediaSetup = true }
+                        .font(.caption.weight(.medium)).tint(p.accent)
+                        .frame(minHeight: 44, alignment: .leading)
+                        .disabled(!usable)
+                } else if state?.mediaError != nil {
+                    Button("Playback details") { showMediaSetup = true }
+                        .font(.caption).tint(p.accent)
+                        .frame(minHeight: 44, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func mediaDescription(_ p: MARCPalette) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "music.note")
+                .font(.system(size: 21)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(LinearGradient(colors: [p.accent, .purple.opacity(0.7)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: RoundedRectangle(cornerRadius: 11))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(state?.nowPlaying?.title ?? (state == nil ? "Checking playback…" :
+                     (mediaAvailable ? (mediaPlayer == 1 ? "Spotify" : "Music") : "Nothing playing")))
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(p.text)
+                    .lineLimit(2)
+                Text(state?.nowPlaying?.artist ??
+                     (state?.nowPlaying?.playing == true ? "Playing" :
+                      (state?.nowPlaying?.playing == false ? "Paused" : "Playback on your Mac")))
+                    .font(.caption).foregroundStyle(p.muted).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func playbackControls(_ p: MARCPalette) -> some View {
+        HStack(spacing: 0) {
+            playbackButton("Previous track", "backward.end.fill", .previousTrack, p)
+            playbackButton("Play or pause",
+                state?.nowPlaying?.playing == true ? "pause.fill" :
+                    (state?.nowPlaying?.playing == false ? "play.fill" : "playpause.fill"), .playPause, p)
+            playbackButton("Next track", "forward.end.fill", .nextTrack, p)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+
 
     private func playbackButton(
         _ title: String, _ symbol: String,
@@ -560,64 +589,59 @@ struct ControlsScreen: View {
         Button {
             send(action, value: playbackTarget)
         } label: {
-            Image(systemName: symbol)
-                .font(.system(size: action == .playPause ? 25 : 20))
+            Group {
+                if busy && feedbackAction == action {
+                    ProgressView().controlSize(.small).tint(p.accent)
+                } else {
+                    Image(systemName: symbol)
+                }
+            }
+                .font(.system(size: action == .playPause ? 22 : 16))
                 .foregroundStyle(p.accent)
-                .frame(width: 52, height: 52)
+                .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
-        .disabled(!controlsEnabled || !mediaAvailable ||
+        .disabled(!controlsEnabled || editingVolume || editingBrightness || !mediaAvailable ||
                   (action != .playPause && state?.nowPlaying?.prohibitsSkip == true))
         .accessibilityLabel(title)
     }
 
     private func connectionRow(
-        _ title: String, symbol: String, enabled: Bool?, detail: String,
+        _ title: String, symbol: String, enabled: Bool?,
         writable: Bool, action: MARCControlAction, palette p: MARCPalette
     ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 19))
-                .foregroundStyle(enabled == true ? p.accent : p.muted)
-                .frame(width: 42, height: 42)
-                .background(
-                    p.accent.opacity(enabled == true ? 0.12 : 0.04),
-                    in: RoundedRectangle(cornerRadius: 13)
-                )
-
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                controlIcon(symbol,
+                            color: enabled == true ? (action == .wifi ? .green : .blue) : p.muted)
+                Spacer(minLength: 0)
+                if writable {
+                    Toggle(title, isOn: Binding(
+                        get: { enabled ?? false },
+                        set: { desired in
+                            if action == .wifi && !desired { confirmWiFiOff = true }
+                            else { send(action, value: desired ? 1 : 0) }
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(action == .wifi ? Color.green : Color.blue)
+                    .disabled(!controlsEnabled || editingVolume || editingBrightness)
+                }
+            }
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(p.text)
-                Text(detail)
-                    .font(.system(size: 11))
-                    .foregroundStyle(p.muted)
-                    .lineLimit(2)
             }
 
-            Spacer(minLength: 6)
-
-            if writable {
-                Toggle(title, isOn: Binding(
-                    get: { enabled ?? false },
-                    set: { desired in
-                        if action == .wifi && !desired {
-                            confirmWiFiOff = true
-                        } else {
-                            send(action, value: desired ? 1 : 0)
-                        }
-                    }
-                ))
-                .labelsHidden()
-                .tint(p.accent)
-                .disabled(!controlsEnabled)
-            } else {
-                Text(enabled.map { $0 ? "On" : "Off" } ?? "Unavailable")
+            if !writable {
+                Text(enabled == nil ? "Unavailable" : "Status only")
                     .font(.system(size: 11))
                     .foregroundStyle(p.muted)
+                    .accessibilityLabel(enabled.map { $0 ? "On, status only" : "Off, status only" } ?? "Unavailable")
             }
         }
-        .frame(minHeight: 48)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .topLeading)
     }
     @MainActor
     private func accept(_ response: MARCControlState) {
@@ -662,11 +686,11 @@ struct ControlsScreen: View {
         failure = nil
         notice = nil
         confirmWiFiOff = false
-        confirmLock = false
-        showDisplayActions = false
         showControlDetails = false
         showMediaSetup = false
         copiedMediaCommand = false
+        showQuickLaunch = false
+        lastApplicationID = nil
     }
     @MainActor
     private func refresh(wireless: Bool) async {
@@ -691,7 +715,7 @@ struct ControlsScreen: View {
         }
     }
     @MainActor
-    private func send(_ action: MARCControlAction, value: Int) {
+    private func send(_ action: MARCControlAction, value: Int, applicationID: String? = nil) {
         guard controlsEnabled else { return }
         let connection = monitor.controlConnectionID
         let display = selectedDisplayID
@@ -703,14 +727,19 @@ struct ControlsScreen: View {
         case .wifi: if state?.wifiEnabled == (value == 1) { return }
         case .bluetooth: if state?.bluetoothEnabled == (value == 1) { return }
         case .output: if state?.audioOutputID == value { return }
+        case .launchApp:
+            guard applicationID.map(MARCLaunchApplication.validID) ?? (MARCQuickLaunchApp(rawValue: value) != nil) else { return }
         case .read, .lock, .displaySleep, .displayWake, .playPause, .previousTrack, .nextTrack: break
         }
         busy = true
         feedbackAction = action
         lastValue = value
+        lastApplicationID = applicationID
         failure = nil
         notice = nil
         revision = UUID()
+        // User actions supersede background reads. Their old replies cannot own this flag.
+        refreshing = false
         let token = revision
         actionTask = Task { @MainActor in
             defer { if revision == token { busy = false; actionTask = nil } }
@@ -720,7 +749,7 @@ struct ControlsScreen: View {
                       controlConnection == connection else { throw CancellationError() }
                 let response = try await monitor.marcControlRequest(action, value: value,
                     includeWireless: action == .wifi || action == .bluetooth,
-                    displayID: display, expectedConnection: connection)
+                    displayID: display, expectedConnection: connection, applicationID: applicationID)
                 guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
                 accept(response)
                 if let error = response.actionError {
@@ -728,23 +757,12 @@ struct ControlsScreen: View {
                     UINotificationFeedbackGenerator().notificationOccurred(.error)
                 } else {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    switch action {
-                    case .volume: notice = "Volume set to \(response.volume ?? value)%"
-                    case .mute: notice = value == 1 ? "Muted" : "Unmuted"
-                    case .wifi: notice = value == 1 ? "Wi-Fi on" : "Wi-Fi off"
-                    case .bluetooth: notice = value == 1 ? "Bluetooth on" : "Bluetooth off"
-                    case .output: notice = "Output: " + (response.audioOutputName ?? "Updated")
-                    case .brightness: notice = "Brightness set to \(response.brightness ?? value)%"
-
-                    case .lock: notice = response.screenLocked == true ? "Mac locked" : "Lock requested"
-                    case .displaySleep: notice = "Display-off requested"
-                    case .displayWake: notice = "Display wake requested"
-                    case .playPause, .previousTrack, .nextTrack:
-                        notice = "Playback command sent"
-                    case .read: break
+                    // Routine controls already update inline; only launches show a success toast.
+                    if action == .launchApp {
+                        notice = applicationID == nil ? "\(MARCQuickLaunchApp(rawValue: value)?.title ?? "App") launch requested" : "App launch requested"
                     }
                 }
-                noticeEvent = UUID()
+                if notice != nil { noticeEvent = UUID() }
             } catch is CancellationError {} catch {
                 guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
                 UINotificationFeedbackGenerator().notificationOccurred(.error)

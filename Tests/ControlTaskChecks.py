@@ -93,13 +93,14 @@ harness = r'''
     var controlConnection: UUID?
     var confirmWiFiOff = false
     var mediaPlayer = 0
-    var confirmLock = false
     var showControlDetails = false
     var showMediaSetup = false
     var copiedMediaCommand = false
-    var showDisplayActions = false
+    var showQuickLaunch = false
+    var lastApplicationID: String?
     init() { controlConnection = monitor.controlConnectionID }
     func dispatch(_ action: MARCControlAction, _ value: Int) { send(action, value: value) }
+    func launchInstalled(_ id: String) { send(.launchApp, value: 0, applicationID: id) }
     func read(_ wireless: Bool = true) async { await refresh(wireless: wireless) }
     func leave() { visible = false; controlConnection = nil; stopControlWork() }
     func returnToConnection() { visible = true; controlConnection = monitor.controlConnectionID }
@@ -139,11 +140,13 @@ checks = r'''
         let value = ControlsHarness(); try value.seed()
         value.dispatch(.volume, 30)
         precondition(value.actionTask == nil && SSHClient.requests.isEmpty)
+        let beforeValueNotice = value.noticeEvent
         value.dispatch(.volume, 75); value.dispatch(.volume, 80)
         await value.actionTask?.value
         precondition(SSHClient.requests.count == 1 && value.volume == 75 && !value.busy)
         precondition(value.state?.wifiName == "Fixture LAN" && value.state?.bluetoothEnabled == true)
         precondition(value.actionTask == nil && value.failure == nil)
+        precondition(value.notice == nil && value.noticeEvent == beforeValueNotice)
 
         let display = ControlsHarness()
         let beforeDisplay = SSHClient.requests.count
@@ -167,6 +170,27 @@ checks = r'''
         editing.volume = 67; editing.editingVolume = true
         editGate.open(); await editRead.value
         precondition(editing.volume == 67 && editing.state == nil && !editing.refreshing)
+
+        let duringRead = ControlsHarness(); try duringRead.seed()
+        let backgroundGate = Gate()
+        SSHClient.hook = { request in
+            if request["action"] as? String == "read" {
+                await backgroundGate.wait()
+                return SSHClient.reply(request, volume: 10)
+            }
+            return SSHClient.reply(request)
+        }
+        let backgroundRead = Task { await duringRead.read() }
+        await waitFor { backgroundGate.entered }
+        precondition(duringRead.refreshing)
+        duringRead.dispatch(.volume, 72)
+        await duringRead.actionTask?.value
+        precondition(duringRead.volume == 72 && !duringRead.busy && !duringRead.refreshing)
+        backgroundGate.open(); await backgroundRead.value
+        precondition(duringRead.volume == 72 && !duringRead.refreshing && duringRead.failure == nil)
+        SSHClient.hook = nil
+        await duringRead.read()
+        precondition(!duringRead.refreshing && duringRead.failure == nil)
 
         let refreshed = ControlsHarness(); let oldReadGate = Gate(); let newReadGate = Gate()
         var reads = 0
@@ -197,7 +221,7 @@ checks = r'''
         replacement.dispatch(.volume, 45); await replacement.actionTask?.value
         actionGate.open(); await oldAction?.value
         precondition(replacement.volume == 45 && replacement.failure == nil && !replacement.busy)
-        precondition(replacement.notice == "Volume set to 45%" && replacement.actionTask == nil)
+        precondition(replacement.notice == nil && replacement.actionTask == nil)
 
         SSHClient.hook = nil
         let cancelled = ControlsHarness()
@@ -207,6 +231,51 @@ checks = r'''
         cancelled.dispatch(.playPause, 0); cancelled.dispatch(.playPause, 0)
         await cancelled.actionTask?.value
         precondition(SSHClient.requests.count == beforeCancel + 1)
+        let custom = ControlsHarness()
+        custom.launchInstalled("com.microsoft.VSCode")
+        await custom.actionTask?.value
+        precondition(SSHClient.requests.last?["applicationID"] as? String == "com.microsoft.VSCode")
+        precondition(custom.notice == "App launch requested" && !custom.busy)
+        let customCount = SSHClient.requests.count
+        custom.launchInstalled("bad;command")
+        precondition(SSHClient.requests.count == customCount && custom.actionTask == nil)
+        let cancelledCustom = ControlsHarness()
+        cancelledCustom.launchInstalled("com.apple.finder")
+        let customTask = cancelledCustom.actionTask
+        cancelledCustom.leave(); await customTask?.value
+        precondition(SSHClient.requests.count == customCount && cancelledCustom.lastApplicationID == nil)
+
+        let launch = ControlsHarness()
+        precondition(MARCQuickLaunchApp.allCases.map(\.rawValue) == [0, 1, 2])
+        precondition(MARCQuickLaunchApp.allCases.map(\.title) == ["Safari", "Terminal", "Music"])
+        let beforeLaunch = SSHClient.requests.count
+        launch.dispatch(.launchApp, MARCQuickLaunchApp.safari.rawValue)
+        launch.dispatch(.launchApp, MARCQuickLaunchApp.safari.rawValue)
+        await launch.actionTask?.value
+        precondition(SSHClient.requests.count == beforeLaunch + 1)
+        precondition(SSHClient.requests.last?["action"] as? String == "launchApp")
+        precondition(SSHClient.requests.last?["value"] as? Int == 0)
+        precondition(launch.notice == "Safari launch requested" && !launch.busy)
+        launch.dispatch(.launchApp, 99)
+        precondition(SSHClient.requests.count == beforeLaunch + 1 && launch.actionTask == nil)
+
+        let cancelledLaunch = ControlsHarness()
+        cancelledLaunch.dispatch(.launchApp, MARCQuickLaunchApp.music.rawValue)
+        let pendingLaunch = cancelledLaunch.actionTask
+        cancelledLaunch.leave()
+        await pendingLaunch?.value
+        precondition(SSHClient.requests.count == beforeLaunch + 1)
+        SSHClient.hook = { request in
+            var reply = SSHClient.reply(request)
+            reply["actionError"] = "Launch refused"
+            return reply
+        }
+        let failedLaunch = ControlsHarness()
+        failedLaunch.dispatch(.launchApp, MARCQuickLaunchApp.terminal.rawValue)
+        await failedLaunch.actionTask?.value
+        precondition(failedLaunch.failure == "Launch refused" && failedLaunch.notice == nil && !failedLaunch.busy)
+        SSHClient.hook = nil
+        print("PASS: Quick Launch target encoding, duplicate taps, invalid apps and queued cancellation")
         print("PASS: Control Center queued cancellation, connection/display binding, duplicate taps and stale task checks")
         print("PASS: control reads preserve editing values, current feedback and cached wireless state")
     }
