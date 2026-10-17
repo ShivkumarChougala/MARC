@@ -142,10 +142,13 @@ struct LiveSystemDetailScreen: View {
                     SystemPanel(title: "Storage", subtitle: "Data · APFS") {
                         HStack(spacing: 10) {
                             DetailStat(title: "Used",
-                                value: bytes(r.diskUsed), small: true, numericValue: r.diskUsed)
+                                value: r.diskTotal > 0 ? bytes(r.diskUsed) : "—", small: true,
+                                numericValue: r.diskTotal > 0 ? r.diskUsed : nil)
                             DetailStat(title: "Available",
-                                value: bytes(r.diskAvailable), small: true, numericValue: r.diskAvailable)
-                            MARCLiveNumberText(text: percent(r.diskPercent), value: r.diskPercent)
+                                value: r.diskTotal > 0 ? bytes(r.diskAvailable) : "—", small: true,
+                                numericValue: r.diskTotal > 0 ? r.diskAvailable : nil)
+                            MARCLiveNumberText(text: r.diskTotal > 0 ? percent(r.diskPercent) : "—",
+                                              value: r.diskTotal > 0 ? r.diskPercent : nil)
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color(marcHex: 0xff8f24))
                                 .monospacedDigit()

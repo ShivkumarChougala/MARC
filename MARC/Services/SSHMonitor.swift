@@ -460,7 +460,7 @@ hostname = socket.gethostname()
 total = int(run('/usr/sbin/sysctl', '-n', 'hw.memsize').strip())
 previous = cpu_ticks()
 previous_cores = core_ticks()
-disk_updated = 0
+disk_updated = None
 disk_total = disk_used = disk_available = 0
 
 cores = int(run('/usr/sbin/sysctl', '-n', 'hw.logicalcpu').strip())
@@ -633,6 +633,22 @@ def read_network_counters():
     return interface, None, None
 # MARC_NETWORK_COUNTERS_END
 
+# MARC_STORAGE_CAPACITY_BEGIN
+def read_storage_capacity():
+    try:
+        lines = run('/bin/df', '-k', '/System/Volumes/Data').splitlines()
+        if len(lines) < 2:
+            return 0, 0, 0
+        columns = lines[-1].split()
+        total, used, available = (int(columns[index]) for index in (1, 2, 3))
+        if not (0 < total <= (2 ** 63 - 1) // 1024 and
+                0 <= used <= total and 0 <= available <= total):
+            return 0, 0, 0
+        return total * 1024, used * 1024, available * 1024
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return 0, 0, 0
+# MARC_STORAGE_CAPACITY_END
+
 while True:
     time.sleep(1)
     try:
@@ -664,12 +680,10 @@ while True:
         # Resident usage estimate; includes wired, active and compressed memory.
         available = sum(pages.get(k, 0) for k in ('Pages free', 'Pages inactive', 'Pages speculative')) * page
         used = max(0, min(total, total - available))
-        if time.time() - disk_updated >= 5:
-            disk = run('/bin/df', '-k', '/System/Volumes/Data').splitlines()[-1].split()
-            disk_total = int(disk[1]) * 1024
-            disk_used = int(disk[2]) * 1024
-            disk_available = int(disk[3]) * 1024
-            disk_updated = time.time()
+        if disk_updated is None or time.monotonic() - disk_updated >= 5:
+            disk_total, disk_used, disk_available = read_storage_capacity()
+            # Bound retries after a failure too, independent of wall-clock jumps.
+            disk_updated = time.monotonic()
         interface, received, sent = read_network_counters()
         disk_read, disk_write = read_disk_counters()
         if time.time() - slow_updated >= 5:

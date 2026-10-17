@@ -86,7 +86,8 @@ for network_result in ('', subprocess.TimeoutExpired('netstat', 8), header + row
             return network_result
         raise AssertionError('Unexpected command in fixture: ' + str(args))
     state = dict(re=re, json=json, subprocess=subprocess, run=command,
-                 time=SimpleNamespace(time=lambda: 100), os=SimpleNamespace(getloadavg=lambda: (1, 1, 1)),
+                 time=SimpleNamespace(time=lambda: 100, monotonic=lambda: 100),
+                 os=SimpleNamespace(getloadavg=lambda: (1, 1, 1)),
                  core_ticks=lambda: [(1, 2, 3, 4)], previous_cores=[(0, 0, 0, 0)],
                  cpu_ticks=lambda: (1, 2, 3, 4), previous=(0, 0, 0, 0),
                  total=1024 ** 3, disk_updated=100, disk_total=1000, disk_used=100, disk_available=900,
