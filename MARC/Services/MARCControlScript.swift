@@ -198,20 +198,6 @@ def read_audio():
     result['volume'], result['muted'] = volume, parts[1].lower() == 'true'
 
 
-# Detect only this SSH user's already-open players.
-# Polling never launches a music application.
-for player in ('Music', 'Spotify'):
-    try:
-        process = subprocess.run(
-            ('/usr/bin/pgrep', '-u', str(os.getuid()), '-x', player),
-            capture_output=True, timeout=2
-        )
-        if process.returncode == 0:
-            result['mediaPlayers'].append(player)
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-
-
 def find_executable(name):
     for path in ('/opt/homebrew/bin/' + name, '/usr/local/bin/' + name, shutil.which(name)):
         if path and os.path.isfile(path) and os.access(path, os.X_OK):
@@ -219,6 +205,22 @@ def find_executable(name):
     return None
 
 media_tool = find_executable('media-control')
+
+# Native-player discovery is only needed without the helper, or for an explicit legacy target.
+# Detect only this SSH user's already-open players; never launch an app during polling.
+if media_tool is None or (request.get('action') in ('playPause', 'previousTrack', 'nextTrack')
+        and type(request.get('value')) is int and request['value'] in (0, 1)):
+    for player in ('Music', 'Spotify'):
+        try:
+            process = subprocess.run(
+                ('/usr/bin/pgrep', '-u', str(os.getuid()), '-x', player),
+                capture_output=True, timeout=2
+            )
+            if process.returncode == 0:
+                result['mediaPlayers'].append(player)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
 brew_tool = find_executable('brew')
 result['mediaHelperInstalled'] = media_tool is not None
 result['mediaInstallCommand'] = ("'" + brew_tool.replace("'", "'\"'\"'") + "' install media-control") if brew_tool else None

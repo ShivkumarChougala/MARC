@@ -31,6 +31,7 @@ python3 Tests/ControlSliderChecks.py
 python3 Tests/QuickLaunchChecks.py
 python3 Tests/MediaControlChecks.py
 python3 Tests/DisplayControlChecks.py
+python3 Tests/PlayerDiscoveryChecks.py
 python3 Tests/InstalledAppChecks.py
 python3 Tests/QuickLaunchSelectionChecks.py
 python3 Tests/ProcessChecks.py
