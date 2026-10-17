@@ -219,7 +219,7 @@ struct ControlsScreen: View {
                 let connection = monitor.controlConnectionID
                 MARCQuickLaunchEditor(selected: quickLaunchApps) {
                     let response = try await monitor.marcControlRequest(includeWireless: false,
-                        expectedConnection: connection, includeApplications: true)
+                        expectedConnection: connection, includeApplications: true, applicationsOnly: true)
                     guard usable, monitor.server?.id.uuidString == mac else { throw CancellationError() }
                     guard let apps = response.applications, response.applicationsError == nil else {
                         throw MARCAIError.message("Installed apps could not be read.")

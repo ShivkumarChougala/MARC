@@ -1283,6 +1283,7 @@ private struct MARCControlRequest: Encodable {
     let displayID: Int?
     let applicationID: String?
     let includeApplications: Bool
+    let applicationsOnly: Bool
 }
 
 extension SSHMonitor {
@@ -1291,7 +1292,7 @@ extension SSHMonitor {
     func marcControlRequest(_ action: MARCControlAction = .read,
                             value: Int? = nil, includeWireless: Bool = true, displayID: Int? = nil,
                             expectedConnection: UUID? = nil, applicationID: String? = nil,
-                            includeApplications: Bool = false) async throws -> MARCControlState {
+                            includeApplications: Bool = false, applicationsOnly: Bool = false) async throws -> MARCControlState {
         try Task.checkCancellation()
         if let expectedConnection, expectedConnection != generation { throw CancellationError() }
         guard connected, let client else {
@@ -1299,7 +1300,8 @@ extension SSHMonitor {
         }
         let connectionGeneration = generation
         let request = MARCControlRequest(action: action, value: value, includeWireless: includeWireless,
-            displayID: displayID, applicationID: applicationID, includeApplications: includeApplications)
+            displayID: displayID, applicationID: applicationID, includeApplications: includeApplications,
+            applicationsOnly: applicationsOnly)
         let encoded = try JSONEncoder().encode(request).base64EncodedString()
         let command = "python3 - " + encoded + " <<'MARC_CONTROLS'\n" + Self.marcControlPython + "\nMARC_CONTROLS\n"
         let response = try await client.executeCommand(command, maxResponseSize: 65536, mergeStreams: false)

@@ -198,6 +198,70 @@ def read_audio():
     result['volume'], result['muted'] = volume, parts[1].lower() == 'true'
 
 
+# MARC_INSTALLED_APPS_BEGIN
+def installed_apps(roots=None):
+    import plistlib
+    roots = roots if roots is not None else (
+        '/Applications', '/System/Applications', os.path.expanduser('~/Applications'),
+        '/System/Library/CoreServices/Finder.app',
+        '/System/Cryptexes/App/System/Applications')
+    found = {}
+    deadline = time.monotonic() + 3
+    pending = [(path, 0) for path in roots]
+    visited = 0
+    while pending and visited < 4096 and time.monotonic() < deadline:
+        path, depth = pending.pop(0)
+        visited += 1
+        if path.lower().endswith('.app'):
+            try:
+                info = os.path.join(path, 'Contents', 'Info.plist')
+                if os.path.getsize(info) > 1048576: continue
+                with open(info, 'rb') as stream: data = plistlib.load(stream)
+                if not isinstance(data, dict): continue
+                bundle = data.get('CFBundleIdentifier')
+                if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle): continue
+                title = data.get('CFBundleDisplayName') or data.get('CFBundleName') or os.path.basename(path)[:-4]
+                if not isinstance(title, str): title = os.path.basename(path)[:-4]
+                title = ''.join(c for c in title if c.isprintable()).strip()[:96] or bundle
+                found.setdefault(bundle, dict(id=bundle, title=title))
+            except Exception: pass
+        elif depth < 2 and not os.path.islink(path):
+            try:
+                with os.scandir(path) as entries:
+                    for entry in entries:
+                        if entry.name.startswith('.'): continue
+                        if entry.is_dir(follow_symlinks=True): pending.append((entry.path, depth + 1))
+                        if len(pending) >= 4096: break
+            except OSError: pass
+    rows = []
+    for app in sorted(found.values(), key=lambda app: (app['title'].casefold(), app['id'])):
+        if len(rows) >= 200 or len(json.dumps(rows + [app]).encode()) > 40000: break
+        rows.append(app)
+    return rows
+
+def launch_installed_app(bundle):
+    if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle):
+        raise RuntimeError('Choose an installed app from Quick Launch.')
+    if os.stat('/dev/console').st_uid != os.getuid():
+        raise RuntimeError('Connect as the Mac user who is signed in to open apps.')
+    try:
+        run('/usr/bin/open', '-b', bundle, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError('Could not open this app. It may have been moved or removed.') from None
+# MARC_INSTALLED_APPS_END
+
+# MARC_APPLICATION_CATALOG_BEGIN
+# App discovery does not need playback, audio, display or wireless reads.
+if request.get('applicationsOnly') is True and request.get('action') == 'read':
+    result['wirelessIncluded'] = False
+    try:
+        result['applications'] = installed_apps()
+    except Exception:
+        result['applicationsError'] = 'Installed apps could not be read. Try again.'
+    print(json.dumps(result))
+    sys.exit(0)
+# MARC_APPLICATION_CATALOG_END
+
 def find_executable(name):
     for path in ('/opt/homebrew/bin/' + name, '/usr/local/bin/' + name, shutil.which(name)):
         if path and os.path.isfile(path) and os.access(path, os.X_OK):
@@ -348,57 +412,7 @@ def launch_app(value):
         raise RuntimeError('Could not confirm the app launch. Check your Mac and try again.') from None
 # MARC_QUICK_LAUNCH_END
 
-# MARC_INSTALLED_APPS_BEGIN
-def installed_apps(roots=None):
-    import plistlib
-    roots = roots if roots is not None else (
-        '/Applications', '/System/Applications', os.path.expanduser('~/Applications'),
-        '/System/Library/CoreServices/Finder.app',
-        '/System/Cryptexes/App/System/Applications')
-    found = {}
-    deadline = time.monotonic() + 3
-    pending = [(path, 0) for path in roots]
-    visited = 0
-    while pending and visited < 4096 and time.monotonic() < deadline:
-        path, depth = pending.pop(0)
-        visited += 1
-        if path.lower().endswith('.app'):
-            try:
-                info = os.path.join(path, 'Contents', 'Info.plist')
-                if os.path.getsize(info) > 1048576: continue
-                with open(info, 'rb') as stream: data = plistlib.load(stream)
-                if not isinstance(data, dict): continue
-                bundle = data.get('CFBundleIdentifier')
-                if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle): continue
-                title = data.get('CFBundleDisplayName') or data.get('CFBundleName') or os.path.basename(path)[:-4]
-                if not isinstance(title, str): title = os.path.basename(path)[:-4]
-                title = ''.join(c for c in title if c.isprintable()).strip()[:96] or bundle
-                found.setdefault(bundle, dict(id=bundle, title=title))
-            except Exception: pass
-        elif depth < 2 and not os.path.islink(path):
-            try:
-                with os.scandir(path) as entries:
-                    for entry in entries:
-                        if entry.name.startswith('.'): continue
-                        if entry.is_dir(follow_symlinks=True): pending.append((entry.path, depth + 1))
-                        if len(pending) >= 4096: break
-            except OSError: pass
-    rows = []
-    for app in sorted(found.values(), key=lambda app: (app['title'].casefold(), app['id'])):
-        if len(rows) >= 200 or len(json.dumps(rows + [app]).encode()) > 40000: break
-        rows.append(app)
-    return rows
 
-def launch_installed_app(bundle):
-    if not isinstance(bundle, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{0,254}', bundle):
-        raise RuntimeError('Choose an installed app from Quick Launch.')
-    if os.stat('/dev/console').st_uid != os.getuid():
-        raise RuntimeError('Connect as the Mac user who is signed in to open apps.')
-    try:
-        run('/usr/bin/open', '-b', bundle, timeout=4)
-    except (OSError, subprocess.SubprocessError):
-        raise RuntimeError('Could not open this app. It may have been moved or removed.') from None
-# MARC_INSTALLED_APPS_END
 
 # MARC_MEDIA_REQUEST_BEGIN
 action = request.get('action')
