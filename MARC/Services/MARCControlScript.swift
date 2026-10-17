@@ -232,6 +232,7 @@ result['screenLocked'] = None
 
 def read_now_playing():
     result['nowPlaying'] = None
+    result['mediaError'] = None
     if not media_tool:
         return
     try:

@@ -25,13 +25,17 @@ def phase(name):
 before, after = phase('REQUEST'), phase('FEEDBACK')
 
 def exercise(action, value=2, *, inactive=False, prohibited=False, helper=True,
-             command_failure=False, help_text='next-track previous-track'):
+             command_failure=False, help_text='next-track previous-track', snapshots=None):
     calls = []
     gets = []
     def run(*args, **kwargs):
         calls.append((args, kwargs))
         if len(args) > 1 and args[1] == 'get':
             gets.append(args)
+            if snapshots is not None:
+                snapshot = snapshots[len(gets) - 1]
+                if isinstance(snapshot, Exception): raise snapshot
+                return json.dumps(snapshot)
             if inactive: return 'null'
             return json.dumps(dict(title='Before' if len(gets) == 1 else 'After',
                 artist='Artist', bundleIdentifier='com.brave.Browser', playing=True,
@@ -81,3 +85,21 @@ ns, calls, gets = exercise('playPause', True)
 assert ns['result']['actionError'] == 'Invalid control value.'
 assert all(args[1] == 'get' for args, _ in calls)
 print('PASS: media uses one fresh preflight and one feedback read; skip restrictions, missing sessions, failures and legacy players preserved')
+
+recovered = dict(title='Recovered track', artist='Artist', bundleIdentifier='com.brave.Browser',
+                 playing=True, prohibitsSkip=False)
+# A later successful read must clear the earlier metadata error, while a failed
+# command/preflight remains a failed action even if metadata has recovered.
+ns, calls, _ = exercise('playPause', snapshots=[subprocess.TimeoutExpired('get', 3), recovered])
+assert ns['result']['nowPlaying']['title'] == 'Recovered track'
+assert ns['result']['mediaError'] is None
+assert 'No active media session' in ns['result']['actionError']
+assert all(args[1] == 'get' for args, _ in calls)
+ns, _, _ = exercise('playPause', 0, snapshots=[ValueError('invalid metadata'), recovered])
+assert ns['result']['nowPlaying']['title'] == 'Recovered track'
+assert ns['result']['mediaError'] is None and ns['result']['actionError'] is None
+ns, _, _ = exercise('playPause', snapshots=[recovered, subprocess.TimeoutExpired('get', 3)])
+assert ns['result']['nowPlaying'] is None and ns['result']['mediaError'] is not None
+ns, _, _ = exercise('playPause', 0, snapshots=[ValueError('invalid metadata'), None])
+assert ns['result']['nowPlaying'] is None and ns['result']['mediaError'] is None
+print('PASS: metadata recovery clears stale read errors; real action failures and fresh read failures remain truthful')
