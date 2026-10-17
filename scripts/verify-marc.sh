@@ -31,6 +31,7 @@ python3 Tests/ProcessChecks.py
 python3 Tests/SystemStatisticsChecks.py
 python3 Tests/SystemDetailsChecks.py
 python3 Tests/DiskCollectorChecks.py
+python3 Tests/NetworkCollectorChecks.py
 python3 Tests/SettingsChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/MARCLocalDownload.swift \

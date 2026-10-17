@@ -599,6 +599,40 @@ def read_disk_counters():
     return None, None
 # MARC_DISK_COUNTERS_END
 
+# MARC_NETWORK_COUNTERS_BEGIN
+def read_network_counters():
+    interface = None
+    try:
+        route = run('/sbin/route', '-n', 'get', 'default')
+        match = re.search(r'interface:[ \t]*(\S+)', route)
+        if not match:
+            return None, None, None
+        interface = match.group(1)
+        lines = run('/usr/sbin/netstat', '-ibn').splitlines()
+        if not lines:
+            return interface, None, None
+        headings = lines[0].split()
+        incoming, outgoing = headings.index('Ibytes'), headings.index('Obytes')
+        for line in lines[1:]:
+            cols = line.split()
+            if not cols or cols[0] != interface or not any(col.startswith('<Link#') for col in cols):
+                continue
+            # A missing link address shifts the byte columns one place left.
+            offset = len(cols) - len(headings)
+            if offset not in (-1, 0):
+                continue
+            positions = incoming + offset, outgoing + offset
+            if not all(0 <= index < len(cols) for index in positions):
+                continue
+            received, sent = (int(cols[index]) for index in positions)
+            if received >= 0 and sent >= 0:
+                return interface, received, sent
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    # Missing network data must not discard otherwise valid system readings.
+    return interface, None, None
+# MARC_NETWORK_COUNTERS_END
+
 while True:
     time.sleep(1)
     try:
@@ -636,25 +670,7 @@ while True:
             disk_used = int(disk[2]) * 1024
             disk_available = int(disk[3]) * 1024
             disk_updated = time.time()
-        interface, received, sent = None, None, None
-        try:
-            route = run('/sbin/route', '-n', 'get', 'default')
-            match = re.search(r'interface:\s*(\S+)', route)
-            if match:
-                interface = match.group(1)
-                lines = run('/usr/sbin/netstat', '-ibn').splitlines()
-                headings = lines[0].split()
-                incoming = headings.index('Ibytes')
-                outgoing = headings.index('Obytes')
-                for line in lines[1:]:
-                    cols = line.split()
-                    if len(cols) > max(incoming, outgoing) and cols[0] == interface and '<Link#' in line:
-                        # Address can be empty in a link row: locate byte columns from the right.
-                        offset = len(cols) - len(headings)
-                        received, sent = int(cols[incoming + offset]), int(cols[outgoing + offset])
-                        break
-        except (ValueError, subprocess.SubprocessError):
-            pass
+        interface, received, sent = read_network_counters()
         disk_read, disk_write = read_disk_counters()
         if time.time() - slow_updated >= 5:
             try:
