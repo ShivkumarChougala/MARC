@@ -104,13 +104,14 @@ class MacBrightness:
         rows=cls.online()
         for row in rows:
             try:
-                controller=cls(row['id'])
+                controller=cls(row['id'], rows=rows)
                 row['brightness']=controller.read()
                 row['supported']=True
             except Exception: pass
         return rows
-    def __init__(self, selected=None):
-        rows=self.online()
+    def __init__(self, selected=None, rows=None):
+        # Reuse only this enumeration's snapshot; standalone command targets stay fresh.
+        rows=self.online() if rows is None else rows
         if not rows: raise RuntimeError('No active displays.')
         ids=[row['id'] for row in rows]
         if selected is not None and (isinstance(selected,bool) or not isinstance(selected,int) or selected not in ids):
