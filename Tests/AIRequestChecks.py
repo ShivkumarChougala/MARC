@@ -9,12 +9,13 @@ import tempfile
 
 root = Path(__file__).resolve().parents[1]
 terminal = (root / 'MARC/Screens/MARCTerminalScreen.swift').read_text()
+ai_source = (root / 'MARC/Screens/MARCTerminalAI.swift').read_text()
 monitor = (root / 'MARC/Services/SSHMonitor.swift').read_text()
-ai = terminal[terminal.index('struct MARCTerminalAI:'):terminal.index('extension MARCTerminalSession {\n    var aiConnectionID:')]
+ai = ai_source[ai_source.index('struct MARCTerminalAI:'):ai_source.index('struct MARCTerminalAISettings:')]
 properties = ai[ai.index('    private var configuration:'):ai.index('    private var modelLabel:')]
 methods = ai[ai.index('    private func runCommand()'):ai.rfind('\n}')]
 local_ai = terminal[terminal.index('extension MARCTerminalSession {\n    func localAI'):terminal.index('enum MARCAIError:')]
-error_and_history = terminal[terminal.index('enum MARCAIError:'):terminal.index('struct MARCTerminalAI:')]
+error_and_history = terminal[terminal.index('enum MARCAIError:'):terminal.index('extension MARCTerminalSession {\n    var aiConnectionID:')]
 remember = terminal[terminal.index('    func rememberAI('):terminal.index('    func sendKeyboard(')]
 models = monitor[monitor.index('extension SSHMonitor {\n    func marcInstalledAIModels'):monitor.index('// MARK: - MARC live Control Center')]
 
