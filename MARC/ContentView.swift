@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var terminalReturnTab = 0
     @State private var initialConnectionCheck = true
     @State private var keyboardVisible = false
+    @State private var terminating: MARCProcessTarget?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
@@ -18,7 +19,7 @@ struct ContentView: View {
         Group {
             switch tab {
             case 1:
-                workspace { ProcessesScreen(monitor: store.monitor) }
+                workspace { ProcessesScreen(monitor: store.monitor, terminating: $terminating) }
             case 2:
                 MARCKeyboardContainer {
                     TerminalScreen(
@@ -70,6 +71,8 @@ struct ContentView: View {
             for: UIResponder.keyboardWillHideNotification
         )) { _ in keyboardVisible = false }
         .marcCanvas()
+        .allowsHitTesting(terminating == nil)
+        .accessibilityHidden(terminating != nil)
         .overlay {
             if !store.servers.isEmpty &&
                 ((initialConnectionCheck && store.monitor.error == nil) ||
@@ -86,6 +89,16 @@ struct ContentView: View {
                 )
             }
         }
+        .overlay {
+            if let target = terminating, tab == 1, store.monitor.connected,
+               target.connection == store.monitor.processConnectionID {
+                MARCProcessConfirmation(target: target, monitor: store.monitor) {
+                    terminating = nil
+                }
+            }
+        }
+        .onChange(of: tab) { _, _ in terminating = nil }
+        .onChange(of: store.monitor.processConnectionID) { _, _ in terminating = nil }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             while !Task.isCancelled {
@@ -101,6 +114,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
+                terminating = nil
                 terminalWorkspace.pause()
                 remoteFiles.stop()
                 store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
@@ -112,9 +126,10 @@ struct ContentView: View {
             store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
         }
         .onChange(of: store.monitor.connected) { _, connected in
-            if !connected { terminalWorkspace.pause(); remoteFiles.stop() }
+            if !connected { terminating = nil; terminalWorkspace.pause(); remoteFiles.stop() }
         }
         .onChange(of: store.monitor.server?.id) { _, id in
+            terminating = nil
             terminalWorkspace.clearIfDifferent(id)
             remoteFiles.stop()
         }
