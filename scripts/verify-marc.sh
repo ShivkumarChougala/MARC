@@ -26,6 +26,10 @@ python3 Tests/ConnectionLifecycleChecks.py
 python3 Tests/TerminalFilesTaskChecks.py
 python3 Tests/TerminalScrollChecks.py
 python3 Tests/AIRequestChecks.py
+xcrun swiftc -swift-version 5 -parse-as-library \
+    MARC/Services/MARCAIResponseReader.swift Tests/AIResponseChecks.swift \
+    -o "$marc_build/ai-response-checks"
+"$marc_build/ai-response-checks"
 python3 Tests/ControlTaskChecks.py
 python3 Tests/ControlSliderChecks.py
 python3 Tests/QuickLaunchChecks.py

@@ -322,19 +322,11 @@ struct MARCTerminalAI: View {
                         )
                     }
 
-                    let (received, response) =
-                        try await URLSession.shared.data(for: request)
-                    guard let http = response as? HTTPURLResponse,
-                          (200...299).contains(http.statusCode) else {
-                        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                        throw MARCAIError.message(
-                            "API request failed (HTTP \(status)). Check endpoint, model and key."
-                        )
+                    let (bytes, response) =
+                        try await URLSession.shared.bytes(for: request)
+                    data = try await MARCAIResponseReader.read(bytes, response: response) {
+                        bytes.task.cancel()
                     }
-                    guard received.count <= 262144 else {
-                        throw MARCAIError.message("AI response exceeded its limit.")
-                    }
-                    data = received
                 }
 
                 try Task.checkCancellation()

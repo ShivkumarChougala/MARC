@@ -11,6 +11,7 @@ root = Path(__file__).resolve().parents[1]
 terminal = (root / 'MARC/Screens/MARCTerminalScreen.swift').read_text()
 ai_source = (root / 'MARC/Screens/MARCTerminalAI.swift').read_text()
 monitor = (root / 'MARC/Services/SSHMonitor.swift').read_text()
+response_reader = (root / 'MARC/Services/MARCAIResponseReader.swift').read_text()
 ai = ai_source[ai_source.index('struct MARCTerminalAI:'):ai_source.index('struct MARCTerminalAISettings:')]
 properties = ai[ai.index('    private var configuration:'):ai.index('    private var modelLabel:')]
 methods = ai[ai.index('    private func runCommand()'):ai.rfind('\n}')]
@@ -199,7 +200,7 @@ checks = r'''
 '''
 
 def fixture_source():
-    return (support + remember + '\n}\n' + error_and_history + local_ai +
+    return (support + remember + '\n}\n' + error_and_history + response_reader + local_ai +
             harness + properties + methods + '\n}\n' + monitor_support + models + checks)
 
 def main():
