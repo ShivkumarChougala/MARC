@@ -18,6 +18,11 @@ struct MARCFileDestination: Equatable {
     let path: String
 }
 
+struct MARCUploadConflict: Identifiable, Sendable {
+    let id = UUID()
+    let name: String
+}
+
 @MainActor @Observable
 final class MARCRemoteFiles {
     var entries: [MARCRemoteEntry] = []
@@ -34,6 +39,7 @@ final class MARCRemoteFiles {
     var previewTransfer = false
     var uploadingTransfer = false
     var cancellingTransfer = false
+    var uploadConflict: MARCUploadConflict?
     var activity = ""
     var failure: String?
     var notice: String?
@@ -49,8 +55,10 @@ final class MARCRemoteFiles {
     @ObservationIgnored private var operation: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var lastProgressUpdate: ContinuousClock.Instant?
+    @ObservationIgnored private var replacementChoice: CheckedContinuation<Bool, Never>?
 
     func stop() {
+        if let conflict = uploadConflict { resolveUploadConflict(conflict.id, replace: false) }
         generation = UUID()
         operation?.cancel()
         operation = nil
@@ -258,6 +266,34 @@ final class MARCRemoteFiles {
         guard transferring, !cancellingTransfer else { return }
         cancellingTransfer = true
         operation?.cancel()
+        if let conflict = uploadConflict { resolveUploadConflict(conflict.id, replace: false) }
+    }
+
+    func resolveUploadConflict(_ id: UUID, replace: Bool) {
+        guard uploadConflict?.id == id else { return }
+        uploadConflict = nil
+        let choice = replacementChoice
+        replacementChoice = nil
+        choice?.resume(returning: replace)
+    }
+
+    private func confirmReplacement(name: String, operationID: UUID) async -> Bool {
+        let conflict = MARCUploadConflict(name: name)
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { choice in
+                guard generation == operationID, !Task.isCancelled else {
+                    choice.resume(returning: false)
+                    return
+                }
+                replacementChoice = choice
+                uploadConflict = conflict
+                transferPhase = "Waiting for confirmation"
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.resolveUploadConflict(conflict.id, replace: false)
+            }
+        }
     }
 
     private func beginTransfer(name: String, preview: Bool = false, upload: Bool = false) {
@@ -287,7 +323,7 @@ final class MARCRemoteFiles {
             failure = "The upload destination changed. Select the file again."
             return
         }
-        guard ready, !busy, let client = sftp else { return }
+        guard ready, !busy, let client = sftp, let connection = ssh else { return }
         let id = generation
         let folder = path
         let name = url.lastPathComponent
@@ -295,11 +331,6 @@ final class MARCRemoteFiles {
               !name.contains("/"), !name.contains("\0") else { return }
 
         let destination = joined(folder, name)
-        if entries.contains(where: { $0.path == destination }) {
-            failure = "A file named \(name) already exists. Rename it before uploading."
-            return
-        }
-
         let temporary = joined(folder, ".marc-upload-\(UUID().uuidString).part")
         busy = true
         transferring = true
@@ -331,6 +362,17 @@ final class MARCRemoteFiles {
 
             do {
                 try checkOperation(id)
+                let target = try await MARCFileBridge.request(
+                    ["action": "uploadTarget", "path": destination], using: connection
+                )
+                try checkOperation(id)
+                let replacementFingerprint = target.uploadFingerprint
+                if replacementFingerprint != nil {
+                    guard await confirmReplacement(name: name, operationID: id) else {
+                        throw CancellationError()
+                    }
+                    try checkOperation(id)
+                }
                 let values = try url.resourceValues(
                     forKeys: [.isRegularFileKey, .fileSizeKey]
                 )
@@ -389,7 +431,14 @@ final class MARCRemoteFiles {
                 try checkOperation(id)
 
                 transferPhase = "Finishing upload"
-                try await client.rename(at: temporary, to: destination)
+                if let replacementFingerprint {
+                    _ = try await MARCFileBridge.request(
+                        ["action": "replaceUpload", "path": destination, "staged": temporary,
+                         "fingerprint": replacementFingerprint, "size": offset], using: connection
+                    )
+                } else {
+                    try await client.rename(at: temporary, to: destination)
+                }
                 created = false
                 guard generation == id else { return }
                 // The rename committed the verified file. A refresh failure or
@@ -415,7 +464,7 @@ final class MARCRemoteFiles {
                 try? await local?.close()
                 if created { try? await client.remove(at: temporary) }
                 guard generation == id else { return }
-                if Task.isCancelled {
+                if Task.isCancelled || error is CancellationError {
                     notice = "Upload cancelled."
                 } else {
                     failure = "Upload failed: \(error.localizedDescription)"

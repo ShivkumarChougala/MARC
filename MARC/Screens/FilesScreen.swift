@@ -340,7 +340,6 @@ struct FilesScreen: View {
                   let destination = photoDestination else { return }
             let preparation = UUID()
             photoPreparationID = preparation
-            let folder = destination.path
             preparingPhoto = true
             var imported: URL?
 
@@ -362,18 +361,6 @@ struct FilesScreen: View {
                       files.ready, !files.busy else {
                     throw MARCAIError.message(
                         "The destination changed. Select the item again."
-                    )
-                }
-
-                let destinationPath = folder == "/"
-                    ? "/" + media.url.lastPathComponent
-                    : folder + "/" + media.url.lastPathComponent
-
-                guard !files.entries.contains(where: {
-                    $0.path == destinationPath
-                }) else {
-                    throw MARCAIError.message(
-                        "A file with this name already exists in this folder."
                     )
                 }
 
@@ -408,7 +395,9 @@ struct FilesScreen: View {
         .onAppear { receiveDownloadedFile() }
         .onDisappear {
             pendingDownload = nil
-            if files.transferring && files.previewTransfer { files.cancelTransfer() }
+            if files.transferring && (files.previewTransfer || files.uploadConflict != nil) {
+                files.cancelTransfer()
+            }
         }
         .onChange(of: files.downloaded?.id) { _, _ in
             receiveDownloadedFile()
@@ -425,6 +414,19 @@ struct FilesScreen: View {
             }
             Button("OK", role: .cancel) { files.failure = nil }
         } message: { Text(files.failure ?? "") }
+        .alert("Replace existing file?", isPresented: Binding(
+            get: { files.uploadConflict != nil },
+            set: { _ in }
+        ), presenting: files.uploadConflict) { conflict in
+            Button("Replace", role: .destructive) {
+                files.resolveUploadConflict(conflict.id, replace: true)
+            }
+            Button("Cancel", role: .cancel) {
+                files.resolveUploadConflict(conflict.id, replace: false)
+            }
+        } message: { conflict in
+            Text("A file named \(conflict.name) already exists. Replace it with this upload? The existing file stays in place until the upload finishes.")
+        }
         .sheet(item: $selectedEntry, onDismiss: {
             actionSheetVisible = false
             presentDownloadedFile()

@@ -117,4 +117,37 @@ with tempfile.TemporaryDirectory(prefix='marc-action-checks-') as folder:
     check(stat.S_IMODE((archive_source / 'one.txt').stat().st_mode) == 0o640, 'permissions are nonrecursive')
     check('error' not in request('delete', archive_source) and not archive_source.exists(), 'folder deletion')
 
+with tempfile.TemporaryDirectory(prefix='marc-replace-upload-checks-') as directory:
+    base = Path(directory)
+    target = base / 'existing.bin'
+    staged = base / '.marc-upload-fixture.part'
+    check(request('uploadTarget', target) == {}, 'missing upload target needs no replacement')
+    target.write_bytes(b'original')
+    target.chmod(0o640)
+    expected = request('uploadTarget', target)['uploadFingerprint']
+    staged.write_bytes(b'replacement')
+    result = request('replaceUpload', target, staged=str(staged), fingerprint=expected, size=11)
+    check('error' not in result and target.read_bytes() == b'replacement', 'confirmed replacement commits complete content')
+    check(not staged.exists(), 'committed stage consumed')
+    check(stat.S_IMODE(target.stat().st_mode) == 0o640, 'replacement preserves original permissions')
+    staged.write_bytes(b'new')
+    expected = request('uploadTarget', target)['uploadFingerprint']
+    target.write_bytes(b'changed after confirmation')
+    result = request('replaceUpload', target, staged=str(staged), fingerprint=expected, size=3)
+    check('error' in result and target.read_bytes() == b'changed after confirmation', 'changed destination preserved')
+    check(staged.exists(), 'failed replacement retains stage for caller cleanup')
+    expected = request('uploadTarget', target)['uploadFingerprint']
+    for size in (4, -1, True):
+        check('error' in request('replaceUpload', target, staged=str(staged), fingerprint=expected, size=size), 'invalid staged size rejected')
+    other = base / 'not-a-stage'; other.write_bytes(b'new')
+    check('error' in request('replaceUpload', target, staged=str(other), fingerprint=expected, size=3), 'arbitrary staged name rejected')
+    staged.unlink(); staged.symlink_to(other)
+    check('error' in request('replaceUpload', target, staged=str(staged), fingerprint=expected, size=3), 'staged symbolic link rejected')
+    link = base / 'link'; link.symlink_to(target)
+    check('error' in request('uploadTarget', link), 'destination symbolic link rejected')
+    folder = base / 'folder'; folder.mkdir()
+    check('error' in request('uploadTarget', folder), 'destination folder rejected')
+    check('error' in request('replaceUpload', link, staged=str(staged), fingerprint=expected, size=3), 'replacement through link rejected')
+    check(target.read_bytes() == b'changed after confirmation', 'rejected replacements preserve destination bytes')
+print('PASS: confirmed upload replacement, changed destinations, stage validation, links and preserved permissions')
 print(f'PASS: {count} file-action checks (metadata, text conflicts, no-overwrite moves, permissions, links, archives, limits and deletion)')

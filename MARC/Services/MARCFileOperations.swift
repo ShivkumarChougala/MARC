@@ -28,6 +28,7 @@ struct MARCFileReply: Decodable, Sendable {
     let text: String?
     let archive: String?
     let archiveDirectory: String?
+    var uploadFingerprint: [String]? = nil
 }
 
 enum MARCFileBridge {
@@ -140,6 +141,40 @@ def execute(request):
         shutil.rmtree(path)
         return {}
     if action == 'info': return dict(info=info(path))
+    if action == 'uploadTarget':
+        try: s = os.lstat(path)
+        except FileNotFoundError: return {}
+        if not stat.S_ISREG(s.st_mode):
+            raise ValueError('This name belongs to a folder, link or device. Choose another upload name.')
+        return dict(uploadFingerprint=fingerprint(s))
+    if action == 'replaceUpload':
+        s = os.lstat(path)
+        expected = request.get('fingerprint')
+        if not stat.S_ISREG(s.st_mode) or expected != fingerprint(s):
+            raise ValueError('The destination changed. Upload again to review the current file before replacing it.')
+        staged = valid_path(request.get('staged'))
+        size = request.get('size')
+        if (os.path.dirname(staged) != os.path.dirname(path)
+                or not os.path.basename(staged).startswith('.marc-upload-')
+                or not os.path.basename(staged).endswith('.part') or staged == path):
+            raise ValueError('Invalid staged upload location.')
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ValueError('Invalid upload size.')
+        fd = os.open(staged, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as file:
+            stage = os.fstat(file.fileno())
+            if not stat.S_ISREG(stage.st_mode) or stage.st_size != size:
+                raise ValueError('Upload verification failed. The original file was not replaced.')
+            if (stage.st_uid, stage.st_gid) != (s.st_uid, s.st_gid):
+                os.fchown(file.fileno(), s.st_uid, s.st_gid)
+            os.fchmod(file.fileno(), stat.S_IMODE(s.st_mode))
+            os.fsync(file.fileno())
+            if fingerprint(os.lstat(staged)) != fingerprint(os.fstat(file.fileno())):
+                raise ValueError('The staged upload changed. Try again.')
+            if fingerprint(os.lstat(path)) != expected:
+                raise ValueError('The destination changed during upload. Review it before replacing it.')
+            os.replace(staged, path)
+        return {}
     if action == 'readText':
         s = regular(path)
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)

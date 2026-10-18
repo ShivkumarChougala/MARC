@@ -175,6 +175,25 @@ struct FixtureBatch { let components: [FixtureEntry] }
         let action = request["action"] as! String
         actions.append(action)
         if let hook { await hook(action) }
+        let sftp = SSHClient.sftp
+        func fingerprint(_ data: Data) -> [String] { [String(data.count), data.base64EncodedString()] }
+        if action == "uploadTarget" {
+            let data = sftp.data[request["path"] as! String]
+            return MARCFileReply(error: nil, info: nil, text: nil, archive: nil,
+                archiveDirectory: nil, uploadFingerprint: data.map(fingerprint))
+        }
+        if action == "replaceUpload" {
+            let path = request["path"] as! String
+            let stage = request["staged"] as! String
+            guard let original = sftp.data[path],
+                  request["fingerprint"] as? [String] == fingerprint(original),
+                  let replacement = sftp.data[stage],
+                  request["size"] as? UInt64 == UInt64(replacement.count) else {
+                throw MARCAIError.message("The destination changed")
+            }
+            sftp.data[path] = replacement
+            sftp.data[stage] = nil
+        }
         return MARCFileReply(error: nil, info: nil, text: nil,
             archive: action == "archive" ? "/fixture/archive.tar.gz" : nil,
             archiveDirectory: action == "archive" ? "/fixture/archive-temp" : nil)
@@ -323,6 +342,72 @@ checks = r'''
         precondition(!MARCFileBridge.actions.contains("saveText"), "A cancelled staged edit must not commit")
         precondition(!sftp.data.keys.contains { $0.contains(".marc-edit-input-") })
 
+        let replaceURL = directory.appendingPathComponent("replace.txt")
+        let replacementBytes = Data("replacement content".utf8)
+        try replacementBytes.write(to: replaceURL)
+        let replacePath = "/fixture/replace.txt"
+        let originalBytes = Data("original content".utf8)
+        sftp.data[replacePath] = originalBytes
+        let beforeReplace = files.completionEvent
+        let beforeReplaceOpens = sftp.opens
+        files.upload(replaceURL)
+        let cancelReplacement = files.operationFixture()
+        await waitFor { files.uploadConflict != nil }
+        let cancelledConflict = files.uploadConflict!.id
+        precondition(sftp.opens == beforeReplaceOpens, "Confirmation must precede remote staging")
+        files.resolveUploadConflict(cancelledConflict, replace: false)
+        await cancelReplacement?.value
+        precondition(sftp.data[replacePath] == originalBytes && files.notice == "Upload cancelled.")
+        precondition(files.completionEvent == beforeReplace && files.uploadConflict == nil && !files.busy)
+
+        files.upload(replaceURL)
+        let confirmedReplacement = files.operationFixture()
+        await waitFor { files.uploadConflict != nil }
+        files.resolveUploadConflict(files.uploadConflict!.id, replace: true)
+        await confirmedReplacement?.value
+        precondition(sftp.data[replacePath] == replacementBytes && files.completionTitle == "Upload complete")
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        // The user agreed to replace the old bytes, not a later version.
+        let newerBytes = Data("changed by another application".utf8)
+        sftp.writeHook = { sftp.data[replacePath] = newerBytes }
+        let beforeChangedReplace = files.completionEvent
+        files.upload(replaceURL)
+        let changedReplacement = files.operationFixture()
+        await waitFor { files.uploadConflict != nil }
+        files.resolveUploadConflict(files.uploadConflict!.id, replace: true)
+        await changedReplacement?.value
+        sftp.writeHook = nil
+        precondition(sftp.data[replacePath] == newerBytes && files.failure?.contains("destination changed") == true)
+        precondition(files.completionEvent == beforeChangedReplace)
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        let replacingGate = Gate()
+        sftp.writeHook = { await replacingGate.wait() }
+        files.upload(replaceURL)
+        let cancelledDuringReplacement = files.operationFixture()
+        await waitFor { files.uploadConflict != nil }
+        files.resolveUploadConflict(files.uploadConflict!.id, replace: true)
+        await waitFor { replacingGate.entered }
+        precondition(sftp.data[replacePath] == newerBytes, "Original stays intact while the stage uploads")
+        files.cancelTransfer(); sftp.writeHook = nil; replacingGate.open()
+        await cancelledDuringReplacement?.value
+        precondition(sftp.data[replacePath] == newerBytes && files.notice == "Upload cancelled.")
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        // Leaving the connection must release a waiting confirmation and make
+        // its old Replace action inert on the replacement connection.
+        files.upload(replaceURL)
+        let oldReplacement = files.operationFixture()
+        await waitFor { files.uploadConflict != nil }
+        let oldConflict = files.uploadConflict!.id
+        files.stop()
+        await files.prepare(server: b)
+        files.resolveUploadConflict(oldConflict, replace: true)
+        await oldReplacement?.value
+        precondition(files.ready && files.uploadConflict == nil && !files.busy && files.failure == nil)
+        precondition(sftp.data[replacePath] == newerBytes)
+
         // Cancel only after bytes exist remotely; cleanup must remove the stage,
         // retain other files and avoid reporting success.
         let interruptedURL = directory.appendingPathComponent("interrupted.bin")
@@ -425,6 +510,7 @@ checks = r'''
         precondition(!FileManager.default.fileExists(atPath: secondURL.path),
                      "Releasing the last viewer must clean its own local copy")
         print("PASS: partial upload cancellation/write failures, late destination conflicts and partial download cleanup")
+        print("PASS: upload Replace/Cancel, stale confirmation, changed destination and replacement staging cleanup")
         print("PASS: Terminal/Files task races (queued cancellation, slot switching, resize coalescing, archive ownership, staged edits and committed uploads)")
         print("PASS: completed download replacement, preview purpose and displayed-file lifetime")
     }
