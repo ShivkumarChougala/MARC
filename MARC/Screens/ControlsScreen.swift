@@ -52,6 +52,22 @@ struct ControlsScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                if monitor.connected, let server = monitor.server {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(server.username)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(p.text)
+                        if let version = monitor.snapshot?.details?.osVersion,
+                           !version.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text(version.lowercased().hasPrefix("macos") ? version : "macOS " + version)
+                                .font(.system(size: 12))
+                                .foregroundStyle(p.muted)
+                        }
+                    }
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                }
                 if refreshing && state == nil {
                     ProgressView().controlSize(.small).tint(p.accent)
                         .frame(maxWidth: .infinity)
