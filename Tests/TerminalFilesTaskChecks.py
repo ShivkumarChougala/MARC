@@ -124,6 +124,8 @@ struct FixtureBatch { let components: [FixtureEntry] }
     var failRefreshAfterRename = false
     private var refreshFails = false
     var readHook: (() async -> Void)?
+    var writeHook: (() async throws -> Void)?
+    var failRead = false
     var closeFileHook: ((String) async -> Void)?
     func getRealPath(atPath path: String) async throws -> String { path == "." ? "/fixture" : path }
     func listDirectory(atPath path: String) async throws -> [FixtureBatch] {
@@ -154,9 +156,11 @@ struct FixtureBatch { let components: [FixtureEntry] }
         var value = client.data[path] ?? Data()
         value.append(contentsOf: buffer.readableBytesView)
         client.data[path] = value
+        if let hook = client.writeHook { try await hook() }
     }
     func read(from offset: UInt64, length: UInt32) async throws -> ByteBuffer {
         if let hook = client.readHook { await hook() }
+        if client.failRead { throw MARCAIError.message("Fixture read failure") }
         let value = client.data[path] ?? Data()
         let start = min(Int(offset), value.count)
         let end = min(start + Int(length), value.count)
@@ -319,6 +323,70 @@ checks = r'''
         precondition(!MARCFileBridge.actions.contains("saveText"), "A cancelled staged edit must not commit")
         precondition(!sftp.data.keys.contains { $0.contains(".marc-edit-input-") })
 
+        // Cancel only after bytes exist remotely; cleanup must remove the stage,
+        // retain other files and avoid reporting success.
+        let interruptedURL = directory.appendingPathComponent("interrupted.bin")
+        try Data(repeating: 7, count: 70000).write(to: interruptedURL)
+        let writeGate = Gate()
+        sftp.writeHook = { await writeGate.wait() }
+        let beforeInterrupted = files.completionEvent
+        files.upload(interruptedURL)
+        let interruptedTask = files.operationFixture()
+        await waitFor { writeGate.entered }
+        precondition(sftp.data.keys.contains { $0.contains(".marc-upload-") })
+        files.cancelTransfer()
+        sftp.writeHook = nil; writeGate.open()
+        await interruptedTask?.value
+        precondition(!files.busy && !files.transferring && files.notice == "Upload cancelled.")
+        precondition(files.completionEvent == beforeInterrupted)
+        precondition(sftp.data["/fixture/interrupted.bin"] == nil)
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        // A write error after partial data follows the same cleanup path.
+        sftp.writeHook = { throw MARCAIError.message("Fixture write failure") }
+        files.upload(interruptedURL)
+        await files.operationFixture()?.value
+        sftp.writeHook = nil
+        precondition(files.failure?.contains("Upload failed") == true && !files.busy)
+        precondition(files.completionEvent == beforeInterrupted)
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        // The directory listing may be stale: preserve a destination created
+        // by another actor between upload startup and the final rename.
+        let existingContent = Data("keep the other file".utf8)
+        sftp.closeFileHook = { path in
+            if path.contains(".marc-upload-") {
+                sftp.data["/fixture/interrupted.bin"] = existingContent
+            }
+        }
+        files.upload(interruptedURL)
+        await files.operationFixture()?.value
+        sftp.closeFileHook = nil
+        precondition(sftp.data["/fixture/interrupted.bin"] == existingContent)
+        precondition(files.failure?.contains("Upload failed") == true)
+        precondition(files.completionEvent == beforeInterrupted)
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+
+        // Fail the second read after one chunk was stored locally. The lease
+        // must remove the partial copy, without publishing a completed result.
+        let partialEntry = MARCRemoteEntry(name: "partial.bin", path: "/fixture/partial.bin",
+            directory: false, size: 70000, modified: nil, mode: nil)
+        sftp.data[partialEntry.path] = Data(repeating: 3, count: 70000)
+        let tempRoot = FileManager.default.temporaryDirectory
+        let beforeFolders = Set(try FileManager.default.contentsOfDirectory(atPath: tempRoot.path)
+            .filter { $0.hasPrefix("MARC-download-") })
+        var partialReads = 0
+        sftp.readHook = { partialReads += 1; sftp.failRead = partialReads > 1 }
+        files.download(partialEntry)
+        await files.operationFixture()?.value
+        sftp.readHook = nil; sftp.failRead = false
+        precondition(partialReads == 2 && files.downloaded == nil && !files.busy)
+        precondition(files.failure?.contains("Download failed") == true)
+        let afterFolders = Set(try FileManager.default.contentsOfDirectory(atPath: tempRoot.path)
+            .filter { $0.hasPrefix("MARC-download-") })
+        precondition(afterFolders.subtracting(beforeFolders).isEmpty,
+                     "A failed partial download must not leave its local directory")
+
         sftp.failRefreshAfterRename = true
         files.upload(upload)
         await waitFor { !files.busy }
@@ -356,6 +424,7 @@ checks = r'''
         viewer = nil
         precondition(!FileManager.default.fileExists(atPath: secondURL.path),
                      "Releasing the last viewer must clean its own local copy")
+        print("PASS: partial upload cancellation/write failures, late destination conflicts and partial download cleanup")
         print("PASS: Terminal/Files task races (queued cancellation, slot switching, resize coalescing, archive ownership, staged edits and committed uploads)")
         print("PASS: completed download replacement, preview purpose and displayed-file lifetime")
     }
