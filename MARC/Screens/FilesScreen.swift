@@ -46,68 +46,19 @@ struct FilesScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         let entries = visibleEntries
 
-        ScrollViewReader { scroll in
-            VStack(spacing: 12) {
-                HStack(spacing: 10) {
-                    Button {
-                        files.browse((files.path as NSString).deletingLastPathComponent)
-                        search = ""
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .disabled(!files.ready || files.busy || files.path == "/")
-                    .accessibilityLabel("Parent folder")
-
-                    ScrollView(.horizontal) {
-                        Text(files.path.isEmpty ? "Connecting…" : files.path)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(p.muted)
-                            .textSelection(.enabled)
-                    }
-                    .scrollIndicators(.hidden)
-
-                    Button {
-                        files.browse(files.home)
-                        search = ""
-                    } label: {
-                        Image(systemName: "house")
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .disabled(!files.ready || files.busy)
-                    .accessibilityLabel("Home folder")
-                }
-                .foregroundStyle(p.accent)
-                .padding(.horizontal, 8)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 12))
-
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(p.muted)
-                    TextField("Search this folder", text: $search)
-                        .font(.system(size: 13))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .focused($searchFocused)
-                        .submitLabel(.done)
-                        .onSubmit { searchFocused = false }
-                    Button { showHidden.toggle() } label: {
-                        Image(systemName: showHidden ? "eye" : "eye.slash")
-                            .foregroundStyle(showHidden ? p.accent : p.muted)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Toggle hidden files")
-                    .accessibilityValue(showHidden ? "Shown" : "Hidden")
-                }
-                .padding(.leading, 12)
-                .padding(.trailing, 4)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 12))
+        VStack(spacing: 0) {
+            Text("Files")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(p.text)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+            ScrollViewReader { scroll in
                 ScrollView {
                     VStack(spacing: 12) {
                         LazyVStack(spacing: 1) {
                             ForEach(entries) { entry in
+                                let metadata = detail(entry)
                                 HStack(spacing: 0) {
                                     Button {
                                         if entry.directory { open(entry) }
@@ -124,15 +75,18 @@ struct FilesScreen: View {
                                                 Text(entry.name)
                                                     .font(.system(size: 14, weight: .medium))
                                                     .foregroundStyle(p.text).lineLimit(2)
-                                                Text(detail(entry))
-                                                    .font(.system(size: 10)).foregroundStyle(p.muted)
-                                                Text(MARCFileFormatting.permissions(entry.mode))
+                                                Text(metadata)
                                                     .font(.system(size: 10, design: .monospaced))
                                                     .foregroundStyle(p.muted)
+                                                    .lineLimit(1)
+                                                    .minimumScaleFactor(0.85)
+                                                    .accessibilityLabel(entry.directory
+                                                        ? "Directory entry size, not contents: " + metadata
+                                                        : metadata)
                                             }
                                             Spacer(minLength: 4)
                                         }
-                                        .padding(.leading, 14).padding(.vertical, 12)
+                                        .padding(.vertical, 12)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .contentShape(Rectangle())
                                     }
@@ -147,7 +101,13 @@ struct FilesScreen: View {
                                     .buttonStyle(.plain)
                                     .accessibilityLabel("Details and actions for \(entry.name)")
                                 }
-                                .background(entry.path == files.lastUploadedPath ? p.accent.opacity(0.12) : p.surface)
+                                .background(entry.path == files.lastUploadedPath ? p.accent.opacity(0.12) : Color.clear)
+                                .overlay(alignment: .bottom) {
+                                    Rectangle().fill(p.border.opacity(0.5))
+                                        .frame(height: 0.5)
+                                        .padding(.leading, 54)
+                                        .allowsHitTesting(false)
+                                }
                                 .disabled(files.busy || !files.ready)
                                 .contextMenu {
                                     Button("Details and actions") { actionSheetVisible = true; selectedEntry = entry }
@@ -156,7 +116,6 @@ struct FilesScreen: View {
                                 .id(entry.id)
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
 
                         if !files.busy && entries.isEmpty {
                             Text(files.ready
@@ -167,11 +126,23 @@ struct FilesScreen: View {
                                 .padding(30)
                         }
                     }
+                    .id("marc-files-start")
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                 }
-                .scrollIndicators(.hidden)
+                .scrollClipDisabled()
+                .scrollIndicators(.visible)
                 .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .top, spacing: 0) { transferFeedback(palette: p) }
+                .marcListHeaderFade()
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    VStack(spacing: 0) {
+                        folderSearch(palette: p)
+                        directoryHeader(palette: p)
+                    }
+                }
+                .onChange(of: files.path) { _, _ in
+                    scroll.scrollTo("marc-files-start", anchor: .top)
+                }
                 .task(id: files.lastUploadedPath) {
                     guard let uploaded = files.lastUploadedPath, !Task.isCancelled else { return }
                     let folder = files.path
@@ -188,13 +159,18 @@ struct FilesScreen: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showTransferProgress)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: files.completionTitle)
-
         .marcCanvas()
+        .overlay(alignment: .bottom) {
+            transferFeedback(palette: p)
+                .transition(.opacity)
+                .frame(maxWidth: 360)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 10)
+                .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showTransferProgress)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: files.completionTitle)
+        }
         .marcDelayedActivity(
             active: files.busy && !files.transferring && !preparingPhoto && selectedEntry == nil,
             title: files.ready ? files.activity : "Connecting to Files"
@@ -226,11 +202,8 @@ struct FilesScreen: View {
                 if files.notice == notice { files.notice = nil }
             } catch {}
         }
-        .marcNavigationTitle("Files")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { uploadMenu(palette: p) }
-            .sharedBackgroundVisibility(.hidden)
-        }
+        .navigationTitle("Files")
+        .toolbar(.hidden, for: .navigationBar)
         .onChange(of: connectionID) { _, _ in
             selectedEntry = nil
             pendingDownload = nil
@@ -370,6 +343,148 @@ struct FilesScreen: View {
         }
     }
 
+    private struct FolderLocation: Identifiable {
+        let path: String
+        let title: String
+        var id: String { path }
+    }
+
+    private var folderLocations: [FolderLocation] {
+        guard files.path.hasPrefix("/") else { return [] }
+        var result = [FolderLocation(path: "/", title: "Mac root (/)")]
+        var path = ""
+        for component in (files.path as NSString).pathComponents where component != "/" {
+            path += "/" + component
+            result.append(FolderLocation(path: path, title: path == files.home ? "Home (\(component))" : component))
+        }
+        return result
+    }
+
+    private var currentFolderName: String {
+        guard !files.path.isEmpty else { return "Connecting…" }
+        return files.path == "/" ? "Mac root" : (files.path as NSString).lastPathComponent
+    }
+
+    private func browseFolder(_ path: String) {
+        guard files.ready, !files.busy, !path.isEmpty, path != files.path else { return }
+        searchFocused = false
+        search = ""
+        files.browse(path)
+    }
+
+    private func directoryHeader(palette p: MARCPalette) -> some View {
+        HStack(spacing: 6) {
+            if !files.home.isEmpty && files.path != files.home &&
+                files.path.hasPrefix(files.home == "/" ? "/" : files.home + "/") {
+                Button("Home") { browseFolder(files.home) }
+                    .foregroundStyle(p.accent)
+                    .frame(minHeight: 44)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .disabled(!files.ready || files.busy)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundStyle(p.muted)
+                    .accessibilityHidden(true)
+            }
+            Menu {
+                ForEach(folderLocations) { location in
+                    Button { browseFolder(location.path) } label: {
+                        Label(location.title, systemImage: location.path == files.path ? "checkmark" : "folder")
+                    }
+                    .disabled(location.path == files.path)
+                }
+                Divider()
+                Toggle("Show hidden files", isOn: $showHidden)
+                Button("Copy folder path") { UIPasteboard.general.string = files.path }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(files.path == files.home ? "Home" : currentFolderName)
+                        .lineLimit(1).truncationMode(.middle)
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                }
+                .foregroundStyle(p.text)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .disabled(!files.ready || files.busy || files.path.isEmpty)
+            .accessibilityLabel("Jump to a parent folder")
+            .accessibilityValue(files.path)
+            Spacer(minLength: 8)
+            Button {
+                browseFolder((files.path as NSString).deletingLastPathComponent)
+            } label: {
+                Label("Back", systemImage: "chevron.left")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(p.accent)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .disabled(!files.ready || files.busy || files.path.isEmpty || files.path == "/")
+            .accessibilityLabel("Parent folder")
+            .accessibilityHint("Go up one folder")
+        }
+        .font(.system(size: 13))
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+    }
+
+    private func folderSearch(palette p: MARCPalette) -> some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16))
+                    .foregroundStyle(p.muted)
+                    .accessibilityHidden(true)
+                TextField("Search files", text: $search)
+                    .font(.system(size: 13))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .focused($searchFocused)
+                    .submitLabel(.done)
+                    .onSubmit { searchFocused = false }
+                if !search.isEmpty {
+                    Button { search = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(p.muted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear file search")
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, search.isEmpty ? 12 : 0)
+            .frame(minHeight: 44)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(p.border.opacity(0.6), lineWidth: 0.5))
+            HStack(spacing: 0) {
+                uploadMenu(palette: p)
+                    .font(.system(size: 18))
+                Rectangle().fill(p.border.opacity(0.5))
+                    .frame(width: 0.5, height: 18)
+                    .accessibilityHidden(true)
+                Button { browseFolder(files.home) } label: {
+                    Image(systemName: "house")
+                        .font(.system(size: 18))
+                        .foregroundStyle(p.accent)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!files.ready || files.busy || files.home.isEmpty)
+                .accessibilityLabel("Home folder")
+            }
+            .padding(.horizontal, 2)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(p.border.opacity(0.6), lineWidth: 0.5))
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .padding(.horizontal, 16)
+    }
+
     private func uploadMenu(palette p: MARCPalette) -> some View {
         Menu {
             Button {
@@ -397,59 +512,37 @@ struct FilesScreen: View {
 
     @ViewBuilder
     private func transferFeedback(palette p: MARCPalette) -> some View {
-        if preparingPhoto || files.transferring || files.completionTitle != nil ||
-            (files.notice != nil && !files.busy) {
-            VStack(spacing: 8) {
-                if preparingPhoto || files.transferring {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.mini).tint(p.accent)
-                        Text(preparingPhoto ? "Preparing media…" :
-                             (files.cancellingTransfer ? "Cancelling…" : files.transferPhase))
-                            .font(.system(size: 11))
-                            .foregroundStyle(p.muted)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                }
-                if ((preparingPhoto || files.transferring) && showTransferProgress) || files.completionTitle != nil {
-                    Group {
-                        if preparingPhoto && showTransferProgress {
-                            MARCFileTransferCard(
-                                title: "Preparing media", filename: "Photo or video",
-                                symbol: "photo", detail: "Loading selected item…",
-                                progress: nil, cancel: nil
-                            )
-                        } else if files.transferring && showTransferProgress {
-                            MARCFileTransferCard(
-                                title: files.cancellingTransfer ? "Cancelling…" : files.transferPhase,
-                                filename: files.transferName,
-                                symbol: files.previewTransfer ? "eye" : (files.uploadingTransfer ? "arrow.up" : "arrow.down"),
-                                detail: transferDetail,
-                                progress: files.transferTotal == nil || files.progress >= 1 ? nil : files.progress,
-                                cancel: files.cancellingTransfer ? nil : { files.cancelTransfer() }
-                            )
-                        } else if let title = files.completionTitle {
-                            MARCFileCompletionCard(
-                                title: title,
-                                filename: (files.completionPath as NSString).lastPathComponent
-                            )
-                            .allowsHitTesting(false)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                if let notice = files.notice, !files.busy, !preparingPhoto, !files.transferring, files.completionTitle == nil {
-                    Text(notice)
-                        .font(.system(size: 12)).multilineTextAlignment(.center)
-                        .padding(14)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .frame(maxWidth: .infinity)
-                        .allowsHitTesting(false)
+        if preparingPhoto || files.transferring {
+            if showTransferProgress {
+                if preparingPhoto {
+                    MARCFileTransferCard(
+                        title: "Preparing media", filename: "Photo or video",
+                        symbol: "photo", detail: "Loading selected item…",
+                        progress: nil, cancel: nil
+                    )
+                } else {
+                    MARCFileTransferCard(
+                        title: files.cancellingTransfer ? "Cancelling…" : files.transferPhase,
+                        filename: files.transferName,
+                        symbol: files.previewTransfer ? "eye" : (files.uploadingTransfer ? "arrow.up" : "arrow.down"),
+                        detail: transferDetail,
+                        progress: files.transferTotal == nil || files.progress >= 1 ? nil : files.progress,
+                        cancel: files.cancellingTransfer ? nil : { files.cancelTransfer() }
+                    )
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
+        } else if let title = files.completionTitle {
+            MARCFileCompletionCard(
+                title: title,
+                filename: (files.completionPath as NSString).lastPathComponent
+            )
+            .allowsHitTesting(false)
+        } else if let notice = files.notice, !files.busy {
+            Text(notice)
+                .font(.system(size: 12)).multilineTextAlignment(.center)
+                .padding(14)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(false)
         }
     }
 
@@ -491,13 +584,15 @@ struct FilesScreen: View {
     }
 
     private func detail(_ entry: MARCRemoteEntry) -> String {
-        let size = entry.directory ? "Folder" : entry.size.map {
+        let size = entry.size.map {
             ByteCountFormatter.string(
                 fromByteCount: Int64(clamping: $0), countStyle: .file
             )
-        } ?? "File"
-        guard let modified = entry.modified else { return size }
-        return size + " · " + modified.formatted(date: .abbreviated, time: .omitted)
+        } ?? "—"
+        let modified = entry.modified.map {
+            $0.formatted(.dateTime.day(.twoDigits).month(.twoDigits).year(.twoDigits))
+        } ?? "—"
+        return size + " · " + modified + " · " + MARCFileFormatting.permissions(entry.mode)
     }
 }
 
@@ -637,7 +732,7 @@ private struct MARCFileTransferCard: View {
         .padding(.leading, 16)
         .padding(.trailing, cancel == nil ? 16 : 6)
         .padding(.vertical, 14)
-        .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay {
             RoundedRectangle(cornerRadius: 18)
                 .strokeBorder(
@@ -678,7 +773,7 @@ private struct MARCFileCompletionCard: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(p.border, lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
