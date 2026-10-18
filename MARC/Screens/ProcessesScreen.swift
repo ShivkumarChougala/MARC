@@ -154,6 +154,12 @@ struct ProcessesScreen: View {
                             guard currentConnection else { return }
                             terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction {
+                            guard currentConnection else { return }
+                            terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
+                        }
                         .accessibilityHint("Tap for termination confirmation")
                     }
 

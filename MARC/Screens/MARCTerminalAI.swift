@@ -185,7 +185,8 @@ struct MARCTerminalAI: View {
                         Image(systemName: "play.fill")
                             .font(.system(size: 13))
                             .foregroundStyle(p.accent)
-                            .frame(width: 40, height: 40)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(!insertable)
@@ -195,7 +196,8 @@ struct MARCTerminalAI: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 11))
                             .foregroundStyle(p.muted)
-                            .frame(width: 32, height: 40)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dismiss generated command")

@@ -82,7 +82,7 @@ struct FilesScreen: View {
                     }
                 } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .frame(width: 40, height: 40)
+                        .frame(width: 44, height: 44)
                 }
                 .disabled(!files.ready || files.busy || preparingPhoto)
                 .accessibilityLabel("Choose upload source")
@@ -109,7 +109,8 @@ struct FilesScreen: View {
                     search = ""
                 } label: {
                     Image(systemName: "chevron.left")
-                        .frame(width: 32, height: 36)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .disabled(!files.ready || files.busy || files.path == "/")
                 .accessibilityLabel("Parent folder")
@@ -127,7 +128,8 @@ struct FilesScreen: View {
                     search = ""
                 } label: {
                     Image(systemName: "house")
-                        .frame(width: 32, height: 36)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .disabled(!files.ready || files.busy)
                 .accessibilityLabel("Home folder")
@@ -145,9 +147,11 @@ struct FilesScreen: View {
                 Button { showHidden.toggle() } label: {
                     Image(systemName: showHidden ? "eye" : "eye.slash")
                         .foregroundStyle(showHidden ? p.accent : p.muted)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Toggle hidden files")
+                .accessibilityValue(showHidden ? "Shown" : "Hidden")
             }
             .padding(.leading, 12)
             .padding(.trailing, 4)
