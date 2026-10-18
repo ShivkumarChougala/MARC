@@ -27,6 +27,7 @@ import Observation
         if UserDefaults.standard.string(forKey: "marc.autoServer") == profile.id.uuidString {
             UserDefaults.standard.removeObject(forKey: "marc.autoServer")
         }
+        removePreferences(for: profile.id)
         if monitor.server?.id == profile.id { monitor.cancelConnection() }
         servers.removeAll { $0.id == profile.id }
         if selectedID == profile.id { selectedID = servers.first?.id }
@@ -37,6 +38,27 @@ import Observation
         guard let index = servers.firstIndex(where: { $0.id == profile.id }) else { return }
         servers[index] = profile
         persist()
+    }
+
+    private func removePreferences(for id: UUID) {
+        let defaults = UserDefaults.standard
+        let mac = id.uuidString
+        defaults.removeObject(forKey: "marc.files.lastFolder.\(mac)")
+        defaults.removeObject(forKey: "marc.ai.model.\(mac)")
+        if defaults.string(forKey: "marc.ai.localServer") == mac {
+            defaults.removeObject(forKey: "marc.ai.localServer")
+            defaults.removeObject(forKey: "marc.ai.localModel")
+        }
+        // Remove only this profile's row. Preserve other Macs and leave
+        // unreadable storage untouched rather than replacing it with defaults.
+        if let storage = defaults.string(forKey: "marc.quickLaunch.v1"),
+           let data = storage.data(using: .utf8),
+           var saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           saved.removeValue(forKey: mac) != nil,
+           let encoded = try? JSONSerialization.data(withJSONObject: saved),
+           let remaining = String(data: encoded, encoding: .utf8) {
+            defaults.set(remaining, forKey: "marc.quickLaunch.v1")
+        }
     }
 
     private func persist() {

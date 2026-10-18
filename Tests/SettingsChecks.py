@@ -193,7 +193,12 @@ checks = r'''
     }
     @MainActor static func main() async throws {
         let defaults = UserDefaults.standard
-        let keys = ["marc.serverProfiles.v1", "marc.autoServer"]
+        let a = ServerProfile(name: "A", host: "a.invalid", port: 22, username: "alice")
+        let b = ServerProfile(name: "B", host: "b.invalid", port: 22, username: "bob")
+        let keys = ["marc.serverProfiles.v1", "marc.autoServer", "marc.quickLaunch.v1",
+                    "marc.ai.localServer", "marc.ai.localModel", "marc.ai.provider",
+                    "marc.files.lastFolder.\(a.id.uuidString)", "marc.ai.model.\(a.id.uuidString)",
+                    "marc.files.lastFolder.\(b.id.uuidString)", "marc.ai.model.\(b.id.uuidString)"]
         let originals = keys.map { defaults.object(forKey: $0) }
         defer {
             for (key, value) in zip(keys, originals) {
@@ -202,8 +207,6 @@ checks = r'''
             }
         }
         keys.forEach { defaults.removeObject(forKey: $0) }
-        let a = ServerProfile(name: "A", host: "a.invalid", port: 22, username: "alice")
-        let b = ServerProfile(name: "B", host: "b.invalid", port: 22, username: "bob")
         let login = MARCCredentials.Saved(password: "fixture password", hostKey: "fixture key")
         let store = ServerStore(); store.add(a); store.add(b)
         MARCCredentials.items[a.id] = login; MARCCredentials.items[b.id] = login
@@ -251,12 +254,38 @@ checks = r'''
 
         MARCCredentials.deleteFails = true
         defaults.set(a.id.uuidString, forKey: "marc.autoServer")
+        defaults.set("/a/folder", forKey: "marc.files.lastFolder.\(a.id.uuidString)")
+        defaults.set("/b/folder", forKey: "marc.files.lastFolder.\(b.id.uuidString)")
+        defaults.set("model-a", forKey: "marc.ai.model.\(a.id.uuidString)")
+        defaults.set("model-b", forKey: "marc.ai.model.\(b.id.uuidString)")
+        defaults.set(a.id.uuidString, forKey: "marc.ai.localServer")
+        defaults.set("model-a", forKey: "marc.ai.localModel")
+        defaults.set("local", forKey: "marc.ai.provider")
+        let launchRows = [a.id.uuidString: [["id": "dev.fixture.A", "title": "A"]],
+                          b.id.uuidString: [["id": "dev.fixture.B", "title": "B"]]]
+        let launchStorage = String(data: try JSONSerialization.data(withJSONObject: launchRows), encoding: .utf8)!
+        defaults.set(launchStorage, forKey: "marc.quickLaunch.v1")
         precondition(!store.remove(a) && store.servers.contains(a))
         precondition(store.monitor.connected && MARCCredentials.items[a.id] != nil && store.storageError != nil)
         precondition(defaults.string(forKey: "marc.autoServer") == a.id.uuidString)
+        precondition(defaults.string(forKey: "marc.quickLaunch.v1") == launchStorage)
+        precondition(defaults.string(forKey: "marc.ai.localModel") == "model-a")
+        precondition(defaults.string(forKey: "marc.files.lastFolder.\(a.id.uuidString)") == "/a/folder")
         MARCCredentials.deleteFails = false
         precondition(store.remove(a) && !store.monitor.connected && MARCCredentials.items[a.id] == nil)
         precondition(defaults.string(forKey: "marc.autoServer") == nil && store.selectedID == b.id)
+        precondition(defaults.object(forKey: "marc.files.lastFolder.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.ai.model.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.ai.localServer") == nil)
+        precondition(defaults.object(forKey: "marc.ai.localModel") == nil)
+        precondition(defaults.string(forKey: "marc.ai.provider") == "local")
+        precondition(defaults.string(forKey: "marc.files.lastFolder.\(b.id.uuidString)") == "/b/folder")
+        precondition(defaults.string(forKey: "marc.ai.model.\(b.id.uuidString)") == "model-b")
+        let retainedLaunches = try JSONSerialization.jsonObject(with:
+            defaults.string(forKey: "marc.quickLaunch.v1")!.data(using: .utf8)!) as! [String: [[String: String]]]
+        precondition(retainedLaunches[a.id.uuidString] == nil && retainedLaunches[b.id.uuidString] == launchRows[b.id.uuidString])
+        let afterRemoval = defaults.string(forKey: "marc.quickLaunch.v1")
+        precondition(store.remove(a) && defaults.string(forKey: "marc.quickLaunch.v1") == afterRemoval)
 
         var updatedB = currentB; updatedB.host = "updated.invalid"; store.update(updatedB)
         try await store.switchToSavedServer(b)
@@ -285,6 +314,19 @@ checks = r'''
         let testTask = test.requestTask; await waitFor { probeGate.entered }
         test.stopRequest(); probeGate.open(); await testTask?.value
         precondition(test.latency == nil && test.output == nil && test.trust.calls == 0)
+        // Malformed shared shortcuts must not be erased while removing another Mac.
+        let other = ServerProfile(name: "Other", host: "other.invalid", port: 22, username: "other")
+        defaults.set("unreadable shortcuts", forKey: "marc.quickLaunch.v1")
+        defaults.set(b.id.uuidString, forKey: "marc.ai.localServer")
+        defaults.set("model-b", forKey: "marc.ai.localModel")
+        let activeBeforeRemoval = store.monitor.server?.id
+        store.add(other)
+        precondition(store.remove(other))
+        precondition(defaults.string(forKey: "marc.quickLaunch.v1") == "unreadable shortcuts")
+        precondition(defaults.string(forKey: "marc.ai.localServer") == b.id.uuidString)
+        precondition(defaults.string(forKey: "marc.ai.localModel") == "model-b")
+        precondition(store.monitor.connected && store.monitor.server?.id == activeBeforeRemoval)
+        print("PASS: removed Mac preferences cleared only after credential deletion; other Macs and malformed shared data preserved")
         print("PASS: saved profiles, Settings order, edit targeting, duplicates, Keychain failures and screen task cancellation")
     }
 }

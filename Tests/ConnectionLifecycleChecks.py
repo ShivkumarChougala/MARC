@@ -15,6 +15,7 @@ prefix = monitor[:monitor.index('    private func publish(')]
 prefix = prefix.replace('import Citadel\n', '').replace('import NIOCore\n', '')
 archive = monitor[monitor.index('private struct MARCArchivePoint:'):monitor.index('struct MARCProcess:')]
 remove = store[store.index('    func remove('):store.index('    func update(')]
+remove += store[store.index('    private func removePreferences('):store.index('    private func persist(')]
 extensions = store[store.index('extension ServerStore {'):]
 
 support = r'''
