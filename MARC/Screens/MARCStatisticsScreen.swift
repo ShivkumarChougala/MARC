@@ -257,15 +257,14 @@ private struct MARCStatisticsCard: View {
                 }
             case "Disk":
                 VStack(spacing: 6) {
-                    ProgressView(value: r.diskPercent.isFinite ? min(100, max(0, r.diskPercent)) : 0,
-                                 total: 100).tint(palette.accent)
-                        .modifier(MARCLiveValueMotion(value: r.diskPercent.isFinite ? r.diskPercent : 0))
+                    ProgressView(value: r.diskPercent, total: 100).tint(palette.accent)
+                        .modifier(MARCLiveValueMotion(value: r.diskPercent))
                         .opacity(r.diskTotal > 0 ? 1 : 0)
                         .accessibilityHidden(r.diskTotal <= 0)
                     HStack(alignment: .top, spacing: 16) {
-                        detail("Used", MARCStatisticsData.byteCount(r.diskTotal > 0 ? r.diskUsed : nil),
-                               number: r.diskTotal > 0 ? r.diskUsed : nil)
-                        detail("Available", MARCStatisticsData.byteCount(r.diskTotal > 0 ? r.diskAvailable : nil),
+                        detail("Used", MARCStatisticsData.storageBytes(r.diskTotal > 0 ? r.diskCapacityUsed : nil),
+                               number: r.diskTotal > 0 ? r.diskCapacityUsed : nil)
+                        detail("Available", MARCStatisticsData.storageBytes(r.diskTotal > 0 ? r.diskAvailable : nil),
                                number: r.diskTotal > 0 ? r.diskAvailable : nil)
                     }
                 }

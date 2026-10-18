@@ -413,11 +413,11 @@ struct HomeScreen: View {
         }
         var alerts: [MARCStatusAlert] = []
         if reading.diskTotal > 0 {
-            let fraction = max(0, min(1, 1 - reading.diskAvailable / reading.diskTotal))
+            let fraction = reading.diskPercent / 100
             if fraction >= 0.90 {
                 alerts.append(MARCStatusAlert(id: "storage", symbol: "internaldrive",
                     title: fraction >= 0.95 ? "Storage almost full" : "Storage running low",
-                    detail: "\(MARCOverviewFormat.bytes(reading.diskAvailable)) available · \(Int((fraction * 100).rounded()))% used",
+                    detail: "\(MARCStatisticsData.storageBytes(reading.diskAvailable)) available · \(Int((fraction * 100).rounded()))% used",
                     action: "View system", settings: false))
             }
         }
@@ -760,20 +760,18 @@ private struct MARCOverviewStorageCard: View {
     let reading: MacSnapshot
     let palette: MARCPalette
     private var usedFraction: Double {
-        guard reading.diskTotal.isFinite, reading.diskTotal > 0,
-              reading.diskAvailable.isFinite else { return 0 }
-        return min(1, max(0, 1 - reading.diskAvailable / reading.diskTotal))
+        reading.diskPercent / 100
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Storage", systemImage: "internaldrive")
                 .font(.system(size: 16, weight: .semibold)).foregroundStyle(palette.text)
             MARCLiveNumberText(
-                text: reading.diskTotal > 0 ? MARCOverviewFormat.bytes(reading.diskAvailable) : "—",
+                text: reading.diskTotal > 0 ? MARCStatisticsData.storageBytes(reading.diskAvailable) : "—",
                 value: reading.diskTotal > 0 ? reading.diskAvailable : nil)
                 .font(.system(size: 28, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(palette.text).lineLimit(1).minimumScaleFactor(0.7)
-            Text(reading.diskTotal > 0 ? "free of " + MARCOverviewFormat.bytes(reading.diskTotal) : "Storage data unavailable")
+            Text(reading.diskTotal > 0 ? "free of " + MARCStatisticsData.storageBytes(reading.diskTotal) : "Storage data unavailable")
                 .font(.system(size: 12)).foregroundStyle(palette.muted)
                 .fixedSize(horizontal: false, vertical: true)
             GeometryReader { geometry in

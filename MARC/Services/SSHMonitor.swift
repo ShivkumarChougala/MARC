@@ -54,7 +54,16 @@ struct MacSnapshot: Decodable, Sendable {
     let details: SystemDetails?
     let sampledAt: Double
     var memoryPercent: Double { memoryTotal > 0 ? memoryUsed / memoryTotal * 100 : 0 }
-    var diskPercent: Double { diskUsed + diskAvailable > 0 ? diskUsed / (diskUsed + diskAvailable) * 100 : 0 }
+    // APFS Data-volume usage excludes space occupied by other shared volumes.
+    // Capacity cards use total minus available, consistently across screens.
+    var diskCapacityUsed: Double {
+        guard diskTotal.isFinite, diskTotal > 0, diskAvailable.isFinite else { return 0 }
+        return diskTotal - min(diskTotal, max(0, diskAvailable))
+    }
+    var diskPercent: Double {
+        guard diskTotal.isFinite, diskTotal > 0 else { return 0 }
+        return diskCapacityUsed / diskTotal * 100
+    }
 }
 
 @MainActor @Observable final class SSHMonitor {

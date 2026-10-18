@@ -12,6 +12,13 @@ enum MARCStatisticsData {
         return ByteCountFormatter.string(fromByteCount: count, countStyle: .binary)
     }
 
+    // Storage capacity uses decimal GB; memory and I/O keep their existing units.
+    static func storageBytes(_ value: Double?) -> String {
+        guard let value, value.isFinite, value >= 0 else { return "—" }
+        let count = value >= Double(Int64.max) ? Int64.max : Int64(value)
+        return ByteCountFormatter.string(fromByteCount: count, countStyle: .decimal)
+    }
+
     static func uptime(_ value: Double?) -> String {
         guard let value, value.isFinite, value >= 0 else { return "—" }
         let rawMinutes = value / 60
