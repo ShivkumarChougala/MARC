@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import Citadel
+
 struct ContentView: View {
     @State private var store = ServerStore()
     @State private var terminalWorkspace = MARCTerminalWorkspace()

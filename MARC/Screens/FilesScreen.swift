@@ -44,6 +44,7 @@ struct FilesScreen: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
+        let entries = visibleEntries
 
         ScrollViewReader { scroll in
             VStack(spacing: 12) {
@@ -106,7 +107,7 @@ struct FilesScreen: View {
                 ScrollView {
                     VStack(spacing: 12) {
                         LazyVStack(spacing: 1) {
-                            ForEach(visibleEntries) { entry in
+                            ForEach(entries) { entry in
                                 HStack(spacing: 0) {
                                     Button {
                                         if entry.directory { open(entry) }
@@ -157,7 +158,7 @@ struct FilesScreen: View {
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                        if !files.busy && visibleEntries.isEmpty {
+                        if !files.busy && entries.isEmpty {
                             Text(files.ready
                                  ? (search.isEmpty ? "This folder is empty." : "No matching files.")
                                  : (monitor.connected ? "Files connection unavailable." : "Connect a Mac in Settings."))
@@ -171,17 +172,19 @@ struct FilesScreen: View {
                 .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
                 .safeAreaInset(edge: .top, spacing: 0) { transferFeedback(palette: p) }
-                .onChange(of: files.lastUploadedPath) { _, uploaded in
-                    guard let uploaded else { return }
+                .task(id: files.lastUploadedPath) {
+                    guard let uploaded = files.lastUploadedPath, !Task.isCancelled else { return }
+                    let folder = files.path
+                    let connection = connectionID
                     search = ""
                     if (uploaded as NSString).lastPathComponent.hasPrefix(".") {
                         showHidden = true
                     }
-                    Task { @MainActor in
-                        await Task.yield()
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            scroll.scrollTo(uploaded, anchor: .top)
-                        }
+                    await Task.yield()
+                    guard !Task.isCancelled, connectionID == connection,
+                          files.path == folder, files.lastUploadedPath == uploaded else { return }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo(uploaded, anchor: .top)
                     }
                 }
             }
