@@ -132,9 +132,6 @@ struct MARCFileActionSheet: View {
                     }
                     .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
                     .disabled(loading || files.busy)
-                    Text("Last accessed is reported by the server; it may not record every open. Folder size here is the directory entry, not its contents.")
-                        .font(.system(size: 10)).foregroundStyle(p.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(18)
             }
@@ -171,6 +168,7 @@ struct MARCFileActionSheet: View {
                         do {
                             _ = try await files.perform("delete", entry: entry, refresh: true)
                             dismiss()
+                        } catch is CancellationError {
                         } catch { failure = error.localizedDescription }
                     }
                 }

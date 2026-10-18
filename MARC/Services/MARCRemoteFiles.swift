@@ -676,6 +676,13 @@ final class MARCRemoteFiles {
                     failure = "The action completed, but the folder could not refresh. Choose Reload Folder to update the list."
                 }
             }
+            try checkOperation(token)
+            if action == "delete" {
+                completionEvent = UUID()
+                completionTitle = entry.directory ? "Folder deleted" : "File deleted"
+                completionPath = entry.path
+                notice = nil
+            }
             return reply
         } catch {
             try? await stagedFile?.close()

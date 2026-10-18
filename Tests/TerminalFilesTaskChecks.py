@@ -170,10 +170,12 @@ struct FixtureBatch { let components: [FixtureEntry] }
 }
 @MainActor enum MARCFileBridge {
     static var actions: [String] = []
+    static var failingAction: String?
     static var hook: ((String) async -> Void)?
     static func request(_ request: [String: Any], using ssh: SSHClient) async throws -> MARCFileReply {
         let action = request["action"] as! String
         actions.append(action)
+        if action == failingAction { throw MARCAIError.message("Fixture action failure") }
         if let hook { await hook(action) }
         let sftp = SSHClient.sftp
         func fingerprint(_ data: Data) -> [String] { [String(data.count), data.base64EncodedString()] }
@@ -328,10 +330,35 @@ checks = r'''
 
         let file = MARCRemoteEntry(name: "remote.txt", path: "/fixture/remote.txt", directory: false, size: 3, modified: nil, mode: nil)
         let beforeDelete = MARCFileBridge.actions.count
+        let beforeDeleteFeedback = files.completionEvent
         let cancelledAction = Task { try await files.perform("delete", entry: file) }
         cancelledAction.cancel()
         if case .success = await cancelledAction.result { preconditionFailure("Cancelled action must fail") }
         precondition(MARCFileBridge.actions.count == beforeDelete && !files.busy)
+        precondition(files.completionEvent == beforeDeleteFeedback)
+
+        _ = try await files.perform("delete", entry: file, refresh: true)
+        precondition(files.completionTitle == "File deleted" && files.completionPath == file.path)
+        _ = try await files.perform("delete", entry: folder, refresh: true)
+        precondition(files.completionTitle == "Folder deleted" && files.completionPath == folder.path)
+        let deleteFeedback = files.completionEvent
+        MARCFileBridge.failingAction = "delete"
+        do {
+            _ = try await files.perform("delete", entry: file)
+            preconditionFailure("Failed deletion must throw")
+        } catch {}
+        MARCFileBridge.failingAction = nil
+        precondition(files.completionEvent == deleteFeedback, "Failed deletion must not publish success")
+
+        let deleteGate = Gate()
+        MARCFileBridge.hook = { action in if action == "delete" { await deleteGate.wait() } }
+        let interruptedDelete = Task { try await files.perform("delete", entry: file) }
+        await waitFor { deleteGate.entered }
+        interruptedDelete.cancel(); deleteGate.open()
+        if case .success = await interruptedDelete.result { preconditionFailure("Cancelled deletion must not return success") }
+        MARCFileBridge.hook = nil
+        precondition(files.completionEvent == deleteFeedback, "Cancelled deletion must not publish success")
+        print("PASS: file/folder deletion feedback; failed and cancelled actions do not publish success")
 
         let editGate = Gate()
         sftp.closeFileHook = { path in if path.contains(".marc-edit-input-") { await editGate.wait() } }
