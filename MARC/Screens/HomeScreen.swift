@@ -165,13 +165,13 @@ struct HomeScreen: View {
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
                         .padding(.top, 24)
                     }
-                }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 100)
-            }.scrollIndicators(.hidden)
+                }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 16)
+            }.scrollClipDisabled().scrollIndicators(.hidden)
                 .environment(\.marcLiveMotionEnabled,
                     statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
                         max(0, context.date.timeIntervalSince($0)) < 12
                     } == true)
-        }.marcCanvas().toolbar(.hidden, for: .navigationBar)
+        }.marcCanvas().marcNavigationTitle("Status")
             .onAppear {
                 statusVisible = true
                 sectionOrder = MARCStatusSection.ordered(sectionOrder).map(\.rawValue).joined(separator: ",")
@@ -214,6 +214,7 @@ struct HomeScreen: View {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Done") { controls = false }
                         }
+                        .sharedBackgroundVisibility(.hidden)
                     }
                 }
             }
@@ -531,6 +532,7 @@ private struct MARCStatusCustomizeSheet: View {
                 .navigationTitle("Customize").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+                    .sharedBackgroundVisibility(.hidden)
                 }
                 .tint(p.accent)
         }.sheet(isPresented: $customizingAlerts) {
@@ -574,6 +576,7 @@ private struct MARCStatusAlertCustomizeSheet: View {
                 .navigationTitle("Alerts").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+                    .sharedBackgroundVisibility(.hidden)
                 }
         }
     }

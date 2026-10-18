@@ -8,72 +8,46 @@ struct ContentView: View {
     @AppStorage("marc.appearance") private var appearance = "system"
     @State private var tab = 0
     @State private var terminalReturnTab = 0
-    @State private var workspaceReturnTab = 0
     @State private var initialConnectionCheck = true
-    @State private var terminalKeyboardVisible = false
+    @State private var keyboardVisible = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        VStack(spacing: 0) {
-            Group {
-                switch tab {
-                case 1:
-                    NavigationStack {
-                        ProcessesScreen(monitor: store.monitor, onClose: closeWorkspace)
-                    }
-                case 2:
-                        MARCKeyboardContainer {
-                            TerminalScreen(
-                                monitor: store.monitor,
-                                workspace: terminalWorkspace,
-                                navigate: { destination in
-                                    UIApplication.shared.sendAction(
-                                        #selector(UIResponder.resignFirstResponder),
-                                        to: nil, from: nil, for: nil
-                                    )
-                                    tab = destination < 0 ? terminalReturnTab : destination
-                                }
+        Group {
+            switch tab {
+            case 1:
+                workspace { ProcessesScreen(monitor: store.monitor) }
+            case 2:
+                MARCKeyboardContainer {
+                    TerminalScreen(
+                        monitor: store.monitor,
+                        workspace: terminalWorkspace,
+                        navigate: { destination in
+                            UIApplication.shared.sendAction(
+                                #selector(UIResponder.resignFirstResponder),
+                                to: nil, from: nil, for: nil
                             )
-                            .environment(\.colorScheme, scheme)
+                            tab = destination < 0 ? terminalReturnTab : destination
                         }
-                        .background(p.background.ignoresSafeArea(.container, edges: .top))
-                case 3:
-                    NavigationStack {
-                        FilesScreen(monitor: store.monitor, files: remoteFiles, onShowTerminal: { path in
-                            guard terminalWorkspace.stageDirectory(path) else { return }
-                            terminalReturnTab = 3
-                            tab = 2
-                        }, onClose: closeWorkspace)
-                    }
-                case 4: NavigationStack { SettingsScreen(store: store) }
-                default: NavigationStack { HomeScreen(store: store, openSettings: { tab = 4 }) }
+                    )
+                    .environment(\.colorScheme, scheme)
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if tab != 1 && tab != 2 && tab != 3 {
-            HStack(spacing: 2) {
-                navItem("Status", symbol: "gauge.with.needle", index: 0, palette: p)
-                navItem("Processes", symbol: "slider.horizontal.3", index: 1, palette: p)
-                navItem("Terminal", symbol: "terminal", index: 2, palette: p)
-                navItem("Files", symbol: "folder", index: 3, palette: p)
-                navItem("Settings", symbol: "slider.horizontal.2.square", index: 4, palette: p)
-            }.padding(5).background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().stroke(p.border.opacity(0.7), lineWidth: 1))
-                .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-                .padding(.horizontal, 12).padding(.bottom, 10).padding(.top, 6)
-                .background {
-                    Rectangle().fill(.ultraThinMaterial)
-                        .mask(LinearGradient(
-                            colors: [.clear, .black],
-                            startPoint: .top, endPoint: .bottom
-                        ))
-                        .ignoresSafeArea(.container, edges: .bottom)
+                .background(p.background.ignoresSafeArea(.container, edges: .top))
+            case 3:
+                workspace {
+                    FilesScreen(monitor: store.monitor, files: remoteFiles, onShowTerminal: { path in
+                        guard terminalWorkspace.stageDirectory(path) else { return }
+                        terminalReturnTab = 3
+                        tab = 2
+                    })
                 }
-
+            case 4: workspace { SettingsScreen(store: store) }
+            default: workspace { HomeScreen(store: store, openSettings: { tab = 4 }) }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(
             tab == 2 ? .keyboard : [],
             edges: .bottom
@@ -84,10 +58,17 @@ struct ContentView: View {
             guard let frame = notification.userInfo?[
                 UIResponder.keyboardFrameEndUserInfoKey
             ] as? CGRect else { return }
-            terminalKeyboardVisible =
-                frame.height > 0 &&
-                frame.minY < UIScreen.main.bounds.maxY - 1
+            guard let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive })?
+                .windows.first(where: \.isKeyWindow) else { return }
+            let local = window.convert(frame, from: window.screen.coordinateSpace)
+            let overlap = window.bounds.intersection(local)
+            keyboardVisible = !overlap.isNull && overlap.height > 0
         }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillHideNotification
+        )) { _ in keyboardVisible = false }
         .marcCanvas()
         .overlay {
             if !store.servers.isEmpty &&
@@ -139,24 +120,42 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
     }
-    private func closeWorkspace() {
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder),
-            to: nil, from: nil, for: nil
-        )
-        tab = workspaceReturnTab
+    private func workspace<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        NavigationStack {
+            content()
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if !keyboardVisible {
+                        navigationDock(palette: MARCPalette(dark: scheme == .dark))
+                    }
+                }
+        }
+    }
+
+    private func navigationDock(palette p: MARCPalette) -> some View {
+        HStack(spacing: 2) {
+            navItem("Status", symbol: "gauge.with.needle", index: 0, palette: p)
+            navItem("Processes", symbol: "slider.horizontal.3", index: 1, palette: p)
+            navItem("Terminal", symbol: "terminal", index: 2, palette: p)
+            navItem("Files", symbol: "folder", index: 3, palette: p)
+            navItem("Settings", symbol: "slider.horizontal.2.square", index: 4, palette: p)
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(p.border.opacity(0.7), lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
     }
 
     private func navItem(_ title: String, symbol: String, index: Int, palette: MARCPalette) -> some View {
         Button {
             if index == 2 && tab != 2 { terminalReturnTab = tab }
-            if index == 1 || index == 3 { workspaceReturnTab = tab }
             tab = index
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 23, weight: .regular))
                 Text(title).lineLimit(1).minimumScaleFactor(0.75).font(.system(size: 10, weight: tab == index ? .semibold : .medium))
-            }.frame(maxWidth: .infinity).frame(minHeight: 58)
+            }.frame(maxWidth: .infinity).frame(minHeight: 50)
                 .foregroundStyle(tab == index ? palette.accent : (scheme == .dark ? Color(marcHex: 0xd9d9df) : palette.muted))
                 .background(tab == index ? palette.raised.opacity(0.55) : .clear, in: Capsule())
         }.buttonStyle(.plain).accessibilityAddTraits(tab == index ? .isSelected : [])

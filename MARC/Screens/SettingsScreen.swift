@@ -24,18 +24,6 @@ struct SettingsScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                HStack {
-                    Text("Settings").font(.system(size: 22, weight: .semibold))
-                    Spacer()
-                    Button { customizingSettings = true } label: {
-                        Label("Customize", systemImage: "square.grid.2x2")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(p.accent).padding(.horizontal, 10)
-                            .frame(minHeight: 44)
-                            .background(p.raised, in: RoundedRectangle(cornerRadius: 13))
-                            .overlay(RoundedRectangle(cornerRadius: 13).stroke(p.border, lineWidth: 1))
-                    }.buttonStyle(.plain).accessibilityLabel("Customize Settings layout")
-                }
                 Button { adding = true } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "plus").font(.system(size: 23, weight: .regular))
@@ -51,7 +39,20 @@ struct SettingsScreen: View {
                 }
                 if let error = store.storageError { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
             }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 16)
-        }.scrollIndicators(.hidden).marcCanvas().toolbar(.hidden, for: .navigationBar)
+        }.scrollClipDisabled().scrollIndicators(.hidden).marcCanvas()
+            .marcNavigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { customizingSettings = true } label: {
+                        Label("Customize", systemImage: "square.grid.2x2")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(p.accent)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel("Customize Settings layout")
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
             .sheet(isPresented: $customizingSettings) {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
             }
@@ -702,6 +703,7 @@ private struct MARCSettingsCustomizeSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
+                .sharedBackgroundVisibility(.hidden)
             }.tint(p.accent)
         }
     }

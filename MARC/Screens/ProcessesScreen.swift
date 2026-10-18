@@ -3,8 +3,8 @@ import SwiftUI
 
 struct ProcessesScreen: View {
     let monitor: SSHMonitor
-    var onClose: (() -> Void)? = nil
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     @State private var terminating: MARCProcessTarget?
     @State private var scrolling = false
     @State private var scrollOrder: [String] = []
@@ -39,147 +39,126 @@ struct ProcessesScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         let rows = visible
         VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Group {
-                        if let onClose {
-                            Button(action: onClose) {
-                                Label("Back", systemImage: "chevron.left")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(p.accent)
-                                    .frame(minWidth: 44, minHeight: 44)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Return to previous screen")
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Processes")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(p.muted)
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                    MARCLiveNumberText(text: "\(monitor.connected ? monitor.processTotalCount : 0) total",
-                                       value: Double(monitor.connected ? monitor.processTotalCount : 0))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(p.muted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .frame(minHeight: 44)
-
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(p.muted)
-                    TextField("Search all processes", text: $query)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if !query.isEmpty {
-                        Button { query = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(p.muted)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .font(.system(size: 13))
-                .padding(12)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
-
-                Picker("Sort", selection: $sorting) {
-                    Text("CPU").tag("CPU")
-                    Text("Memory").tag("Memory")
-                    Text("Name").tag("Name")
-                }
-                .pickerStyle(.segmented)
-
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                if let failure {
-                    Text(failure)
-                        .font(.system(size: 12))
-                        .foregroundStyle(p.accent)
-                }
-                if !monitor.connected {
-                    Text("Connect to a Mac in Settings to view running processes.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(p.muted)
-                } else if !currentConnection || processes.isEmpty {
-                    Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
-                        .font(.system(size: 13))
-                        .foregroundStyle(p.muted)
-                } else {
-                    HStack {
-                        Text("PROCESS / PID")
-                        Spacer()
-                        Text("CPU").frame(width: 52, alignment: .trailing)
-                        Text("MEMORY").frame(width: 72, alignment: .trailing)
-                    }
-                    .font(.system(size: 9, weight: .medium))
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
                     .foregroundStyle(p.muted)
-                    .padding(.horizontal, 12)
-
-                    ForEach(rows) { process in
-                        HStack(spacing: 8) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(process.name)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .lineLimit(1)
-                                Text("\(process.pid) · \(process.user)")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(p.muted)
-                                    .lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
-                                .foregroundStyle(Color(marcHex: 0x2dcc58))
-                                .frame(width: 52, alignment: .trailing)
-
-                            MARCLiveNumberText(text: ByteCountFormatter.string(
-                                fromByteCount: MARCProcessRows.memoryBytes(process.memory),
-                                countStyle: .binary
-                            ), value: process.memory)
-                            .frame(width: 72, alignment: .trailing)
-                        }
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .padding(12)
-                        .background(
-                            p.surface, in: RoundedRectangle(cornerRadius: 12)
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard currentConnection else { return }
-                            terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction {
-                            guard currentConnection else { return }
-                            terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
-                        }
-                        .accessibilityHint("Tap for termination confirmation")
-                    }
-
-                    if rows.isEmpty {
-                        Text("No matching processes.")
-                            .font(.system(size: 12))
+                TextField("Search all processes", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($searchFocused)
+                    .submitLabel(.done)
+                    .onSubmit { searchFocused = false }
+                if !query.isEmpty {
+                    Button { query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(p.muted)
                     }
-
-
+                    .buttonStyle(.plain)
                 }
-                    }
-                    .padding(.bottom, 16)
-                }
-                .scrollIndicators(.visible)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .font(.system(size: 13))
+            .padding(12)
+            .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
+
+            Picker("Sort", selection: $sorting) {
+                Text("CPU").tag("CPU")
+                Text("Memory").tag("Memory")
+                Text("Name").tag("Name")
+            }
+            .pickerStyle(.segmented)
+            HStack {
+                Text("PROCESS / PID")
+                Spacer()
+                Text("CPU").frame(width: 52, alignment: .trailing)
+                Text("MEMORY").frame(width: 72, alignment: .trailing)
+            }
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(p.muted)
+            .padding(.horizontal, 12)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    if let failure {
+                        Text(failure)
+                            .font(.system(size: 12))
+                            .foregroundStyle(p.accent)
+                    }
+                    if !monitor.connected {
+                        Text("Connect to a Mac in Settings to view running processes.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(p.muted)
+                    } else if !currentConnection || processes.isEmpty {
+                        Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
+                            .font(.system(size: 13))
+                            .foregroundStyle(p.muted)
+                    } else {
+                        ForEach(rows) { process in
+                            HStack(spacing: 8) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(process.name)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .lineLimit(1)
+                                    Text("\(process.pid) · \(process.user)")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(p.muted)
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
+                                    .foregroundStyle(Color(marcHex: 0x2dcc58))
+                                    .frame(width: 52, alignment: .trailing)
+
+                                MARCLiveNumberText(text: ByteCountFormatter.string(
+                                    fromByteCount: MARCProcessRows.memoryBytes(process.memory),
+                                    countStyle: .binary
+                                ), value: process.memory)
+                                .frame(width: 72, alignment: .trailing)
+                            }
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .padding(12)
+                            .background(
+                                p.surface, in: RoundedRectangle(cornerRadius: 12)
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard currentConnection else { return }
+                                terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction {
+                                guard currentConnection else { return }
+                                terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
+                            }
+                            .accessibilityHint("Tap for termination confirmation")
+                        }
+
+                        if rows.isEmpty {
+                            Text("No matching processes.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(p.muted)
+                        }
+
+
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+            .scrollIndicators(.visible)
+            .scrollDismissesKeyboard(.interactively)
+            .onScrollPhaseChange { _, phase in
+                if phase != .idle && !scrolling {
+                    scrollOrder = visible.map(\.id)
+                }
+                scrolling = phase != .idle
+                if !scrolling { scrollOrder = [] }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .marcCanvas()
         .marcLiveReadings(enabled: currentConnection && !scrolling)
         .sheet(item: $terminating) { target in
@@ -187,13 +166,17 @@ struct ProcessesScreen: View {
                 try await monitor.terminateProcess(target.process, expectedConnection: target.connection)
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
-        .onScrollPhaseChange { _, phase in
-            if phase != .idle && !scrolling {
-                scrollOrder = visible.map(\.id)
+        .marcNavigationTitle("Processes")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                MARCLiveNumberText(text: "\(monitor.connected ? monitor.processTotalCount : 0) total",
+                                   value: Double(monitor.connected ? monitor.processTotalCount : 0))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(p.muted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            scrolling = phase != .idle
-            if !scrolling { scrollOrder = [] }
+            .sharedBackgroundVisibility(.hidden)
         }
         .onChange(of: query) { _, _ in scrolling = false; scrollOrder = [] }
         .onChange(of: sorting) { _, _ in scrolling = false; scrollOrder = [] }
