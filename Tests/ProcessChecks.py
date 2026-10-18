@@ -152,6 +152,19 @@ checks = r'''
         await waitFor { firstClient.commands.contains { $0.contains("MARC_STOP_PROCESSES") } }
         precondition(monitor.processTotalCount == 77 && nextClient.commands.isEmpty)
 
+        // Do not consume until a burst has been parsed. Historical snapshots
+        // must not queue behind the newest state while the UI is delayed.
+        let bufferedMonitor = SSHMonitor()
+        let bufferedClient = bufferedMonitor.client!
+        let bufferedUpdates = try await bufferedMonitor.processUpdates()
+        for total in 1...500 { bufferedClient.emit(total) }
+        await waitFor { bufferedMonitor.processTotalCount == 500 }
+        bufferedClient.continuation?.finish()
+        var bufferedTotals: [Int] = []
+        for try await response in bufferedUpdates { bufferedTotals.append(response.total) }
+        precondition(bufferedTotals == [500], "A delayed consumer must receive only the newest pending snapshot")
+        await waitFor { bufferedClient.commands.contains { $0.contains("MARC_STOP_PROCESSES") } }
+
         let process = MARCProcess(started: "start", pid: 321, user: "fixture", cpu: 0, memory: 0, name: "fixture")
         do {
             try await monitor.terminateProcess(process, expectedConnection: connection)
@@ -184,6 +197,7 @@ checks = r'''
         precondition(sheet.dismissals == 1 && sheet.task == nil && !sheet.busy)
         print("PASS: process top-50 sorting, search, frozen order, PID identity, deduplication and memory boundaries")
         print("PASS: process stream cleanup stays on its original client; stale/cancelled terminations and duplicate taps are blocked")
+        print("PASS: slow process consumers retain one newest snapshot instead of a stale-update backlog")
     }
 }
 '''

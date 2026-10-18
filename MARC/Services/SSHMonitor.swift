@@ -1070,7 +1070,8 @@ MARC_PROCESS_STREAM
             throw CancellationError()
         }
 
-        return AsyncThrowingStream { continuation in
+        // Every response is a full snapshot, so a delayed UI only needs the latest.
+        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let reader = Task { @MainActor [weak self] in
                 var pending = Data()
                 do {
