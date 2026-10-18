@@ -407,7 +407,7 @@ final class MARCRemoteFiles {
                     entries = rows
                 } catch {
                     if generation == id, !Task.isCancelled {
-                        failure = "Upload complete, but the folder could not refresh. Tap Refresh."
+                        failure = "Upload complete, but the folder could not refresh. Choose Reload Folder to update the list."
                     }
                 }
             } catch {
@@ -624,7 +624,7 @@ final class MARCRemoteFiles {
                 } catch is CancellationError { throw CancellationError() }
                 catch {
                     try checkOperation(token)
-                    failure = "The action completed, but the folder could not refresh. Tap Refresh."
+                    failure = "The action completed, but the folder could not refresh. Choose Reload Folder to update the list."
                 }
             }
             return reply

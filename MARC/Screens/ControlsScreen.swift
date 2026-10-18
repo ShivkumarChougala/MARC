@@ -707,11 +707,11 @@ struct ControlsScreen: View {
             guard revision == token, usable, selectedDisplayID == display,
                   !busy, !editingVolume, !editingBrightness, !Task.isCancelled else { return }
             accept(response)
-            if failure == "Live controls could not refresh. Tap refresh to retry." { failure = nil }
+            if failure == "Live controls could not refresh. Tap Retry." { failure = nil }
         } catch is CancellationError {} catch {
             guard revision == token, usable, selectedDisplayID == display, !Task.isCancelled else { return }
             feedbackAction = nil
-            failure = "Live controls could not refresh. Tap refresh to retry."
+            failure = "Live controls could not refresh. Tap Retry."
         }
     }
     @MainActor

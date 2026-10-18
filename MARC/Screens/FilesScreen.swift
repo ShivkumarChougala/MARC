@@ -420,6 +420,9 @@ struct FilesScreen: View {
             get: { files.failure != nil },
             set: { if !$0 { files.failure = nil } }
         )) {
+            if files.ready && !files.busy && !files.path.isEmpty {
+                Button("Reload Folder") { files.browse(files.path) }
+            }
             Button("OK", role: .cancel) { files.failure = nil }
         } message: { Text(files.failure ?? "") }
         .sheet(item: $selectedEntry, onDismiss: {
