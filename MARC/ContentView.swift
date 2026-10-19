@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var remoteFiles = MARCRemoteFiles()
     @AppStorage("marc.appearance") private var appearance = "system"
     @State private var tab = 0
+    @State private var processSorting = "CPU"
     @State private var terminalReturnTab = 0
     @State private var initialConnectionCheck = true
     @State private var keyboardVisible = false
@@ -19,7 +20,10 @@ struct ContentView: View {
         Group {
             switch tab {
             case 1:
-                workspace { ProcessesScreen(monitor: store.monitor, terminating: $terminating) }
+                workspace {
+                    ProcessesScreen(monitor: store.monitor, terminating: $terminating,
+                                    sorting: $processSorting)
+                }
             case 2:
                 MARCKeyboardContainer {
                     TerminalScreen(
@@ -45,7 +49,12 @@ struct ContentView: View {
                     })
                 }
             case 4: workspace { SettingsScreen(store: store) }
-            default: workspace { HomeScreen(store: store, openSettings: { tab = 4 }) }
+            default: workspace {
+                HomeScreen(store: store, openSettings: { tab = 4 }, openProcesses: { sorting in
+                    processSorting = sorting
+                    tab = 1
+                })
+            }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

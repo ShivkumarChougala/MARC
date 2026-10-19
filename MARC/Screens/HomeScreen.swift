@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeScreen: View {
     let store: ServerStore
     let openSettings: () -> Void
+    let openProcesses: (String) -> Void
     @State private var controls = false
     @State private var showingMacPicker = false
     @State private var pickerMac: ServerProfile?
@@ -342,6 +343,9 @@ struct HomeScreen: View {
                                         if alert.settings {
                                             Button(action, action: openSettings).tint(palette.accent)
                                                 .font(.system(size: 12, weight: .medium))
+                                        } else if let sorting = alert.processSorting {
+                                            Button(action) { openProcesses(sorting) }
+                                                .font(.system(size: 12, weight: .medium)).tint(palette.accent)
                                         } else {
                                             NavigationLink(action) {
                                                 LiveSystemDetailScreen(store: store, openSettings: openSettings)
@@ -429,11 +433,11 @@ struct HomeScreen: View {
         }
         if sustained(80, seconds: 30, value: { $0.cpu }) {
             alerts.append(MARCStatusAlert(id: "cpu", symbol: "cpu", title: "CPU staying high",
-                detail: "Above 80% for 30 seconds.", action: "View system", settings: false))
+                detail: "Above 80% for 30 seconds.", action: "View processes", settings: false))
         }
         if sustained(85, seconds: 60, value: { $0.memory }) {
             alerts.append(MARCStatusAlert(id: "memory", symbol: "memorychip", title: "Memory usage staying high",
-                detail: "Above 85% for 60 seconds.", action: "View system", settings: false))
+                detail: "Above 85% for 60 seconds.", action: "View processes", settings: false))
         }
         return alerts
     }
@@ -467,6 +471,13 @@ private struct MARCStatusAlert: Identifiable {
     let detail: String
     let action: String?
     let settings: Bool
+    var processSorting: String? {
+        switch id {
+        case "cpu": return "CPU"
+        case "memory": return "Memory"
+        default: return nil
+        }
+    }
 }
 
 private struct MARCStatusCustomizeSheet: View {

@@ -9,7 +9,7 @@ struct ProcessesScreen: View {
     @State private var scrolling = false
     @State private var scrollOrder: [String] = []
     @State private var processConnection: UUID?
-    @State private var sorting = "CPU"
+    @Binding var sorting: String
     @State private var processes: [MARCProcess] = []
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
