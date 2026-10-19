@@ -11,6 +11,7 @@ marc_build="${MARC_BUILD_DIR:-$HOME/Library/Developer/Xcode/DerivedData/MARC-Ver
 mkdir -p "$marc_build"
 echo "Build output and log: $marc_build"
 xcodebuild -version
+python3 scripts/verify-privacy.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/NearbyMacIndex.swift \
     MARC/Models/ServerProfile.swift \
@@ -73,4 +74,6 @@ xcodebuild \
     build 2>&1 | tee "$marc_build/build.log"
 xcrun swift scripts/verify-plist.swift \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app/Info.plist"
+python3 scripts/verify-privacy.py \
+    "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
 echo "PASS: simulator build and generated plist verification. Log: $marc_build/build.log"
