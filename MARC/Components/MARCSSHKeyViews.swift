@@ -10,28 +10,33 @@ struct MARCSSHKeysSection: View {
     @State private var removing: MARCSSHKeyStore.Info?
     @State private var removalAfterDismiss: MARCSSHKeyStore.Info?
     @State private var failure: String?
+    @State private var usage: [UUID: Int] = [:]
+    @State private var notice: String?
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("SSH Keys").font(.system(size: 16, weight: .semibold))
+                Text("Saved keys").font(.system(size: 14, weight: .semibold))
                 Spacer()
-                Button("Add key") { importing = true }
-                    .font(.system(size: 13)).tint(p.accent).frame(minHeight: 44)
+                Button { importing = true } label: {
+                    Label("Add key", systemImage: "plus").font(.system(size: 12, weight: .medium)).frame(minHeight: 44)
+                }.tint(p.accent)
             }
             if keys.isEmpty {
                 Text("Import a key once, give it a name, then select it when adding a server.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
             }
             ForEach(keys) { key in
+                Divider()
                 HStack(spacing: 12) {
+                    Image(systemName: "key.horizontal").font(.system(size: 15)).foregroundStyle(p.accent)
                     Button { editing = key } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(key.name).font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(p.text)
-                            let count = try? MARCSSHKeyStore.users(key.id, servers: servers)
+                            let count = usage[key.id]
                             Text(count.map {
                                 $0 == 0 ? "Ed25519 · ready to use"
                                     : "Ed25519 · used by \($0) login(s)"
@@ -42,18 +47,25 @@ struct MARCSSHKeysSection: View {
                         .contentShape(Rectangle())
                     }.buttonStyle(.plain)
 
-                    Button { UIPasteboard.general.string = key.publicKey } label: {
-                        Image(systemName: "doc.on.doc").frame(width: 44, height: 44)
-                    }
-                    .tint(p.accent)
-                    .accessibilityLabel("Copy public key for \(key.name)")
+                    Menu {
+                        Button("Rename", systemImage: "pencil") { editing = key }
+                        Button("Copy public key", systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = key.publicKey
+                            notice = "Public key copied."
+                        }
+                        Button("Remove key", systemImage: "trash", role: .destructive) { removing = key }
+                            .disabled(usage[key.id] != 0)
+                    } label: {
+                        Image(systemName: "ellipsis").foregroundStyle(p.muted).frame(width: 44, height: 44)
+                    }.accessibilityLabel("Actions for SSH key \(key.name)")
                 }
             }
             if let failure {
                 Text(failure).font(.system(size: 12)).foregroundStyle(p.muted)
             }
+            if let notice { Text(notice).font(.system(size: 12)).foregroundStyle(p.muted) }
         }
-        .padding(18).background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+        .padding(14).background(p.surface, in: RoundedRectangle(cornerRadius: 16))
         .onAppear(perform: reload)
         .onChange(of: servers) { _, _ in reload() }
         .sheet(isPresented: $importing, onDismiss: reload) {
@@ -66,7 +78,7 @@ struct MARCSSHKeysSection: View {
         }) { key in
             MARCSSHKeyNameSheet(
                 key: key,
-                used: (try? MARCSSHKeyStore.users(key.id, servers: servers)) != 0,
+                used: usage[key.id] != 0,
                 remove: { removalAfterDismiss = key }
             )
         }
@@ -82,6 +94,7 @@ struct MARCSSHKeysSection: View {
                     }
                     removing = nil
                     reload()
+                    notice = "SSH key removed."
                 } catch {
                     failure = error.localizedDescription
                     removing = nil
@@ -96,6 +109,9 @@ struct MARCSSHKeysSection: View {
         do {
             try MARCSSHKeyStore.migrate(servers)
             keys = try MARCSSHKeyStore.entries()
+            usage = Dictionary(uniqueKeysWithValues: try keys.map {
+                ($0.id, try MARCSSHKeyStore.users($0.id, servers: servers))
+            })
             failure = nil
         } catch { failure = error.localizedDescription }
     }
@@ -111,26 +127,21 @@ struct MARCSSHKeyPicker: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Choose SSH key").font(.system(size: 20, weight: .semibold))
-                    Spacer()
-                    Button("Done") { dismiss() }.tint(p.accent).frame(minHeight: 44)
-                }
+        NavigationStack {
+            List {
                 ForEach(keys) { key in
                     Button { choose(key) } label: {
                         HStack {
-                            Text(key.name).font(.system(size: 15, weight: .medium))
+                            Image(systemName: "key.horizontal").foregroundStyle(p.accent)
+                            Text(key.name).font(.system(size: 14, weight: .medium))
                             Spacer()
                             if selected == key.id {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(p.accent)
                             }
                         }
-                        .foregroundStyle(p.text).padding(16)
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
+                        .foregroundStyle(p.text)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                     }.buttonStyle(.plain)
                 }
                 Text(keys.isEmpty
@@ -140,9 +151,11 @@ struct MARCSSHKeyPicker: View {
                 if let failure {
                     Text(failure).font(.system(size: 12)).foregroundStyle(p.muted)
                 }
-            }.padding(20)
+            }
+            .navigationTitle("Choose SSH Key").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
-        .marcCanvas().presentationDetents([.medium, .large])
+        .tint(p.accent).presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .onAppear {
             do { keys = try MARCSSHKeyStore.entries() }
@@ -162,50 +175,40 @@ private struct MARCSSHKeyImportSheet: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Text("Add SSH key").font(.system(size: 20, weight: .semibold))
-                    Spacer()
-                    Button("Cancel") { dismiss() }.tint(p.accent).frame(minHeight: 44)
+        NavigationStack {
+            Form {
+                Section("Name") {
+                    TextField("Personal Mac", text: $name).textInputAutocapitalization(.words)
                 }
-                TextField("Key name · e.g. Personal Mac", text: $name)
-                    .padding(14)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 12))
-                Button(privateKey.isEmpty
-                       ? "Import private key" : "Replace imported key") {
-                    importing = true
-                }.frame(minHeight: 44).tint(p.accent)
-                if !privateKey.isEmpty {
-                    Text("Private key loaded")
-                        .font(.system(size: 12)).foregroundStyle(p.muted)
+                Section("Private key") {
+                    Button { importing = true } label: {
+                        Label(privateKey.isEmpty ? "Import from Files" : "Replace imported key", systemImage: "doc.badge.plus")
+                    }
+                    if !privateKey.isEmpty {
+                        Label("Private key loaded", systemImage: "checkmark.circle").font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
-                SecureField("Key passphrase · optional", text: $passphrase)
-                    .padding(14)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 12))
-                Text("OpenSSH Ed25519 keys. The key and its passphrase stay in this iPhone’s Keychain. Only the public key can be copied.")
-                    .font(.system(size: 12)).foregroundStyle(p.muted)
-                Button("Save key") {
-                    do {
-                        _ = try MARCSSHKeyStore.add(
-                            name: name, privateKey: privateKey,
-                            passphrase: passphrase
-                        )
-                        dismiss()
-                    } catch { failure = error.localizedDescription }
+                Section("Passphrase") { SecureField("Optional", text: $passphrase) }
+                Section {
+                    Text("OpenSSH Ed25519 keys only. The private key and passphrase stay in this iPhone’s Keychain. You can copy only the public key.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
-                .font(.system(size: 15, weight: .semibold))
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .foregroundStyle(.white)
-                .background(p.accent, in: RoundedRectangle(cornerRadius: 14))
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                          || privateKey.isEmpty)
-                if let failure {
-                    Text(failure).font(.system(size: 12)).foregroundStyle(p.muted)
+                if let failure { Text(failure).font(.footnote).foregroundStyle(.red) }
+            }
+            .navigationTitle("Add SSH Key").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        do {
+                            _ = try MARCSSHKeyStore.add(name: name, privateKey: privateKey, passphrase: passphrase)
+                            privateKey = ""; passphrase = ""; dismiss()
+                        } catch { failure = error.localizedDescription }
+                    }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || privateKey.isEmpty)
                 }
-            }.padding(20)
+            }
         }
-        .marcCanvas().textInputAutocapitalization(.never).autocorrectionDisabled()
+        .tint(p.accent).textInputAutocapitalization(.never).autocorrectionDisabled()
         .fileImporter(
             isPresented: $importing,
             allowedContentTypes: [.data, .plainText],
@@ -243,33 +246,37 @@ private struct MARCSSHKeyNameSheet: View {
     @State private var failure: String?
     @State private var wantsRemoval = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("Edit key name").font(.headline)
-                Spacer()
-                Button("Cancel") { dismiss() }.frame(minHeight: 44)
+        NavigationStack {
+            Form {
+                Section("Name") { TextField("Key name", text: $name) }
+                Section {
+                    Button("Remove key", role: .destructive) {
+                        wantsRemoval = true
+                        dismiss()
+                    }.disabled(used)
+                    if used {
+                        Text("This key is used by a saved login. Change or remove that login before deleting the key.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                if let failure { Text(failure).font(.footnote).foregroundStyle(.red) }
             }
-            TextField("Key name", text: $name).textFieldStyle(.roundedBorder)
-            Button("Save name") {
-                do {
-                    try MARCSSHKeyStore.rename(key.id, name: name)
-                    dismiss()
-                } catch { failure = error.localizedDescription }
-            }.frame(minHeight: 44)
-            Button("Remove key", role: .destructive) {
-                wantsRemoval = true
-                dismiss()
-            }.disabled(used).frame(minHeight: 44)
-            if used {
-                Text("This key is used by a saved login. Change or remove that login before deleting the key.")
-                    .font(.caption)
+            .navigationTitle("Rename SSH Key").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        do { try MARCSSHKeyStore.rename(key.id, name: name); dismiss() }
+                        catch { failure = error.localizedDescription }
+                    }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
-            if let failure { Text(failure).font(.caption) }
-            Spacer()
         }
-        .padding(24).marcCanvas().presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .tint(MARCPalette(dark: scheme == .dark).accent)
         .presentationDragIndicator(.visible)
         .onAppear { name = key.name }
         .onDisappear { if wantsRemoval { remove() } }

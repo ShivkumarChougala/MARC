@@ -75,71 +75,59 @@ struct MARCTerminalAI: View {
         return "Enable in Settings"
     }
 
+    private var statusLabel: String {
+        if provider == "local" { return "Local · \(modelLabel)" }
+        if provider == "api" {
+            if apiModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "API · Choose a model" }
+            let selected = MARCAPIProvider.identify(endpoint)
+            let name = selected == .custom ? (URL(string: endpoint)?.host ?? "Custom provider") : selected.name
+            return "API · \(name)"
+        }
+        return "AI Off"
+    }
+
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
 
         VStack(alignment: .leading, spacing: 7) {
-            if promptFocused {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 7) {
-                        Text("Recent")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(p.muted)
-                        if session.aiHistory.isEmpty {
-                            Text("Commands you run with AI appear here")
-                                .font(.system(size: 11)).foregroundStyle(p.muted)
-                                .padding(.vertical, 10)
-                        }
-                        ForEach(session.aiHistory) { previous in
-                            Button {
-                                command = previous.command
-                                historyPrompt = previous.prompt
-                                commandConnection = session.aiConnectionID
-                                commandConfiguration = configuration
-                                failure = nil
-                            } label: {
-                                HStack(spacing: 7) {
-                                    Image(systemName: "sparkles").foregroundStyle(p.accent)
-                                    Text(previous.prompt.isEmpty ? previous.command : previous.prompt)
-                                        .font(.system(size: 11)).lineLimit(1)
-                                    Text(previous.command)
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundStyle(p.muted).lineLimit(1)
-                                }
-                                .frame(maxWidth: 300, alignment: .leading)
-                                .padding(.horizontal, 12).padding(.vertical, 10)
-                                .background(p.surface, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Review recent command: \(previous.command)")
-                        }
-                    }
-                }
-                .scrollIndicators(.hidden)
-                .frame(height: 44)
-                .disabled(busy)
+            HStack(spacing: 6) {
+                Image(systemName: provider == "local" ? "laptopcomputer" : provider == "api" ? "cloud" : "sparkles")
+                    .foregroundStyle(provider == "off" ? p.muted : p.accent)
+                Text(statusLabel).foregroundStyle(p.muted).lineLimit(1)
             }
+            .font(.system(size: 11))
+            .padding(.horizontal, 3)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(provider == "off" ? "AI off" : "\(statusLabel). Model: \(modelLabel)")
 
             HStack(alignment: .center, spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13))
-                    .foregroundStyle(p.accent)
-
-                TextField(
-                    provider == "off" ? "Enable AI in Settings" : "Ask AI for a command…",
-                    text: $prompt, axis: .vertical
-                )
-                .font(.system(size: 13))
-                .lineLimit(1...2)
-                .focused($promptFocused)
-                .onChange(of: prompt) { old, new in
-                    if old != new && !busy {
-                        clearSuggestion()
+                if provider == "off" {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Choose Local or API to enable AI")
+                            .font(.system(size: 12))
+                        Text("Settings → Terminal & AI")
+                            .font(.system(size: 11))
                     }
+                    .foregroundStyle(p.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    TextField(
+                        "Ask AI for a command…",
+                        text: $prompt, axis: .vertical
+                    )
+                    .font(.system(size: 13))
+                    .lineLimit(1...2)
+                    .focused($promptFocused)
+                    .onChange(of: prompt) { old, new in
+                        if old != new && !busy {
+                            clearSuggestion()
+                        }
+                    }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .disabled(busy)
                 }
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .disabled(busy || provider == "off")
 
                 Button {
                     if busy { cancelRequest() }
@@ -149,15 +137,15 @@ struct MARCTerminalAI: View {
                         if busy {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(p.accent)
+                                .tint(.black)
                         } else {
-                            Text("AI")
-                                .font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 13, weight: .semibold))
                         }
                     }
-                    .foregroundStyle(p.accent)
+                    .foregroundStyle(provider == "off" ? p.muted : Color.black)
                     .frame(width: 36, height: 36)
-                    .background(p.accent.opacity(0.12), in: Circle())
+                    .background(provider == "off" ? p.raised : p.accent, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .disabled(!busy && !canRequest)
@@ -217,7 +205,7 @@ struct MARCTerminalAI: View {
                 Text(failure)
                     .font(.system(size: 10))
                     .foregroundStyle(.red)
-                    .lineLimit(2)
+                    .lineLimit(4)
             }
         }
         .alert("Send prompt to AI service?", isPresented: $showAPIConsent) {
@@ -316,8 +304,11 @@ struct MARCTerminalAI: View {
                     ],
                     ["role": "user", "content": requestPrompt]
                 ]
+                let requestModel: String
+                if chosenProvider == "local" { requestModel = model }
+                else { requestModel = try MARCAPIProvider.requestModel(model, endpoint: urlText) }
                 let body = try JSONSerialization.data(withJSONObject: [
-                    "model": model,
+                    "model": requestModel,
                     "messages": messages,
                     "stream": false
                 ])
@@ -351,7 +342,7 @@ struct MARCTerminalAI: View {
 
                     let (bytes, response) =
                         try await URLSession.shared.bytes(for: request)
-                    data = try await MARCAIResponseReader.read(bytes, response: response) {
+                    data = try await MARCAIResponseReader.read(bytes, response: response, redacting: [key, requestPrompt]) {
                         bytes.task.cancel()
                     }
                 }
@@ -440,7 +431,14 @@ struct MARCTerminalAISettings: View {
 
     @State private var models: [String] = []
     @State private var apiKeys: [MARCAPIKeyStore.Info] = []
-    @State private var addingAPIKey = false
+    @State private var catalogueModels: [String] = []
+    @State private var catalogueLoading = false
+    @State private var catalogueTask: Task<Void, Never>?
+    @State private var catalogueTaskID = UUID()
+    @State private var catalogueConsent = false
+    @State private var pendingCatalogue: [String]?
+    @State private var showingModelPicker = false
+    @State private var reloadModelsAfterDismiss = false
     @State private var loading = false
     @State private var failure: String?
     @State private var notice: String?
@@ -450,6 +448,10 @@ struct MARCTerminalAISettings: View {
         "\(provider)-\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)-\(reload)"
     }
 
+    private var catalogueIdentity: [String] {
+        [provider, endpoint.trimmingCharacters(in: .whitespacesAndNewlines), selectedAPIKey, apiKeysRevision]
+    }
+
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
 
@@ -457,7 +459,7 @@ struct MARCTerminalAISettings: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Provider")
+                        Text("AI mode")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(p.muted)
                         Picker("Provider", selection: $provider) {
@@ -545,14 +547,28 @@ struct MARCTerminalAISettings: View {
 
                     if provider == "api" {
                         VStack(alignment: .leading, spacing: 12) {
+                            Text("API connection").font(.system(size: 14, weight: .semibold))
                             HStack {
-                                Text("API connection").font(.system(size: 14, weight: .semibold))
+                                Label("Provider", systemImage: "network").font(.system(size: 13)).foregroundStyle(p.muted)
                                 Spacer()
-                                Button { addingAPIKey = true } label: {
-                                    Label("Add key", systemImage: "plus")
-                                        .font(.system(size: 12, weight: .medium)).frame(minHeight: 44)
-                                }.tint(p.accent)
+                                Menu {
+                                    ForEach(MARCAPIProvider.allCases) { choice in
+                                        Button(choice.name) {
+                                            guard choice != MARCAPIProvider.identify(endpoint) else { return }
+                                            endpoint = choice.endpoint
+                                            selectedAPIKey = ""
+                                            apiModel = ""
+                                            notice = nil
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text(MARCAPIProvider.identify(endpoint).name)
+                                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
+                                    }.font(.system(size: 13)).foregroundStyle(p.text).frame(minHeight: 44)
+                                }
                             }
+                            Divider()
                             Menu {
                                 ForEach(apiKeys) { key in
                                     Button { selectAPIKey(key) } label: {
@@ -571,7 +587,7 @@ struct MARCTerminalAISettings: View {
                                     Image(systemName: "key.horizontal").foregroundStyle(p.accent)
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(selectedKeyName).font(.system(size: 13, weight: .medium)).foregroundStyle(p.text)
-                                        Text("Selecting a key fills its endpoint")
+                                        Text("Saved securely in Keychain")
                                             .font(.system(size: 11)).foregroundStyle(p.muted)
                                     }
                                     Spacer(minLength: 4)
@@ -584,24 +600,46 @@ struct MARCTerminalAISettings: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Saved API key: \(selectedKeyName)")
-                            fieldTitle("Endpoint", palette: p)
-                            TextField(
-                                "https://…/v1/chat/completions",
-                                text: $endpoint
-                            )
-                            .keyboardType(.URL)
-                            .font(.system(size: 12)).frame(minHeight: 36)
                             Divider()
-                            fieldTitle("Model", palette: p)
-                            TextField("Enter the provider’s model ID", text: $apiModel)
-                                .font(.system(size: 13)).frame(minHeight: 36)
+                            HStack(spacing: 8) {
+                                Label("Model", systemImage: "cube").font(.system(size: 13)).foregroundStyle(p.muted)
+                                Spacer(minLength: 4)
+                                if catalogueLoading {
+                                    ProgressView().controlSize(.small)
+                                    Button("Cancel") { cancelCatalogue() }.font(.system(size: 12)).frame(minHeight: 44)
+                                } else {
+                                    Button {
+                                        if catalogueModels.isEmpty && MARCAPIProvider.identify(endpoint) != .custom {
+                                            requestCatalogue()
+                                        } else { showingModelPicker = true }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Text(apiModel.isEmpty ? "Choose model" : apiModel).lineLimit(1)
+                                            Image(systemName: "chevron.up.chevron.down").font(.system(size: 9))
+                                        }.font(.system(size: 13)).frame(minHeight: 44)
+                                    }.tint(p.accent)
+                                }
+                            }
+                            if MARCAPIProvider.identify(endpoint) == .custom {
+                                fieldTitle("Chat completions endpoint", palette: p)
+                                TextField("https://…/v1/chat/completions", text: $endpoint)
+                                    .keyboardType(.URL).font(.system(size: 12)).frame(minHeight: 36)
+                            } else {
+                                DisclosureGroup("Endpoint") {
+                                    Text(endpoint).font(.system(size: 11)).foregroundStyle(p.muted).textSelection(.enabled)
+                                }.font(.system(size: 12)).tint(p.muted)
+                                DisclosureGroup("Advanced") {
+                                    Button("Enter a custom model ID") { showingModelPicker = true }
+                                        .font(.system(size: 12)).frame(minHeight: 44)
+                                }.font(.system(size: 12)).tint(p.muted)
+                            }
                         }
                         .padding(16)
                         .background(
                             p.surface, in: RoundedRectangle(cornerRadius: 16)
                         )
 
-                        Text("Choose a saved key, then enter the model ID. Changes save automatically. Manage keys in Settings → Keychain.")
+                        Text("Add and manage API keys in Settings → Keychain → API Keys. Select a saved key here; supported providers fill their endpoint automatically.")
                             .font(.system(size: 11))
                             .foregroundStyle(p.muted)
                             .padding(.horizontal, 4)
@@ -638,15 +676,32 @@ struct MARCTerminalAISettings: View {
         .marcNavigationTitle("Terminal & AI")
         .onAppear(perform: loadAPIKeys)
         .onChange(of: apiKeysRevision) { _, _ in loadAPIKeys() }
+        .onChange(of: catalogueIdentity) { _, _ in
+            cancelCatalogue()
+            catalogueModels = []
+            showingModelPicker = false
+            reloadModelsAfterDismiss = false
+        }
         .onChange(of: endpoint) { _, _ in
             validateAPISelection()
         }
-        .sheet(isPresented: $addingAPIKey, onDismiss: loadAPIKeys) {
-            MARCAPIKeyEditor(defaultEndpoint: endpoint, onSaved: { id in
-                loadAPIKeys()
-                if let key = apiKeys.first(where: { $0.id == id }) { selectAPIKey(key) }
-            })
+        .sheet(isPresented: $showingModelPicker, onDismiss: {
+            if reloadModelsAfterDismiss {
+                reloadModelsAfterDismiss = false
+                requestCatalogue()
+            }
+        }) {
+            MARCAPIModelPicker(models: catalogueModels, selected: apiModel,
+                reload: MARCAPIProvider.identify(endpoint) == .custom ? nil : { reloadModelsAfterDismiss = true },
+                choose: { apiModel = $0 })
         }
+        .alert("Load provider models?", isPresented: $catalogueConsent) {
+            Button("Cancel", role: .cancel) { pendingCatalogue = nil }
+            Button("Allow and Load") { loadCatalogue() }
+        } message: {
+            Text("MARC will contact \(URL(string: endpoint)?.host ?? "this provider") to list models. Your API key is included if selected, and the provider receives your IP address. Your prompt, terminal output and files are not sent.")
+        }
+        .onDisappear { reloadModelsAfterDismiss = false; cancelCatalogue() }
         .task(id: discoveryID) {
             await discoverModels()
         }
@@ -712,7 +767,7 @@ struct MARCTerminalAISettings: View {
     }
 
     private var selectedKeyName: String {
-        if selectedAPIKey.isEmpty { return "Select API key" }
+        if selectedAPIKey.isEmpty { return apiKeys.isEmpty ? "Add a key in Keychain" : "Select API key" }
         return apiKeys.first(where: { $0.id.uuidString == selectedAPIKey })?.name ?? "Key unavailable · select another"
     }
 
@@ -722,7 +777,7 @@ struct MARCTerminalAISettings: View {
         endpoint = key.endpoint
         selectedAPIKey = key.id.uuidString
         notice = changedEndpoint || apiModel.isEmpty
-            ? "\(key.name) selected. Enter its model ID below."
+            ? "\(key.name) selected. Choose a model below."
             : "\(key.name) selected."
     }
 
@@ -745,9 +800,69 @@ struct MARCTerminalAISettings: View {
                 notice = "Your previous API key is now saved by name."
             }
             apiKeys = try MARCAPIKeyStore.entries()
+            if MARCAPIProvider.identify(endpoint) == .gemini && !apiModel.isEmpty {
+                if let normalized = MARCAPIProvider.chatModelID(apiModel, provider: .gemini) {
+                    apiModel = normalized
+                } else {
+                    apiModel = ""
+                    notice = "Choose a Gemini text model. The previous catalogue entry was not suitable for command generation."
+                }
+            }
             failure = nil
         } catch {
             failure = error.localizedDescription
+        }
+    }
+
+    private func requestCatalogue() {
+        guard !catalogueLoading else { return }
+        pendingCatalogue = catalogueIdentity
+        catalogueConsent = true
+    }
+
+    private func cancelCatalogue() {
+        catalogueTaskID = UUID()
+        catalogueTask?.cancel()
+        catalogueTask = nil
+        catalogueLoading = false
+        catalogueConsent = false
+        pendingCatalogue = nil
+    }
+
+    private func loadCatalogue() {
+        guard let identity = pendingCatalogue, identity == catalogueIdentity,
+              provider == "api", !catalogueLoading else { pendingCatalogue = nil; return }
+        pendingCatalogue = nil
+        catalogueConsent = false
+        let id = UUID()
+        catalogueTaskID = id
+        catalogueLoading = true
+        failure = nil
+        catalogueTask = Task { @MainActor in
+            defer {
+                if catalogueTaskID == id { catalogueLoading = false; catalogueTask = nil }
+            }
+            do {
+                try Task.checkCancellation()
+                guard catalogueTaskID == id, catalogueIdentity == identity else { return }
+                let names = try await MARCAPIModelCatalogue.load(endpoint: identity[1], selection: identity[2])
+                try Task.checkCancellation()
+                guard catalogueTaskID == id, catalogueIdentity == identity else { return }
+                catalogueModels = names
+                if apiModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   let suggested = MARCAPIProvider.suggestedModel(in: names, endpoint: identity[1]) {
+                    apiModel = suggested
+                    showingModelPicker = false
+                    notice = "Selected \(suggested). Tap Model to change it."
+                } else {
+                    showingModelPicker = true
+                    notice = names.isEmpty ? "No models returned. Use Advanced to enter a model ID." : nil
+                }
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled, catalogueTaskID == id, catalogueIdentity == identity else { return }
+                failure = error.localizedDescription
+            }
         }
     }
 }

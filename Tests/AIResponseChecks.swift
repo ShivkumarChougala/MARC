@@ -84,7 +84,19 @@ struct ResponseBytes: AsyncSequence, Sendable {
         let badStatus = ResponseProbe()
         try await rejected(ResponseBytes(count: 100, probe: badStatus),
             response: response(status: 401, length: 100), message: "HTTP 401")
-        precondition(badStatus.readCount == 0)
+        precondition(badStatus.readCount == 101)
+        let longError = ResponseProbe()
+        try await rejected(ResponseBytes(count: 50000, probe: longError),
+            response: response(status: 400), message: "HTTP 400")
+        precondition(longError.readCount == 8193)
+        let declaredError = ResponseProbe()
+        try await rejected(ResponseBytes(count: 50000, probe: declaredError),
+            response: response(status: 400, length: 50000), message: "HTTP 400")
+        precondition(declaredError.readCount == 0)
+        let providerError = try JSONSerialization.data(withJSONObject: ["error": ["message": "Invalid model for key example-secret. Prompt: private prompt\nRetry."]])
+        let safeError = MARCAIResponseReader.errorMessage(status: 400, data: providerError, redacting: ["example-secret", "private prompt"])
+        precondition(safeError.contains("Invalid model") && safeError.contains("HTTP 400"))
+        precondition(!safeError.contains("example-secret") && !safeError.contains("private prompt") && !safeError.contains("\n"))
         let nonHTTP = ResponseProbe()
         try await rejected(ResponseBytes(count: 10, probe: nonHTTP),
             response: URLResponse(url: URL(string: "https://fixture.invalid")!,
@@ -119,5 +131,6 @@ struct ResponseBytes: AsyncSequence, Sendable {
         precondition(cancelled.readCount == 13 && cancelled.cancelCount >= 1)
         print("PASS: AI response streaming limits, declared/chunked sizes, HTTP failures and transport cleanup")
         print("PASS: queued and partial AI-response cancellation stop consumption without returning partial data")
+        print("PASS: bounded provider errors include useful details and redact API keys and submitted prompts")
     }
 }

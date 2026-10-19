@@ -12,6 +12,7 @@ terminal = (root / 'MARC/Screens/MARCTerminalScreen.swift').read_text()
 ai_source = (root / 'MARC/Screens/MARCTerminalAI.swift').read_text()
 monitor = (root / 'MARC/Services/SSHMonitor.swift').read_text()
 response_reader = (root / 'MARC/Services/MARCAIResponseReader.swift').read_text()
+api_provider = (root / 'MARC/Services/MARCAPIProvider.swift').read_text().split('// Catalogue requests')[0]
 ai = ai_source[ai_source.index('struct MARCTerminalAI:'):ai_source.index('struct MARCTerminalAISettings:')]
 properties = ai[ai.index('    private var configuration:'):ai.index('    private var modelLabel:')]
 methods = ai[ai.index('    private func runCommand()'):ai.rfind('\n}')]
@@ -231,6 +232,12 @@ checks = r'''
         precondition(MARCAPIKeyStore.reads == 1 && unavailableKey.failure != nil && !unavailableKey.busy)
         precondition(unavailableKey.command.isEmpty)
         print("PASS: unavailable API keys stop generation before HTTP dispatch")
+        let unsuitable = AIHarness(); unsuitable.provider = "api"
+        unsuitable.endpoint = MARCAPIProvider.gemini.endpoint
+        unsuitable.apiModel = "models/antigravity-preview-05-2026"
+        unsuitable.start(); unsuitable.approve(); await unsuitable.requestTask?.value
+        precondition(unsuitable.failure != nil && unsuitable.command.isEmpty && MARCAPIKeyStore.reads == 1)
+        print("PASS: unsuitable Gemini catalogue entries are blocked before reading a key or sending a request")
 
         let modelMonitor = SSHMonitor(); let modelGate = Gate()
         SSHClient.hook = { await modelGate.wait(); return #"{"names":["old-model"]}"# }
@@ -251,7 +258,7 @@ checks = r'''
 '''
 
 def fixture_source():
-    return (support + remember + '\n}\n' + error_and_history + response_reader + local_ai +
+    return (support + remember + '\n}\n' + error_and_history + response_reader + api_provider + local_ai +
             harness + properties + methods + '\n}\n' + monitor_support + models + checks)
 
 def main():

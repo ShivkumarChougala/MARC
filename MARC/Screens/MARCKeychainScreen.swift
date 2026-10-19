@@ -1,8 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct MARCKeychainScreen: View {
     private enum Section: String, CaseIterable {
-        case keys = "SSH Keys", api = "API Keys", fingerprints = "Mac Fingerprints"
+        case keys = "SSH Keys", api = "API Keys", fingerprints = "Fingerprints"
     }
     @State private var section: Section = .keys
     let store: ServerStore
@@ -10,6 +11,7 @@ struct MARCKeychainScreen: View {
     @State private var entries: [Entry] = []
     @State private var failure: String?
     @State private var forgetting: Entry?
+    @State private var notice: String?
 
     private struct Login: Identifiable {
         let id: UUID
@@ -45,6 +47,7 @@ struct MARCKeychainScreen: View {
                     Text(failure).font(.system(size: 12)).foregroundStyle(.red)
                     Button("Try again", action: reload).tint(p.accent)
                 }
+                if let notice { Text(notice).font(.system(size: 12)).foregroundStyle(p.muted) }
                 if entries.isEmpty && failure == nil {
                     Text("No Macs saved yet. Connect to a Mac to remember its fingerprint.")
                         .font(.system(size: 13)).foregroundStyle(p.muted)
@@ -52,11 +55,33 @@ struct MARCKeychainScreen: View {
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
                 }
                 ForEach(entries) { entry in
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(entry.name).font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(p.text)
-                        Text(entry.id).font(.system(size: 12)).foregroundStyle(p.muted)
-                            .textSelection(.enabled)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 12) {
+                            Image(systemName: entry.fingerprint == nil ? "shield" : "checkmark.shield").font(.system(size: 15)).foregroundStyle(p.accent)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(entry.name).font(.system(size: 14, weight: .semibold)).foregroundStyle(p.text)
+                                if entry.name != entry.id {
+                                    Text(entry.id).font(.system(size: 11)).foregroundStyle(p.muted).textSelection(.enabled)
+                                }
+                            }
+                            Spacer(minLength: 4)
+                            Menu {
+                                Button("Copy address", systemImage: "doc.on.doc") {
+                                    UIPasteboard.general.string = entry.id
+                                    notice = "Mac address copied."
+                                }
+                                if let fingerprint = entry.fingerprint {
+                                    Button("Copy fingerprint", systemImage: "signature") {
+                                        UIPasteboard.general.string = fingerprint
+                                        notice = "Fingerprint copied."
+                                    }
+                                }
+                                Button("Forget Mac", systemImage: "trash", role: .destructive) { forgetting = entry }
+                                    .disabled(!entry.logins.isEmpty)
+                            } label: {
+                                Image(systemName: "ellipsis").foregroundStyle(p.muted).frame(width: 44, height: 44)
+                            }.accessibilityLabel("Actions for \(entry.name)")
+                        }
                         ForEach(entry.logins) { login in
                             HStack(alignment: .top, spacing: 12) {
                                 Text(login.username).textSelection(.enabled)
@@ -67,8 +92,6 @@ struct MARCKeychainScreen: View {
                         }
                         if entry.logins.isEmpty {
                             Text("No saved login").font(.system(size: 12)).foregroundStyle(p.muted)
-                            Button("Forget Mac", role: .destructive) { forgetting = entry }
-                                .font(.system(size: 13)).frame(minHeight: 44)
                         }
                         if let fingerprint = entry.fingerprint {
                             Divider()
@@ -84,8 +107,8 @@ struct MARCKeychainScreen: View {
                                 .font(.system(size: 11)).foregroundStyle(p.muted)
                         }
                     }
-                    .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
                 }
                 }
             }.padding(16)
@@ -127,6 +150,7 @@ struct MARCKeychainScreen: View {
         do {
             try MARCHostTrustStore.forget(endpoint: entry.id)
             reload()
+            notice = "Mac fingerprint forgotten."
         } catch { failure = error.localizedDescription }
     }
 

@@ -28,6 +28,7 @@ python3 Tests/TerminalFilesTaskChecks.py
 python3 Tests/TerminalScrollChecks.py
 python3 Tests/AIRequestChecks.py
 python3 Tests/APIKeyStoreChecks.py
+python3 Tests/APIProviderChecks.py
 xcrun swiftc -swift-version 5 -parse-as-library \
     MARC/Services/MARCAIResponseReader.swift Tests/AIResponseChecks.swift \
     -o "$marc_build/ai-response-checks"

@@ -93,26 +93,42 @@ struct MARCAPIKeysSection: View {
 struct MARCAPIKeyEditor: View {
     var key: MARCAPIKeyStore.Info? = nil
     let defaultEndpoint: String
-    var onSaved: (UUID) -> Void = { _ in }
     @State private var name = ""
     @State private var endpoint = ""
+    @State private var provider: MARCAPIProvider = .custom
     @State private var secret = ""
     @State private var failure: String?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("Provider") {
+                    if key != nil {
+                        Text(MARCAPIProvider.identify(endpoint).name)
+                    } else {
+                        Picker("Provider", selection: $provider) {
+                            ForEach(MARCAPIProvider.allCases) { provider in
+                                Text(provider.name).tag(provider)
+                            }
+                        }
+                    }
+                }
                 Section("Name") {
-                    TextField("OpenAI Personal", text: $name)
+                    TextField("Personal API key", text: $name)
                         .textInputAutocapitalization(.words)
                 }
-                Section("Chat completions endpoint") {
-                    if key != nil {
-                        Text(endpoint).font(.footnote).textSelection(.enabled)
-                    } else {
+                if provider == .custom && key == nil {
+                    Section("Chat completions endpoint") {
                         TextField("https://…/v1/chat/completions", text: $endpoint)
                             .keyboardType(.URL)
+                    }
+                } else {
+                    Section {
+                        DisclosureGroup("Endpoint") {
+                            Text(endpoint).font(.footnote).textSelection(.enabled)
+                        }
                     }
                 }
                 if key == nil {
@@ -121,12 +137,13 @@ struct MARCAPIKeyEditor: View {
                     }
                 }
                 Section {
-                    Text("The secret stays in this iPhone’s Keychain. It can only be sent to this exact endpoint. To change the secret or endpoint, add a new key.")
+                    Text("The secret stays in this iPhone’s Keychain. With your permission, it is used for this connection and its provider’s model catalogue. To change the secret or endpoint, add a new key.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 if let failure { Text(failure).foregroundStyle(.red).font(.footnote) }
             }
             .textInputAutocapitalization(.never).autocorrectionDisabled()
+            .tint(MARCPalette(dark: scheme == .dark).accent)
             .navigationTitle(key == nil ? "Add API Key" : "Rename API Key")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -137,19 +154,83 @@ struct MARCAPIKeyEditor: View {
                     Button("Save", action: save).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (key == nil && secret.isEmpty))
                 }
             }
-            .onAppear { name = key?.name ?? ""; endpoint = defaultEndpoint }
+            .onAppear {
+                name = key?.name ?? ""
+                endpoint = defaultEndpoint
+                provider = MARCAPIProvider.identify(defaultEndpoint)
+            }
+            .onChange(of: provider) { _, value in
+                guard key == nil else { return }
+                endpoint = value.endpoint
+            }
             .onDisappear { secret = "" }
         }
     }
 
     private func save() {
         do {
-            let id: UUID
-            if let key { try MARCAPIKeyStore.rename(key.id, name: name); id = key.id }
-            else { id = try MARCAPIKeyStore.add(name: name, endpoint: endpoint, secret: secret) }
+            if let key { try MARCAPIKeyStore.rename(key.id, name: name) }
+            else { _ = try MARCAPIKeyStore.add(name: name, endpoint: endpoint, secret: secret) }
             secret = ""
-            onSaved(id)
             dismiss()
         } catch { failure = error.localizedDescription }
+    }
+}
+
+struct MARCAPIModelPicker: View {
+    let models: [String]
+    let selected: String
+    var reload: (() -> Void)? = nil
+    let choose: (String) -> Void
+    @State private var search = ""
+    @State private var custom = ""
+    @State private var advanced = false
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Provider models") {
+                    ForEach(models.filter { search.isEmpty || $0.localizedCaseInsensitiveContains(search) }, id: \.self) { model in
+                        Button {
+                            choose(model); dismiss()
+                        } label: {
+                            HStack {
+                                Text(model).font(.system(size: 13)).foregroundStyle(.primary)
+                                Spacer()
+                                if model == selected { Image(systemName: "checkmark") }
+                            }.frame(minHeight: 36)
+                        }
+                    }
+                    if models.isEmpty { Text("No text models loaded. Reload the catalogue, or use Advanced below.").font(.footnote).foregroundStyle(.secondary) }
+                }
+                Section {
+                    DisclosureGroup("Advanced · custom model ID", isExpanded: $advanced) {
+                        TextField("Model ID", text: $custom)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        Button("Use model") { choose(custom.trimmingCharacters(in: .whitespacesAndNewlines)); dismiss() }
+                            .disabled(custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                Section {
+                    Text("A listed model may require provider access or billing. These models run at the provider; nothing is downloaded to your iPhone.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .searchable(text: $search, prompt: "Find a model")
+            .tint(MARCPalette(dark: scheme == .dark).accent)
+            .navigationTitle("Choose Model").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let reload {
+                        Button { reload(); dismiss() } label: { Image(systemName: "arrow.clockwise") }
+                            .accessibilityLabel("Reload provider models")
+                    }
+                }
+            }
+            .onAppear { custom = selected; advanced = models.isEmpty }
+        }
     }
 }
