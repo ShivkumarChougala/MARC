@@ -18,19 +18,11 @@ extension MARCRemoteEntry {
 struct MARCActivityCard: View {
     let title: String
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("marc.accent") private var accent = "coral"
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         VStack(spacing: 16) {
-            TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                let tick = Int(context.date.timeIntervalSinceReferenceDate * 2)
-                Text(reduceMotion || tick % 2 == 0 ? ">_" : "> ")
-                    .font(.system(size: 26, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(p.accent)
-                    .accessibilityHidden(true)
-            }
             ProgressView().tint(p.accent)
             Text(title).font(.system(size: 13, weight: .medium))
                 .foregroundStyle(p.text).multilineTextAlignment(.center)
@@ -457,6 +449,7 @@ private struct MARCDelayedActivity: ViewModifier {
                     HStack(spacing: 10) {
                         ProgressView()
                         Text(title).font(.system(size: 12, weight: .medium))
+                            .multilineTextAlignment(.center)
                     }
                     .padding(16)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))

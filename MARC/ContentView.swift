@@ -185,75 +185,37 @@ private struct MARCConnectionLoadingView: View {
 
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         GeometryReader { geometry in
-            let logoWidth = min(geometry.size.width * 0.78, 340)
+            let mascotSize = min(geometry.size.width * 0.62, 240)
             ZStack {
                 p.background.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    Spacer()
-
-                    Image("MARCLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(
-                            width: logoWidth,
-                            height: logoWidth
-                        )
-                        .frame(height: logoWidth * 0.32)
-                        .clipped()
-                        .modifier(
-                            MARCLoadingLogoAppearance(dark: scheme == .dark)
-                        )
-                        .accessibilityLabel("MARC")
-
-                    TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                        let tick = Int(
-                            context.date.timeIntervalSinceReferenceDate * 2
-                        )
-                        VStack(spacing: 18) {
-                            HStack(spacing: 0) {
-                                Text(">")
-                                Text("_")
-                                    .opacity(
-                                        reduceMotion || tick % 2 == 0 ? 1 : 0
-                                    )
+                    MARCLoadingMascot(size: mascotSize)
+                        .offset(x: mascotSize * 0.13)
+                        .overlay(alignment: .top) {
+                            VStack(spacing: 6) {
+                                MARCConnectingLabel()
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(p.text)
+                                    .accessibilityLabel("Connecting to \(serverName)")
+                                Text(serverName)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(p.muted)
+                                    .lineLimit(1)
                             }
-                            .font(.system(
-                                size: 20,
-                                weight: .medium,
-                                design: .monospaced
-                            ))
-                            .foregroundStyle(p.accent)
-                            .accessibilityHidden(true)
-
-                            HStack(spacing: 0) {
-                                Text("Connecting")
-                                Text(reduceMotion
-                                     ? "…"
-                                     : String(repeating: ".", count: tick % 4))
-                                    .frame(width: 18, alignment: .leading)
-                            }
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(p.text)
-                            .accessibilityLabel("Connecting to \(serverName)")
+                            .padding(.horizontal, 24)
+                            .padding(.top, mascotSize * 0.70)
                         }
-                    }
-                    .padding(.top, 22)
+                        .frame(height: mascotSize * 0.89, alignment: .top)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                    Text(serverName)
-                        .font(.system(size: 12))
-                        .foregroundStyle(p.muted)
-                        .lineLimit(1)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 8)
-
-                    Spacer()
-
+                VStack {
+                    Spacer(minLength: 0)
                     Button("Cancel", action: cancel)
                         .font(.system(size: 13))
                         .foregroundStyle(p.muted)
@@ -270,23 +232,21 @@ private struct MARCConnectionLoadingView: View {
     }
 }
 
+private struct MARCConnectingLabel: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
-private struct MARCLoadingLogoAppearance: ViewModifier {
-    let dark: Bool
-
-    func body(content: Content) -> some View {
-        Group {
-            if dark {
-                content
-            } else {
-                content.colorInvert()
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.5,
+                                paused: reduceMotion || scenePhase != .active)) { context in
+            let count = Int(context.date.timeIntervalSinceReferenceDate * 2) % 3 + 1
+            HStack(spacing: 0) {
+                Text("Connecting")
+                Text(reduceMotion ? "…" : String(repeating: ".", count: count))
+                    .frame(width: 14, alignment: .leading)
             }
         }
-        .mask {
-            content
-                .saturation(0)
-                .contrast(10)
-                .luminanceToAlpha()
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Connecting")
     }
 }

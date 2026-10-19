@@ -67,7 +67,11 @@ struct ProcessesScreen: View {
                             .foregroundStyle(p.muted)
                             .padding(.vertical, 12)
                     } else if !currentConnection || processes.isEmpty {
-                        Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
+                        VStack(spacing: 4) {
+                            if failure == nil { ProgressView().padding(.bottom, 6) }
+                            Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
+                        }
+                        .frame(maxWidth: .infinity)
                             .font(.system(size: 13))
                             .foregroundStyle(p.muted)
                             .padding(.vertical, 12)
