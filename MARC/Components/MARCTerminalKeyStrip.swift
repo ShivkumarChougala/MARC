@@ -16,7 +16,7 @@ struct MARCTerminalKeyStrip: View {
                     key("⇥", accessibility: "Tab", bytes: [9], palette: p)
                     Button {
                         session.controlArmed.toggle()
-                        session.view?.becomeFirstResponder()
+                        _ = session.view?.becomeFirstResponder()
                     } label: {
                         Text("ctrl").font(.system(size: 13, weight: .medium))
                             .frame(minWidth: 44, minHeight: 44)
@@ -26,7 +26,7 @@ struct MARCTerminalKeyStrip: View {
                         .accessibilityValue(session.controlArmed ? "Selected" : "Off")
                     Button {
                         session.altArmed.toggle()
-                        session.view?.becomeFirstResponder()
+                        _ = session.view?.becomeFirstResponder()
                     } label: {
                         Text("alt").font(.system(size: 13, weight: .medium))
                             .frame(minWidth: 44, minHeight: 44)
@@ -49,8 +49,8 @@ struct MARCTerminalKeyStrip: View {
             .disabled(!session.ready)
             Button {
                 guard let view = session.view else { return }
-                if view.isFirstResponder { view.resignFirstResponder() }
-                else { view.becomeFirstResponder() }
+                if view.isFirstResponder { _ = view.resignFirstResponder() }
+                else { _ = view.becomeFirstResponder() }
             } label: {
                 Image(systemName: "keyboard.chevron.compact.down")
                     .font(.system(size: 20)).frame(width: 44, height: 44)
@@ -69,7 +69,7 @@ struct MARCTerminalKeyStrip: View {
             session.controlArmed = false
             session.altArmed = false
             session.send(bytes)
-            session.view?.becomeFirstResponder()
+            _ = session.view?.becomeFirstResponder()
         } label: {
             Text(title).font(.system(size: 15, weight: .medium, design: .monospaced))
                 .frame(minWidth: 44, minHeight: 44)

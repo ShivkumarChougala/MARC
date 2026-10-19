@@ -59,17 +59,24 @@ enum SSHHostKeyProbe {
             channel = try await ClientBootstrap(group: eventLoop)
                 .connectTimeout(.seconds(10))
                 .channelInitializer { channel in
-                    channel.pipeline.addHandlers(
-                        NIOSSHHandler(
-                            role: .client(SSHClientConfiguration(
-                                userAuthDelegate: ProbeNoAuthentication(),
-                                serverAuthDelegate: ProbeHostKeyDelegate()
-                            )),
-                            allocator: channel.allocator,
-                            inboundChildChannelInitializer: nil
-                        ),
-                        ProbeErrorHandler(result: result)
-                    )
+                    // Initializers run on this channel's event loop. Keep the
+                    // non-Sendable SSH handler on that loop while installing it.
+                    do {
+                        try channel.pipeline.syncOperations.addHandlers(
+                            NIOSSHHandler(
+                                role: .client(SSHClientConfiguration(
+                                    userAuthDelegate: ProbeNoAuthentication(),
+                                    serverAuthDelegate: ProbeHostKeyDelegate()
+                                )),
+                                allocator: channel.allocator,
+                                inboundChildChannelInitializer: nil
+                            ),
+                            ProbeErrorHandler(result: result)
+                        )
+                        return channel.eventLoop.makeSucceededVoidFuture()
+                    } catch {
+                        return channel.eventLoop.makeFailedFuture(error)
+                    }
                 }
                 .connect(host: server.host, port: server.port).get()
         } catch {

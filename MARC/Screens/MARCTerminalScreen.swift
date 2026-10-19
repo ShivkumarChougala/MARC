@@ -352,7 +352,7 @@ struct MARCTerminalSurface: UIViewRepresentable {
     static func dismantleUIView(
         _ view: SwiftTerm.TerminalView, coordinator: Coordinator
     ) {
-        view.resignFirstResponder()
+        _ = view.resignFirstResponder()
         view.terminalDelegate = nil
         // Workspace owns the shell and retained screen buffer.
         // Removing the visible view must not terminate that shell.
@@ -476,7 +476,7 @@ final class MARCTerminalWorkspace {
 
     func add() {
         guard server != nil else { return }
-        selected?.session.view?.resignFirstResponder()
+        _ = selected?.session.view?.resignFirstResponder()
         let slot = MARCTerminalSlot(number: nextNumber)
         nextNumber += 1
         slots.append(slot)
@@ -485,13 +485,13 @@ final class MARCTerminalWorkspace {
     }
 
     func select(_ slot: MARCTerminalSlot) {
-        selected?.session.view?.resignFirstResponder()
+        _ = selected?.session.view?.resignFirstResponder()
         selectedID = slot.id
     }
 
     func reconnectSelected() {
         guard let slot = selected else { return }
-        slot.session.view?.resignFirstResponder()
+        _ = slot.session.view?.resignFirstResponder()
         slot.task?.cancel()
         slot.task = nil
         slot.session.stop()
@@ -499,7 +499,7 @@ final class MARCTerminalWorkspace {
     }
 
     func close(_ slot: MARCTerminalSlot) {
-        slot.session.view?.resignFirstResponder()
+        _ = slot.session.view?.resignFirstResponder()
         slot.task?.cancel()
         slot.task = nil
         slot.session.stop()
@@ -511,7 +511,7 @@ final class MARCTerminalWorkspace {
 
     func pause() {
         for slot in slots {
-            slot.session.view?.resignFirstResponder()
+            _ = slot.session.view?.resignFirstResponder()
             slot.task?.cancel()
             slot.task = nil
             slot.session.stop()
@@ -637,7 +637,7 @@ struct TerminalScreen: View {
 
 
                     Button {
-                        workspace.selected?.session.view?.resignFirstResponder()
+                        _ = workspace.selected?.session.view?.resignFirstResponder()
                         showingSessions = true
                     } label: {
                         HStack(spacing: 8) {
@@ -739,7 +739,7 @@ struct TerminalScreen: View {
                     workspace.selected?.session.send(Array(command.utf8))
                 }
                 workspace.pendingDirectoryCommand = nil
-                workspace.selected?.session.view?.becomeFirstResponder()
+                _ = workspace.selected?.session.view?.becomeFirstResponder()
             }
             Button("Cancel", role: .cancel) { workspace.pendingDirectoryCommand = nil }
         } message: {
