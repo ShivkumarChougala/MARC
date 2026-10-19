@@ -214,7 +214,7 @@ struct HomeScreen: View {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Done") { controls = false }
                         }
-                        .sharedBackgroundVisibility(.hidden)
+                        .marcToolbarBackgroundHidden()
                     }
                 }
             }
@@ -532,7 +532,7 @@ private struct MARCStatusCustomizeSheet: View {
                 .navigationTitle("Customize").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-                    .sharedBackgroundVisibility(.hidden)
+                    .marcToolbarBackgroundHidden()
                 }
                 .tint(p.accent)
         }.sheet(isPresented: $customizingAlerts) {
@@ -576,7 +576,7 @@ private struct MARCStatusAlertCustomizeSheet: View {
                 .navigationTitle("Alerts").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-                    .sharedBackgroundVisibility(.hidden)
+                    .marcToolbarBackgroundHidden()
                 }
         }
     }

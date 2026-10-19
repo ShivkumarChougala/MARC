@@ -51,7 +51,7 @@ struct SettingsScreen: View {
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("Customize Settings layout")
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }
             .sheet(isPresented: $customizingSettings) {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
@@ -703,7 +703,7 @@ private struct MARCSettingsCustomizeSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }.tint(p.accent)
         }
     }

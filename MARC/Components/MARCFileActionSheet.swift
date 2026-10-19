@@ -135,7 +135,7 @@ struct MARCFileActionSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }.disabled(files.busy)
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }
             .marcDelayedActivity(active: loading || files.busy, title: loading ? "Loading details" : "Updating item")
             .task(id: entry.path) {
@@ -255,7 +255,7 @@ private struct MARCRemoteTextEditor: View {
                         Button("Save") { save() }
                             .disabled(loading || saving || fingerprint == nil || text == original)
                     }
-                    .sharedBackgroundVisibility(.hidden)
+                    .marcToolbarBackgroundHidden()
                 }
                 .marcDelayedActivity(active: saving, title: "Saving text")
                 .task {
@@ -329,7 +329,7 @@ private struct MARCRemoteRenameSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.disabled(saving) }
                 ToolbarItem(placement: .topBarTrailing) { Button("Save") { save() }.disabled(saving) }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }
             .onAppear { name = entry.name; destination = entry.path }
             .marcDelayedActivity(active: saving, title: "Moving item")
@@ -402,7 +402,7 @@ private struct MARCRemotePermissionsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() }.disabled(saving) }
                 ToolbarItem(placement: .topBarTrailing) { Button("Save") { save() }.disabled(saving) }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }
             .onAppear { mode = info.mode & 0o7777; octal = String(mode, radix: 8) }
             .marcDelayedActivity(active: saving, title: "Updating permissions")

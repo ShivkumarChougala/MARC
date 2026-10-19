@@ -224,7 +224,7 @@ struct ControlsScreen: View {
                         .accessibilityLabel("Control availability details")
                     }
                 }
-                .sharedBackgroundVisibility(.hidden)
+                .marcToolbarBackgroundHidden()
             }
             .alert("Control availability", isPresented: $showControlDetails) {
                 Button("OK", role: .cancel) {}
@@ -320,7 +320,7 @@ struct ControlsScreen: View {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Done") { showMediaSetup = false }
                         }
-                        .sharedBackgroundVisibility(.hidden)
+                        .marcToolbarBackgroundHidden()
                     }
                     .tint(p.accent)
                 }
