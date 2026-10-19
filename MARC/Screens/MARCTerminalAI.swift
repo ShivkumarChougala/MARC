@@ -17,7 +17,6 @@ struct MARCTerminalAI: View {
 
     @State private var prompt = ""
     @State private var command = ""
-    @State private var historyPrompt: String?
     @State private var commandConnection: UUID?
     @State private var commandConfiguration: [String]?
     @State private var failure: String?
@@ -232,8 +231,7 @@ struct MARCTerminalAI: View {
         guard insertable else { return }
         let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
         promptFocused = false
-        session.view?.resignFirstResponder()
-        session.rememberAI(prompt: historyPrompt ?? prompt, command: value)
+        _ = session.view?.resignFirstResponder()
         session.send(Array((value + "\r").utf8))
         clearSuggestion()
         prompt = ""
@@ -241,7 +239,6 @@ struct MARCTerminalAI: View {
 
     private func clearSuggestion() {
         command = ""
-        historyPrompt = nil
         commandConnection = nil
         commandConfiguration = nil
         failure = nil
@@ -340,8 +337,10 @@ struct MARCTerminalAI: View {
                         )
                     }
 
+                    let transport = MARCAINoRedirect.session(timeout: 120)
+                    defer { transport.invalidateAndCancel() }
                     let (bytes, response) =
-                        try await URLSession.shared.bytes(for: request)
+                        try await transport.bytes(for: request)
                     data = try await MARCAIResponseReader.read(bytes, response: response, redacting: [key, requestPrompt]) {
                         bytes.task.cancel()
                     }
@@ -388,7 +387,6 @@ struct MARCTerminalAI: View {
                     )
                 }
                 command = cleaned
-                historyPrompt = requestPrompt
                 commandConnection = connection
                 commandConfiguration = chosenConfiguration
             } catch is CancellationError {

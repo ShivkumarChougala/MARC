@@ -28,7 +28,6 @@ struct ServerProfile {
     var port = 22
     var username = "fixture"
 }
-struct MARCAIHistoryRecord { let prompt: String; let command: String }
 enum MARCAIError: LocalizedError {
     case message(String)
     var errorDescription: String? { switch self { case .message(let message): return message } }

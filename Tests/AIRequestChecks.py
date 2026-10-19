@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile actual AI request/history methods with deterministic in-memory transports.
+"""Compile actual AI request methods with deterministic in-memory transports.
 No HTTP requests, SSH commands, Keychain access or model inference are performed.
 """
 from pathlib import Path
@@ -18,7 +18,6 @@ properties = ai[ai.index('    private var configuration:'):ai.index('    private
 methods = ai[ai.index('    private func runCommand()'):ai.rfind('\n}')]
 local_ai = terminal[terminal.index('extension MARCTerminalSession {\n    func localAI'):terminal.index('enum MARCAIError:')]
 error_and_history = terminal[terminal.index('enum MARCAIError:'):terminal.index('extension MARCTerminalSession {\n    var aiConnectionID:')]
-remember = terminal[terminal.index('    func rememberAI('):terminal.index('    func sendKeyboard(')]
 models = monitor[monitor.index('extension SSHMonitor {\n    func marcInstalledAIModels'):monitor.index('// MARK: - MARC live Control Center')]
 
 support = r'''
@@ -62,7 +61,6 @@ enum FixtureError: Error { case expected }
     var aiConnectionID: UUID { token }
     var client: SSHClient? = SSHClient()
     var view: FixtureView? = FixtureView()
-    var aiHistory: [MARCAIHistoryRecord] = []
     var sent: [[UInt8]] = []
     func send(_ bytes: [UInt8]) { sent.append(bytes) }
 '''
@@ -78,7 +76,6 @@ harness = r'''
     var localServer = ""
     var prompt = "fixture prompt"
     var command = ""
-    var historyPrompt: String?
     var commandConnection: UUID?
     var commandConfiguration: [String]?
     var failure: String?
@@ -135,7 +132,7 @@ checks = r'''
         await waitFor { oldGate.entered }
         first.cancel(); first.prompt = "current prompt"; first.start()
         await first.requestTask?.value
-        precondition(first.command == "pwd" && first.historyPrompt == "current prompt")
+        precondition(first.command == "pwd")
         precondition(first.requestTask == nil && !first.busy && first.session.sent.isEmpty)
         oldGate.open(); await old?.value
         precondition(first.command == "pwd" && first.failure == nil && !first.busy)
@@ -155,19 +152,13 @@ checks = r'''
         precondition(switched.command.isEmpty && switched.failure == nil && !switched.busy)
 
         let history = AIHarness()
-        history.historyPrompt = "old selected history prompt"
         history.prompt = "new question"
         SSHClient.hook = { #"{"message":{"content":"```sh\npwd\n```"}}"# }
         history.start(); await history.requestTask?.value
-        precondition(history.command == "pwd" && history.historyPrompt == "new question")
+        precondition(history.command == "pwd")
         precondition(history.canRun && history.session.sent.isEmpty)
         history.run(); history.run()
         precondition(history.session.sent == [Array("pwd\r".utf8)])
-        precondition(history.session.aiHistory.first?.prompt == "new question")
-        for index in 0..<15 { history.session.rememberAI(prompt: "p\(index)", command: "c\(index)") }
-        precondition(history.session.aiHistory.count == 12)
-        history.session.rememberAI(prompt: "updated", command: "c14")
-        precondition(history.session.aiHistory.count == 12 && history.session.aiHistory.first?.prompt == "updated")
 
         let staleRun = AIHarness()
         SSHClient.hook = { #"{"message":{"content":"pwd"}}"# }
@@ -251,14 +242,14 @@ checks = r'''
         cancelledDiscovery.cancel()
         if case .success = await cancelledDiscovery.result { preconditionFailure("Cancelled discovery dispatched") }
         precondition(SSHClient.calls == beforeCancelled)
-        print("PASS: AI queued cancellation, duplicate starts, stale responses, settings, history and explicit Run checks")
+        print("PASS: AI queued cancellation, duplicate starts, stale responses, settings and explicit Run checks")
         print("PASS: AI model discovery ignores previous connections and queued cancellation")
     }
 }
 '''
 
 def fixture_source():
-    return (support + remember + '\n}\n' + error_and_history + response_reader + api_provider + local_ai +
+    return (support + '\n}\n' + error_and_history + response_reader + api_provider + local_ai +
             harness + properties + methods + '\n}\n' + monitor_support + models + checks)
 
 def main():

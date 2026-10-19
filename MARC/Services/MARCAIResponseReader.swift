@@ -1,5 +1,23 @@
 import Foundation
 
+// Both catalogue and prompt requests stay on the destination the user approved.
+final class MARCAINoRedirect: NSObject, URLSessionTaskDelegate {
+    static func session(timeout: TimeInterval) -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpShouldSetCookies = false
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForResource = timeout
+        return URLSession(configuration: configuration, delegate: MARCAINoRedirect(), delegateQueue: nil)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+
 enum MARCAIResponseReader {
     // Bound the assembled body while it arrives, including chunked responses.
     // The caller supplies transport cancellation so early exits stop the request.

@@ -11,15 +11,8 @@ import NIOCore
 @Observable
 final class MARCTerminalSession {
     private(set) var aiServerID: UUID?
-    var aiHistory: [MARCAIHistoryRecord] = []
     var controlArmed = false
     var altArmed = false
-
-    func rememberAI(prompt: String, command: String) {
-        aiHistory.removeAll { $0.command == command }
-        aiHistory.insert(MARCAIHistoryRecord(prompt: prompt, command: command), at: 0)
-        if aiHistory.count > 12 { aiHistory.removeLast(aiHistory.count - 12) }
-    }
 
     func sendKeyboard(_ bytes: [UInt8]) {
         guard ready, !bytes.isEmpty else { return }
@@ -869,12 +862,6 @@ enum MARCAIError: LocalizedError {
     var errorDescription: String? {
         switch self { case .message(let text): return text }
     }
-}
-
-struct MARCAIHistoryRecord: Identifiable {
-    let id = UUID()
-    let prompt: String
-    let command: String
 }
 
 extension MARCTerminalSession {

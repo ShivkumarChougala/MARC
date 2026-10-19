@@ -106,26 +106,13 @@ enum MARCAPIProvider: String, CaseIterable, Identifiable {
 }
 
 // Catalogue requests never follow a redirect with a saved API key.
-private final class MARCModelNoRedirect: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask,
-                    willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest,
-                    completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
-    }
-}
-
 enum MARCAPIModelCatalogue {
     @MainActor static func load(endpoint: String, selection: String) async throws -> [String] {
         try Task.checkCancellation()
         var url = try MARCAPIProvider.catalogueURL(endpoint: endpoint)
         let provider = MARCAPIProvider.identify(endpoint)
         let secret = try MARCAPIKeyStore.secret(selection: selection, endpoint: endpoint)
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.httpShouldSetCookies = false
-        configuration.urlCache = nil
-        configuration.timeoutIntervalForResource = 30
-        let session = URLSession(configuration: configuration, delegate: MARCModelNoRedirect(), delegateQueue: nil)
+        let session = MARCAINoRedirect.session(timeout: 30)
         defer { session.invalidateAndCancel() }
         var ids = Set<String>()
         var tokens = Set<String>()

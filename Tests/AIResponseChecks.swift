@@ -57,6 +57,29 @@ struct ResponseBytes: AsyncSequence, Sendable {
         precondition(bytes.probe.cancelCount >= 1)
     }
     @MainActor static func main() async throws {
+        // Exercise the production redirect decision without sending any traffic.
+        let transport = MARCAINoRedirect.session(timeout: 120)
+        defer { transport.invalidateAndCancel() }
+        precondition(!transport.configuration.httpShouldSetCookies)
+        precondition(transport.configuration.urlCache == nil)
+        precondition(transport.configuration.timeoutIntervalForResource == 120)
+        let original = URL(string: "https://fixture.invalid/chat")!
+        let task = transport.dataTask(with: original)
+        defer { task.cancel() }
+        for status in [301, 302, 303, 307, 308] {
+            for target in [original, URL(string: "https://other.invalid/chat")!] {
+                let redirect = HTTPURLResponse(url: original, statusCode: status,
+                    httpVersion: "HTTP/1.1", headerFields: ["Location": target.absoluteString])!
+                var calls = 0
+                MARCAINoRedirect().urlSession(transport, task: task,
+                    willPerformHTTPRedirection: redirect, newRequest: URLRequest(url: target)) { request in
+                        calls += 1
+                        precondition(request == nil, "Do not forward a prompt or key to a redirected destination")
+                    }
+                precondition(calls == 1)
+            }
+        }
+        print("PASS: AI prompt/catalogue sessions disable cookies/cache and refuse redirects")
         let limit = 262144
         let normal = ResponseProbe()
         let body = try await MARCAIResponseReader.read(ResponseBytes(count: 16, probe: normal),
