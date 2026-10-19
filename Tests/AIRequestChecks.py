@@ -44,6 +44,13 @@ enum FixtureError: Error { case expected }
     struct Saved { let password: String }
     static func read(_ id: UUID) -> Saved? { nil }
 }
+@MainActor enum MARCAPIKeyStore {
+    static var reads = 0
+    static func secret(selection: String, endpoint: String) throws -> String {
+        reads += 1
+        throw FixtureError.expected
+    }
+}
 @MainActor final class FixtureView {
     @discardableResult func resignFirstResponder() -> Bool { true }
 }
@@ -65,6 +72,8 @@ harness = r'''
     var localModel = "fixture"
     var apiModel = "fixture-api"
     var endpoint = "https://example.invalid/chat/completions"
+    var selectedAPIKey = ""
+    var apiKeysRevision = ""
     var localServer = ""
     var prompt = "fixture prompt"
     var command = ""
@@ -75,12 +84,15 @@ harness = r'''
     var busy = false
     var requestTask: Task<Void, Never>?
     var requestID = UUID()
+    var showAPIConsent = false
+    var pendingAPIConsent: [String]?
+    var approvedAPIEndpoint: String?
     var promptFocused = false
-    let credentialID = UUID()
     init() { localServer = session.aiServerID!.uuidString }
     func start() { generate() }
     func cancel() { cancelRequest() }
     func run() { runCommand() }
+    func approve() { approveAPIRequest() }
     var canRun: Bool { insertable }
 '''
 monitor_support = r'''
@@ -180,6 +192,45 @@ checks = r'''
         let beforeInvalid = SSHClient.calls
         invalidAPI.start(); await invalidAPI.requestTask?.value
         precondition(invalidAPI.failure != nil && !invalidAPI.busy && SSHClient.calls == beforeInvalid)
+
+        let consent = AIHarness()
+        consent.provider = "api"
+        consent.start()
+        precondition(consent.showAPIConsent && consent.requestTask == nil && !consent.busy)
+        consent.cancel(); consent.approve()
+        precondition(consent.approvedAPIEndpoint == nil && consent.requestTask == nil)
+        consent.start(); consent.endpoint = "https://other.invalid/chat"
+        consent.approve()
+        precondition(consent.approvedAPIEndpoint == nil && consent.requestTask == nil)
+        consent.start(); consent.session.token = UUID(); consent.approve()
+        precondition(consent.approvedAPIEndpoint == nil && consent.requestTask == nil)
+        consent.start(); consent.prompt = "changed while reviewing"; consent.approve()
+        precondition(consent.approvedAPIEndpoint == nil && consent.requestTask == nil)
+        consent.start(); consent.approve()
+        precondition(consent.approvedAPIEndpoint == consent.endpoint && consent.busy)
+        let approvedTask = consent.requestTask
+        consent.cancel(); await approvedTask?.value
+        precondition(!consent.busy && consent.command.isEmpty)
+        consent.endpoint = "https://new.invalid/chat"
+        consent.start()
+        precondition(consent.showAPIConsent && consent.requestTask == nil)
+        consent.cancel()
+        let keyConsent = AIHarness(); keyConsent.provider = "api"
+        keyConsent.start(); keyConsent.selectedAPIKey = UUID().uuidString; keyConsent.approve()
+        precondition(keyConsent.approvedAPIEndpoint == nil && keyConsent.requestTask == nil)
+        keyConsent.start(); keyConsent.apiKeysRevision = UUID().uuidString; keyConsent.approve()
+        precondition(keyConsent.approvedAPIEndpoint == nil && keyConsent.requestTask == nil)
+        keyConsent.cancel()
+        precondition(MARCAPIKeyStore.reads == 0)
+        print("PASS: API consent blocks requests until approval; Cancel and changed endpoint, connection or prompt cannot send")
+        print("PASS: changed key selection or Keychain revision invalidates pending API approval; cancellation does not read secrets")
+        let unavailableKey = AIHarness(); unavailableKey.provider = "api"
+        unavailableKey.selectedAPIKey = UUID().uuidString
+        unavailableKey.start(); unavailableKey.approve()
+        await unavailableKey.requestTask?.value
+        precondition(MARCAPIKeyStore.reads == 1 && unavailableKey.failure != nil && !unavailableKey.busy)
+        precondition(unavailableKey.command.isEmpty)
+        print("PASS: unavailable API keys stop generation before HTTP dispatch")
 
         let modelMonitor = SSHMonitor(); let modelGate = Gate()
         SSHClient.hook = { await modelGate.wait(); return #"{"names":["old-model"]}"# }

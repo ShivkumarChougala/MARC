@@ -11,6 +11,8 @@ struct MARCTerminalAI: View {
     @AppStorage("marc.ai.localModel") private var localModel = ""
     @AppStorage("marc.ai.apiModel") private var apiModel = ""
     @AppStorage("marc.ai.endpoint") private var endpoint = ""
+    @AppStorage("marc.ai.apiKeyID") private var selectedAPIKey = ""
+    @AppStorage("marc.ai.keysRevision") private var apiKeysRevision = ""
     @AppStorage("marc.ai.localServer") private var localServer = ""
 
     @State private var prompt = ""
@@ -22,17 +24,17 @@ struct MARCTerminalAI: View {
     @State private var busy = false
     @State private var requestTask: Task<Void, Never>?
     @State private var requestID = UUID()
+    @State private var showAPIConsent = false
+    @State private var pendingAPIConsent: [String]?
+    @State private var approvedAPIEndpoint: String?
     @FocusState private var promptFocused: Bool
-
-    private let credentialID =
-        UUID(uuidString: "8769682D-2807-4706-81D8-28512948AB21")!
 
     private var configuration: [String] {
         if provider == "local" {
             return [provider, localModel.trimmingCharacters(in: .whitespacesAndNewlines), localServer]
         }
         return [provider, apiModel.trimmingCharacters(in: .whitespacesAndNewlines),
-                endpoint.trimmingCharacters(in: .whitespacesAndNewlines)]
+                endpoint.trimmingCharacters(in: .whitespacesAndNewlines), selectedAPIKey, apiKeysRevision]
     }
 
     private var canRequest: Bool {
@@ -218,13 +220,21 @@ struct MARCTerminalAI: View {
                     .lineLimit(2)
             }
         }
+        .alert("Send prompt to AI service?", isPresented: $showAPIConsent) {
+            Button("Cancel", role: .cancel) { pendingAPIConsent = nil }
+            Button("Allow and Send") { approveAPIRequest() }
+        } message: {
+            Text("Destination: \(URL(string: endpoint.trimmingCharacters(in: .whitespacesAndNewlines))?.host ?? endpoint)\n\nMARC sends your prompt, selected model and command-generation instructions. Your API key is included if configured. This service also receives your IP address and may retain your request under its own privacy policy. Terminal output and files are not automatically attached.\n\nAllow this endpoint for this Terminal session? You can keep using Terminal without AI.")
+        }
         .onChange(of: promptFocused) { _, focused in focusChanged(focused) }
         .onChange(of: session.aiConnectionID) { _, _ in
             cancelRequest()
+            approvedAPIEndpoint = nil
             clearSuggestion()
         }
         .onChange(of: configuration) { _, _ in
             cancelRequest()
+            approvedAPIEndpoint = nil
             clearSuggestion()
         }
         .onDisappear { cancelRequest(); focusChanged(false) }
@@ -250,6 +260,8 @@ struct MARCTerminalAI: View {
     }
 
     private func cancelRequest() {
+        showAPIConsent = false
+        pendingAPIConsent = nil
         requestID = UUID()
         requestTask?.cancel()
         requestTask = nil
@@ -258,13 +270,25 @@ struct MARCTerminalAI: View {
 
     private func generate() {
         guard canRequest else { return }
+        if provider != "local" {
+            let destination = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let url = URL(string: destination), url.scheme?.lowercased() == "https",
+                  url.host != nil, url.user == nil, url.password == nil else {
+                failure = "Enter a valid HTTPS chat completions endpoint."
+                return
+            }
+            guard approvedAPIEndpoint == destination else {
+                pendingAPIConsent = configuration + [session.aiConnectionID.uuidString, prompt]
+                showAPIConsent = true
+                return
+            }
+        }
         let connection = session.aiConnectionID
         let chosenProvider = provider
         let chosenConfiguration = configuration
         let model = (provider == "local" ? localModel : apiModel)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let requestPrompt = prompt
-        let key = MARCCredentials.read(credentialID)?.password ?? ""
         let urlText = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         let id = UUID()
         requestID = id
@@ -302,6 +326,7 @@ struct MARCTerminalAI: View {
                 if chosenProvider == "local" {
                     data = try await session.localAI(body: body)
                 } else {
+                    let key = try MARCAPIKeyStore.secret(selection: selectedAPIKey, endpoint: urlText)
                     guard let url = URL(string: urlText),
                           url.scheme?.lowercased() == "https",
                           url.host != nil,
@@ -385,29 +410,41 @@ struct MARCTerminalAI: View {
             }
         }
     }
+    private func approveAPIRequest() {
+        guard let pending = pendingAPIConsent,
+              pending == configuration + [session.aiConnectionID.uuidString, prompt],
+              canRequest, provider != "local" else {
+            pendingAPIConsent = nil
+            showAPIConsent = false
+            return
+        }
+        approvedAPIEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        pendingAPIConsent = nil
+        showAPIConsent = false
+        generate()
+    }
 }
 
 struct MARCTerminalAISettings: View {
     let monitor: SSHMonitor
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = "coral"
-    @Environment(\.dismiss) private var dismiss
 
     @AppStorage("marc.ai.provider") private var provider = "off"
     @AppStorage("marc.ai.localModel") private var localModel = ""
     @AppStorage("marc.ai.localServer") private var localServer = ""
     @AppStorage("marc.ai.apiModel") private var apiModel = ""
     @AppStorage("marc.ai.endpoint") private var endpoint = ""
+    @AppStorage("marc.ai.apiKeyID") private var selectedAPIKey = ""
+    @AppStorage("marc.ai.keysRevision") private var apiKeysRevision = ""
 
     @State private var models: [String] = []
-    @State private var apiKey = ""
+    @State private var apiKeys: [MARCAPIKeyStore.Info] = []
+    @State private var addingAPIKey = false
     @State private var loading = false
     @State private var failure: String?
     @State private var notice: String?
     @State private var reload = 0
-
-    private let credentialID =
-        UUID(uuidString: "8769682D-2807-4706-81D8-28512948AB21")!
 
     private var discoveryID: String {
         "\(provider)-\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)-\(reload)"
@@ -417,23 +454,8 @@ struct MARCTerminalAISettings: View {
         let p = MARCPalette(dark: scheme == .dark)
 
         VStack(spacing: 0) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.left")
-                        .frame(width: 40, height: 40)
-                        .background(p.raised, in: Circle())
-                }
-                .foregroundStyle(p.accent)
-                .accessibilityLabel("Back")
-                Text("Terminal & AI")
-                    .font(.system(size: 19, weight: .semibold))
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Provider")
                             .font(.system(size: 13, weight: .semibold))
@@ -522,47 +544,64 @@ struct MARCTerminalAISettings: View {
                     }
 
                     if provider == "api" {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("API connection")
-                                .font(.system(size: 14, weight: .semibold))
-                            fieldTitle("Chat completions endpoint", palette: p)
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("API connection").font(.system(size: 14, weight: .semibold))
+                                Spacer()
+                                Button { addingAPIKey = true } label: {
+                                    Label("Add key", systemImage: "plus")
+                                        .font(.system(size: 12, weight: .medium)).frame(minHeight: 44)
+                                }.tint(p.accent)
+                            }
+                            Menu {
+                                ForEach(apiKeys) { key in
+                                    Button { selectAPIKey(key) } label: {
+                                        if selectedAPIKey == key.id.uuidString {
+                                            Label(key.name, systemImage: "checkmark")
+                                        } else { Text(key.name) }
+                                    }
+                                }
+                                Divider()
+                                Button("No key · custom endpoint") {
+                                    selectedAPIKey = ""
+                                    notice = nil
+                                }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "key.horizontal").foregroundStyle(p.accent)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(selectedKeyName).font(.system(size: 13, weight: .medium)).foregroundStyle(p.text)
+                                        Text("Selecting a key fills its endpoint")
+                                            .font(.system(size: 11)).foregroundStyle(p.muted)
+                                    }
+                                    Spacer(minLength: 4)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(p.muted)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .padding(10).background(p.raised, in: RoundedRectangle(cornerRadius: 10))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Saved API key: \(selectedKeyName)")
+                            fieldTitle("Endpoint", palette: p)
                             TextField(
                                 "https://…/v1/chat/completions",
                                 text: $endpoint
                             )
                             .keyboardType(.URL)
-                            .font(.system(size: 12))
+                            .font(.system(size: 12)).frame(minHeight: 36)
                             Divider()
                             fieldTitle("Model", palette: p)
-                            TextField("Model name", text: $apiModel)
-                                .font(.system(size: 13))
-                            Divider()
-                            fieldTitle("API key", palette: p)
-                            SecureField("Optional for keyless providers", text: $apiKey)
-                                .font(.system(size: 13))
-
-                            Button(action: saveKey) {
-                                HStack {
-                                    Text("Save API key")
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(p.accent)
-                                .padding(12)
-                                .background(
-                                    p.raised,
-                                    in: RoundedRectangle(cornerRadius: 10)
-                                )
-                            }
-                            .buttonStyle(.plain)
+                            TextField("Enter the provider’s model ID", text: $apiModel)
+                                .font(.system(size: 13)).frame(minHeight: 36)
                         }
                         .padding(16)
                         .background(
                             p.surface, in: RoundedRectangle(cornerRadius: 16)
                         )
 
-                        Text("Use a compatible HTTPS chat completions endpoint. The API key is stored in Keychain; provider, endpoint and model choices save automatically.")
+                        Text("Choose a saved key, then enter the model ID. Changes save automatically. Manage keys in Settings → Keychain.")
                             .font(.system(size: 11))
                             .foregroundStyle(p.muted)
                             .padding(.horizontal, 4)
@@ -596,11 +635,18 @@ struct MARCTerminalAISettings: View {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .marcCanvas()
-        .toolbar(.hidden, for: .navigationBar)
-        .onAppear {
-            apiKey = MARCCredentials.read(credentialID)?.password ?? ""
+        .marcNavigationTitle("Terminal & AI")
+        .onAppear(perform: loadAPIKeys)
+        .onChange(of: apiKeysRevision) { _, _ in loadAPIKeys() }
+        .onChange(of: endpoint) { _, _ in
+            validateAPISelection()
         }
-        .onDisappear { apiKey = "" }
+        .sheet(isPresented: $addingAPIKey, onDismiss: loadAPIKeys) {
+            MARCAPIKeyEditor(defaultEndpoint: endpoint, onSaved: { id in
+                loadAPIKeys()
+                if let key = apiKeys.first(where: { $0.id == id }) { selectAPIKey(key) }
+            })
+        }
         .task(id: discoveryID) {
             await discoverModels()
         }
@@ -665,15 +711,43 @@ struct MARCTerminalAISettings: View {
         }
     }
 
-    private func saveKey() {
+    private var selectedKeyName: String {
+        if selectedAPIKey.isEmpty { return "Select API key" }
+        return apiKeys.first(where: { $0.id.uuidString == selectedAPIKey })?.name ?? "Key unavailable · select another"
+    }
+
+    private func selectAPIKey(_ key: MARCAPIKeyStore.Info) {
+        let changedEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines) != key.endpoint
+        if changedEndpoint { apiModel = "" }
+        endpoint = key.endpoint
+        selectedAPIKey = key.id.uuidString
+        notice = changedEndpoint || apiModel.isEmpty
+            ? "\(key.name) selected. Enter its model ID below."
+            : "\(key.name) selected."
+    }
+
+    private func validateAPISelection() {
+        guard !selectedAPIKey.isEmpty else { return }
+        if !apiKeys.contains(where: {
+            $0.id.uuidString == selectedAPIKey &&
+                $0.endpoint == endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        }) {
+            selectedAPIKey = ""
+            notice = "Endpoint changed. Select a matching key or continue without a key."
+        }
+    }
+
+    private func loadAPIKeys() {
         do {
-            try MARCCredentials.save(
-                credentialID, password: apiKey, hostKey: ""
-            )
-            notice = apiKey.isEmpty ? "API key cleared." : "API key saved."
+            if let migrated = try MARCAPIKeyStore.migrateLegacy(endpoint: endpoint),
+               selectedAPIKey.isEmpty, migrated.endpoint == endpoint.trimmingCharacters(in: .whitespacesAndNewlines) {
+                selectedAPIKey = migrated.id.uuidString
+                notice = "Your previous API key is now saved by name."
+            }
+            apiKeys = try MARCAPIKeyStore.entries()
             failure = nil
         } catch {
-            failure = "Could not save the API key."
+            failure = error.localizedDescription
         }
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MARCKeychainScreen: View {
     private enum Section: String, CaseIterable {
-        case keys = "SSH Keys", fingerprints = "Mac Fingerprints"
+        case keys = "SSH Keys", api = "API Keys", fingerprints = "Mac Fingerprints"
     }
     @State private var section: Section = .keys
     let store: ServerStore
@@ -38,6 +38,8 @@ struct MARCKeychainScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 if section == .keys {
                     MARCSSHKeysSection(servers: store.servers)
+                } else if section == .api {
+                    MARCAPIKeysSection()
                 } else {
                 if let failure {
                     Text(failure).font(.system(size: 12)).foregroundStyle(.red)
