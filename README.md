@@ -1,129 +1,106 @@
-<div align="center">
-  <img src="docs/assets/marc-logo.png" alt="MARC logo" width="220" />
-  <h1>MARC</h1>
-  <p><strong>Macintosh Access &amp; Remote Control</strong></p>
-  <p>Monitor and manage your Mac from your iPhone.</p>
-</div>
+# MARC
 
-MARC connects to your Mac over SSH. Check system activity, manage processes, use the terminal, transfer files, and adjust audio and display settings from one app.
+**Monitor and control your Mac from your iPhone.**
 
-**Status:** Active development. Build from source using Xcode; a public binary release is not yet available.
+MARC — Macintosh Access & Remote Control — connects to your Mac over SSH. Check system activity, manage processes and files, work in multiple terminal sessions, and adjust everyday controls from one app.
 
-## System monitoring
+No subscription needed. No MARC account. No ads.
 
-See live activity at a glance, then open System for CPU, memory, network, storage and history charts.
+[Website](https://getmarc.app) · [Documentation](https://getmarc.app/docs) · [Report an issue](https://github.com/ShivkumarChougala/MARC/issues)
 
-<table>
-  <tr><th>Status</th><th>System details</th><th>Storage and statistics</th></tr>
-  <tr>
-    <td><img src="docs/screenshots/status.png" alt="Live system overview and alerts" width="250" /></td>
-    <td><img src="docs/screenshots/system-details.png" alt="CPU activity, memory, swap and network readings" width="250" /></td>
-    <td><img src="docs/screenshots/system-statistics.png" alt="Storage usage, disk activity and system history" width="250" /></td>
-  </tr>
-</table>
+## Why I built MARC
 
-## Terminal AI and file transfers
+I wanted a straightforward way to reach my Mac from my iPhone without needing a separate app for monitoring, files, and terminal access.
 
-<table>
-  <tr><th>AI command suggestion</th><th>File upload</th></tr>
-  <tr>
-    <td><img src="docs/demos/terminal-ai.gif" alt="Requesting and reviewing an AI command suggestion" width="300" /></td>
-    <td><img src="docs/demos/file-upload.gif" alt="Selecting a file, uploading it and confirming completion" width="300" /></td>
-  </tr>
-  <tr>
-    <td><a href="docs/demos/terminal-ai.mp4">Watch the AI demo</a></td>
-    <td><a href="docs/demos/file-upload.mp4">Watch the upload demo</a></td>
-  </tr>
-</table>
+I also wanted the basics to stay accessible. Opening another terminal session or managing files on my own computer should not need a subscription. MARC brings those tools together, with the source available for anyone who wants to understand, improve, or build on it.
 
-<details>
-  <summary><strong>More screenshots</strong></summary>
-  <table>
-    <tr><th>Processes</th><th>Control Center</th><th>Settings</th></tr>
-    <tr>
-      <td><img src="docs/screenshots/processes.png" alt="Running processes with search and sorting" width="250" /></td>
-      <td><img src="docs/screenshots/control-center.png" alt="Wireless, audio and display controls" width="250" /></td>
-      <td><img src="docs/screenshots/settings.png" alt="Server, AI and appearance settings" width="250" /></td>
-    </tr>
-  </table>
-</details>
+## What you can do
 
-## Features
+- **Monitor your Mac.** Check CPU activity, memory, battery, storage, network traffic, uptime, and system information.
+- **Manage processes.** Search and sort running processes, inspect their resource usage, and terminate a process when needed.
+- **Work with files.** Browse folders, preview files, edit supported text files, upload and download, rename, move, and change permissions.
+- **Use a full terminal.** Run commands, scroll through output, and keep separate tasks in multiple SSH terminal sessions.
+- **Get optional AI assistance.** Use a local Ollama model or configure an API provider for help with commands. Review suggestions before running them.
+- **Adjust everyday controls.** Access supported audio, display, wireless, media, and application controls.
 
-- **System monitoring:** live CPU, memory, network, disk, battery and storage readings, with detailed views and history charts.
-- **Process management:** search and sort running processes, and terminate a selected process with confirmation.
-- **SSH terminal:** interactive sessions, session switching and shortcuts for common terminal keys.
-- **File transfers:** browse remote folders over SFTP, upload files or photos, and download, preview and share files.
-- **Control Center:** volume, mute, audio-output selection, Wi-Fi, supported Bluetooth switching and display brightness.
-- **Optional AI assistance:** request command suggestions using Ollama on your Mac or a compatible HTTPS API. Review each suggestion before choosing to run it.
-- **Personalization:** light and dark appearance, accent colours, configurable refresh intervals, and adjustable Status sections and alerts.
+Available controls depend on your Mac, macOS version, hardware, and account permissions.
 
-## Build and run
+## Get started
 
-You need Xcode, an iPhone or simulator supported by the project, and a Mac reachable over SSH. The current app target is iOS 26.6; project-level defaults specify iOS 27.0. Use an Xcode installation with a compatible SDK.
+You will need:
 
-1. Download or clone the repository.
-2. Open `MARC.xcodeproj` in Xcode.
-3. Allow Swift Package Manager to resolve the dependencies.
-4. Select the **MARC** scheme and your simulator or iPhone.
-5. For a physical iPhone, choose your development team and a unique bundle identifier under **Signing & Capabilities**.
-6. Build and run.
+- An iPhone running **iOS 18 or later**.
+- A Mac with **Remote Login** enabled.
+- **Python 3** available to your Mac account for monitoring and file operations.
+- A network connection that lets your iPhone reach your Mac.
 
-## Connect your Mac
+For the first connection:
 
-1. On your Mac, enable **System Settings → General → Sharing → Remote Login** and allow the account you want to use.
-2. Check that you can connect over SSH and that `python3` is available:
+1. On your Mac, open **System Settings → General → Sharing → Remote Login**. Enable access for the account you want to use.
+2. Keep your Mac awake and connect both devices to the same trusted network.
+3. In MARC, discover a nearby Mac or add its address manually.
+4. Sign in with your Mac account’s short username and password, or a supported SSH key.
+5. Compare the SSH host-key fingerprint with your Mac before trusting the connection.
 
-   ```bash
-   ssh yourusername@your-mac-address
-   python3 --version
-   ```
+MARC supports OpenSSH Ed25519 private keys.
 
-3. In MARC, open **Settings → Add server** and enter the name, host, SSH port, username and password.
-4. Add a verified Ed25519 host key in the optional host-key field, then test and save the connection.
-5. Connect and open Status, Processes, Terminal or Files. Control Center is available from the top-left button on Status.
+See the [setup guide](https://getmarc.app/docs) for commands, SSH key setup, and troubleshooting. For access away from home, configure a secure network route such as a VPN.
 
-Use the same local network or a VPN that makes your Mac reachable. Standard monitoring runs through SSH and does not need a separate MARC web server.
+## Build from source
 
-## Optional setup
+Clone the repository and open the Xcode project:
 
-| Feature | Setup |
-| --- | --- |
-| Bluetooth switching | Install `blueutil` on the connected Mac. Status can be available without it. |
-| Local AI assistance | Run Ollama on the connected Mac and choose an installed model in MARC. |
-| Remote AI assistance | Configure a compatible HTTPS chat-completions endpoint, model and any required API key. |
-| Longer history | Set up the separate history collector. The live five-minute chart works without it. |
+```bash
+git clone https://github.com/ShivkumarChougala/MARC.git
+cd MARC
+open MARC.xcodeproj
+```
 
-## Privacy and compatibility
+Use an Xcode version that supports the project’s iOS deployment target. Let Xcode resolve the Swift packages, select the **MARC** scheme, and configure your signing team.
 
-SSH passwords and AI API keys are stored in the iOS Keychain. Server profiles and appearance preferences are stored locally. AI assistance is optional; prompts are sent to the provider you configure, and suggested commands never run automatically.
+Run on a physical iPhone to test nearby discovery, Local Network permissions, and connections to a real Mac.
 
-Host-key verification is optional in the current version. Leaving the field empty accepts the key presented by the server. Pin a verified key to protect against connecting to an impersonated host.
+To run the repository’s verification script on a Mac with Xcode and Python 3 installed:
 
-Controls use the SSH account's permissions. Audio and brightness support depends on the Mac and its connected devices. Unsupported displays remain listed with brightness disabled. Brightness uses a private macOS interface, so compatibility may change with macOS updates.
+```bash
+bash scripts/verify-marc.sh
+```
 
-Turning off Wi-Fi can disconnect your session and requires confirmation. macOS may also hide the Wi-Fi network name from SSH sessions.
+## Connection and privacy
 
-Keep MARC open for live monitoring and transfers. Monitoring and terminal connections pause in the background. Alerts are shown inside the app; background push notifications are not currently provided.
+MARC connects directly to your Mac over SSH using your Mac account’s permissions. It does not require a MARC account or a MARC-hosted relay.
 
-## Built with
+The app checks SSH host keys so you can verify the computer you are connecting to. Take time to compare the fingerprint, especially on the first connection or after a key changes.
 
-- SwiftUI, UIKit and Swift Charts
-- [Citadel](https://github.com/orlandos-nl/Citadel) for SSH and SFTP
-- [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) for terminal rendering
-- Python 3 commands executed on the connected Mac
-- CoreAudio and DisplayServices for audio and supported display controls
+AI assistance is optional. Local Ollama models and API providers are configured separately. When you use an API provider, requests go to that provider; its charges and data policies apply.
 
-Dependency versions are recorded in `MARC.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+[Privacy Policy](https://getmarc.app/privacy) · [Terms of Use](https://getmarc.app/terms)
 
 ## Contributing
 
-Bug reports and focused feature suggestions are welcome. Include your iOS and macOS versions, the affected screen, and steps to reproduce. Remove credentials and sensitive details from logs before sharing them.
+Bug reports, documentation fixes, and focused improvements are welcome.
 
-For a larger change, open an issue first to discuss the approach. Keep pull requests focused and describe how you tested the change.
+For a bug report, include what you were trying to do, what happened, steps to reproduce it, and your MARC, iOS, and macOS versions. Remove passwords, private keys, API keys, and personal information from logs and screenshots.
 
-## Author
+For a larger change, open an issue first so we can discuss the approach. Keep pull requests focused and describe how you tested the change.
 
-Built by **Shivkumar Chougala**.
+## Built with
 
-[GitHub](https://github.com/ShivkumarChougala) · [LinkedIn](https://thechougala.in/linkedin) · [Email](mailto:shivakumarchougala9@gmail.com)
+MARC uses Swift and SwiftUI, with:
+
+- [Citadel](https://github.com/orlandos-nl/Citadel) for SSH connectivity.
+- [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) for terminal emulation.
+
+See [third-party notices](THIRD_PARTY_NOTICES.md) for dependency acknowledgements and license information.
+
+## Support the project
+
+If MARC is useful to you, reporting a bug, improving the documentation, or sharing the project helps.
+
+You can also [support development](https://getmarc.app/support).
+
+## License
+
+MARC is available under the [MIT License](LICENSE). Third-party dependencies retain their respective licenses.
+
+Built by [Shivkumar Chougala](https://github.com/ShivkumarChougala).
