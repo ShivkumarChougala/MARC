@@ -1,12 +1,37 @@
-# MARC
+<p align="center">
+  <img src="MARC/Assets.xcassets/AppIcon.appiconset/MARC%20logo%20with%20cowboy%20hacker%20silhouette.png" alt="MARC" width="140">
+</p>
 
-**Monitor and control your Mac from your iPhone.**
+<h1 align="center">MARC</h1>
 
-MARC — Macintosh Access & Remote Control — connects to your Mac over SSH. Check system activity, manage processes and files, work in multiple terminal sessions, and adjust everyday controls from one app.
+<hr>
 
-No subscription needed. No MARC account. No ads.
+<p align="center">
+  <strong>Your Mac. Within reach.</strong><br>
+  Monitor and control your Mac from your iPhone.
+</p>
 
-[Website](https://getmarc.app) · [Documentation](https://getmarc.app/docs) · [Report an issue](https://github.com/ShivkumarChougala/MARC/issues)
+<p align="center">
+  <img src="https://img.shields.io/badge/iOS-18%2B-007AFF?style=flat&amp;logo=apple&amp;logoColor=white" alt="iOS 18 or later">
+  <img src="https://img.shields.io/badge/Language-Swift-F05138?style=flat&amp;logo=swift&amp;logoColor=white" alt="Swift">
+  <img src="https://img.shields.io/badge/UI-SwiftUI-5856D6?style=flat" alt="SwiftUI">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-78A641?style=flat" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ShivkumarChougala/MARC/stargazers"><img src="https://img.shields.io/github/stars/ShivkumarChougala/MARC?style=flat&amp;logo=github&amp;label=Stars&amp;color=D4A72C" alt="GitHub stars"></a>
+  <a href="https://getmarc.app"><img src="https://img.shields.io/badge/Website-getmarc.app-555555?style=flat" alt="MARC website"></a>
+  <a href="https://getmarc.app/docs"><img src="https://img.shields.io/badge/Docs-Read-007AFF?style=flat" alt="Read documentation"></a>
+  <a href="https://getmarc.app/support"><img src="https://img.shields.io/badge/Support-MARC-E76F83?style=flat" alt="Support MARC"></a>
+</p>
+
+<p align="center">
+  No subscription needed · No MARC account · No ads
+</p>
+
+MARC — Macintosh Access & Remote Control — connects to your Mac over SSH.
+Check system activity, manage processes and files, work in multiple terminal
+sessions, and adjust everyday controls from one app.
 
 ## Why I built MARC
 
