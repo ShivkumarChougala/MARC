@@ -29,6 +29,8 @@ struct SSHConnectScreen: View {
                     Spacer()
                     Text("Close").hidden()
                 }.font(.system(size: 13)).tint(p.accent)
+                Text("MARC supports Macs running macOS with Remote Login enabled.")
+                    .font(.system(size: 12)).foregroundStyle(p.muted)
                 MARCSettingsGroup(title: "Server") {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(server.name).font(.system(size: 15, weight: .semibold))

@@ -128,6 +128,8 @@ final class MARCRemoteFiles {
             let connection = try await SSHClient.connect(to: settings)
             opened = connection
             try checkOperation(id)
+            try await MARCMacCompatibility.requireMacOS(on: connection)
+            try checkOperation(id)
             let client = try await connection.openSFTP()
             subsystem = client
             try checkOperation(id)

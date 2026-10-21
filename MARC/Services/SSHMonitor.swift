@@ -123,6 +123,8 @@ struct MacSnapshot: Decodable, Sendable {
             let opened = try await SSHClient.connect(to: settings)
             guard generation == token, !Task.isCancelled else { try? await opened.close(); throw CancellationError() }
             client = opened
+            try await MARCMacCompatibility.requireMacOS(on: opened)
+            guard generation == token, !Task.isCancelled else { throw CancellationError() }
             self.server = server
             startCollectorWatchdog(token: token)
             let stream = try await opened.executeCommandStream(Self.command)

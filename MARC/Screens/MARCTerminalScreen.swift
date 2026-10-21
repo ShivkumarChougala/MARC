@@ -101,6 +101,8 @@ final class MARCTerminalSession {
                 throw CancellationError()
             }
             client = connection
+            try await MARCMacCompatibility.requireMacOS(on: connection)
+            guard token == current, !Task.isCancelled else { throw CancellationError() }
 
             let request = SSHChannelRequestEvent.PseudoTerminalRequest(
                 wantReply: true,

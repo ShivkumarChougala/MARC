@@ -525,12 +525,12 @@ struct AddServerScreen: View {
                 try Task.checkCancellation()
                 guard requestID == request else { throw CancellationError() }
                 pending = profile
-                store.add(profile)
                 try await store.monitor.connect(
                     server: profile,
                     login: submittedLogin,
                     hostKey: verifiedKey
                 )
+                store.add(profile)
                 try Task.checkCancellation()
                 guard requestID == request else { throw CancellationError() }
                 pending = nil

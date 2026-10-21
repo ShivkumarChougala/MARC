@@ -5,7 +5,7 @@ import Darwin
 
 struct MARCConnectionIssue {
     enum Kind: Equatable {
-        case network, timeout, login, key, identity, keychain, session, unknown
+        case network, timeout, login, key, identity, keychain, session, compatibility, unknown
     }
     let kind: Kind
     let title: String
@@ -19,6 +19,7 @@ struct MARCConnectionIssue {
 
     var symbol: String {
         switch kind {
+        case .compatibility: return "desktopcomputer"
         case .identity: return "shield.lefthalf.filled"
         case .key, .keychain: return "key"
         case .login: return "person.crop.circle.badge.exclamationmark"
@@ -46,6 +47,14 @@ struct MARCConnectionIssue {
         login: MARCCredentials.Saved? = nil,
         depth: Int = 0
     ) -> Self {
+        if let platform = error as? MARCPlatformError {
+            return .init(
+                kind: .compatibility,
+                title: platform == .unsupported ? "This device isn’t supported" : "macOS couldn’t be verified",
+                detail: platform.localizedDescription
+            )
+        }
+
         if let trust = error as? HostTrustError {
             switch trust {
             case .changed:
