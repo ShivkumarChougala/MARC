@@ -13,14 +13,21 @@ struct ContentView: View {
     @State private var keyboardVisible = false
     @State private var terminating: MARCProcessTarget?
     @AppStorage("marc.onboarding.version") private var onboardingVersion = 0
-    @State private var showingControls = false
-    @State private var showingSystem = false
     @State private var guidedTour = MARCGuidedTour()
     @State private var addingFromSetup = false
     @State private var setupConnectedProfile: UUID?
     @State private var setupConnectedSession: UUID?
     @State private var setupSuccessName: String?
     @State private var setupSuccessSession: UUID?
+    @AppStorage("marc.explore.audience") private var exploreAudience = ""
+    private enum ExplorePresentation: String, Identifiable {
+        case invitation, gallery
+        var id: String { rawValue }
+    }
+    @State private var explorePresentation: ExplorePresentation?
+    @State private var exploreInvitation = MARCExploreInvitation()
+    @State private var openGalleryAfterInvite = false
+    @State private var exploreBarrier = UUID()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
@@ -65,15 +72,16 @@ struct ContentView: View {
                         tab = 2
                     })
                 }
-            case 4: workspace { SettingsScreen(store: store) }
+            case 4: workspace {
+                SettingsScreen(store: store, onAddedConnection: { connection in
+                    offerExploration(connection: connection, replayingSetup: false)
+                })
+            }
             default: workspace {
                 HomeScreen(store: store, openSettings: { tab = 4 }, openProcesses: { sorting in
                     processSorting = sorting
                     tab = 1
                 })
-                .navigationDestination(isPresented: $showingSystem) {
-                    LiveSystemDetailScreen(store: store, openSettings: { tab = 4 })
-                }
             }
             }
         }
@@ -127,16 +135,16 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: tab) { _, destination in
+        .onChange(of: tab) { _, _ in
             terminating = nil
-            if destination != 0 { showingSystem = false }
         }
         .onChange(of: store.monitor.processConnectionID) { _, _ in
+            if let connection = exploreInvitation.connection, connection != store.monitor.processConnectionID {
+                cancelExploreInvitation()
+            }
             setupSuccessName = nil
             setupSuccessSession = nil
             terminating = nil
-            showingSystem = false
-            guidedTour.discardFeatureRequest()
         }
         .onAppear(perform: prepareIntroduction)
         .fullScreenCover(isPresented: Binding(
@@ -169,6 +177,7 @@ struct ContentView: View {
                     setupSuccessName = store.monitor.server?.name ?? "your Mac"
                     setupSuccessSession = store.monitor.processConnectionID
                     guidedTour.connectionSucceeded()
+                    offerExploration(connection: store.monitor.processConnectionID, replayingSetup: true)
                     if scenePhase == .active {
                         UIAccessibility.post(notification: .announcement,
                             argument: "Connected to \(setupSuccessName ?? "your Mac")")
@@ -188,15 +197,33 @@ struct ContentView: View {
             })
             .environment(\.marcGuidedTour, guidedTour)
         }
-        .sheet(isPresented: $showingControls) {
-            NavigationStack {
-                ControlsScreen(monitor: store.monitor).toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showingControls = false }
-                    }
+        .sheet(item: $explorePresentation, onDismiss: {
+            let open = openGalleryAfterInvite && exploreInvitation.valid(
+                currentConnection: store.monitor.processConnectionID,
+                connected: store.monitor.connected, active: scenePhase == .active)
+            openGalleryAfterInvite = false
+            exploreInvitation.cancel()
+            if open { explorePresentation = .gallery }
+            else { guidedTour.setPresentation(exploreBarrier, visible: false) }
+        }) { presentation in
+            Group {
+                switch presentation {
+                case .invitation:
+                    MARCExploreInvitationScreen(explore: {
+                        openGalleryAfterInvite = exploreInvitation.valid(
+                            currentConnection: store.monitor.processConnectionID,
+                            connected: store.monitor.connected, active: scenePhase == .active)
+                        explorePresentation = nil
+                    }, later: { explorePresentation = nil })
+                    .onAppear(perform: markExploreInvitationPresented)
+                case .gallery:
+                    MARCFeatureGuideScreen()
+                        .presentationDetents([.large]).presentationDragIndicator(.hidden)
                 }
             }
-
+            .environment(\.marcGuidedTour, guidedTour)
+            .marcGuidePresentationBarrier()
+            .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
         }
         .overlay(alignment: .top) {
             if let name = setupSuccessName, scenePhase == .active, tab == 0,
@@ -225,7 +252,6 @@ struct ContentView: View {
             setupSuccessName = nil
             setupSuccessSession = nil
         }
-        .onChange(of: guidedTour.featureRequest?.id) { _, _ in openRequestedFeature() }
         .onChange(of: guidedTour.completionID) { _, _ in
             if guidedTour.completedFlow == .setup {
                 onboardingVersion = max(onboardingVersion, MARCOnboardingPolicy.currentVersion)
@@ -253,7 +279,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active && explorePresentation == .invitation { markExploreInvitationPresented() }
             if phase == .background {
+                cancelExploreInvitation()
                 setupSuccessName = nil
                 setupSuccessSession = nil
                 terminating = nil
@@ -263,12 +291,15 @@ struct ContentView: View {
             }
         }
         .onDisappear {
+            cancelExploreInvitation()
+            guidedTour.setPresentation(exploreBarrier, visible: false)
             terminalWorkspace.pause()
             remoteFiles.stop()
             store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
         }
         .onChange(of: store.monitor.connected) { _, connected in
             if !connected {
+                cancelExploreInvitation()
                 setupSuccessName = nil
                 setupSuccessSession = nil
                 terminating = nil; terminalWorkspace.pause(); remoteFiles.stop()
@@ -283,6 +314,14 @@ struct ContentView: View {
     }
 
     private func prepareIntroduction() {
+        if exploreInvitation.connection != nil && !exploreInvitation.valid(
+            currentConnection: store.monitor.processConnectionID, connected: store.monitor.connected, active: true) {
+            cancelExploreInvitation()
+        }
+        if explorePresentation != nil { guidedTour.setPresentation(exploreBarrier, visible: true) }
+        exploreAudience = MARCExploreInvitation.audience(stored: exploreAudience,
+            onboardingVersion: onboardingVersion, hasSavedServers: !store.servers.isEmpty,
+            profileReadFailed: store.storageError != nil).rawValue
         onboardingVersion = MARCOnboardingPolicy.migratedVersion(
             onboardingVersion, hasSavedServers: !store.servers.isEmpty,
             profileReadFailed: store.storageError != nil)
@@ -293,25 +332,32 @@ struct ContentView: View {
         }
     }
 
-    private func openRequestedFeature() {
-        guard scenePhase == .active else { guidedTour.discardFeatureRequest(); return }
-        guard let action = guidedTour.takeFeatureRequest(currentConnection: store.monitor.processConnectionID,
-                                                        connected: store.monitor.connected) else { return }
-        terminating = nil
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        showingControls = false
-        if action != .inspectSystem { showingSystem = false }
-        switch action {
-        case .checkMac: tab = 0
-        case .inspectSystem: tab = 0; showingSystem = true
-        case .findProcess: processSorting = "CPU"; tab = 1
-        case .moveFile: tab = 3
-        case .controlMac: tab = 0; showingControls = true
-        case .runCommand:
-            if tab != 2 { terminalReturnTab = tab }
-            tab = 2
+    private func offerExploration(connection: UUID, replayingSetup: Bool) {
+        guard scenePhase == .active, !guidedTour.active, explorePresentation == nil,
+              exploreInvitation.request(connection: connection,
+                currentConnection: store.monitor.processConnectionID, connected: store.monitor.connected,
+                audience: MARCExploreInvitation.Audience(rawValue: exploreAudience) ?? .existing,
+                replayingSetup: replayingSetup) else { return }
+        guidedTour.setPresentation(exploreBarrier, visible: true)
+        tab = 0
+        explorePresentation = .invitation
+    }
+
+    private func cancelExploreInvitation() {
+        guard exploreInvitation.connection != nil || explorePresentation == .invitation || openGalleryAfterInvite else { return }
+        openGalleryAfterInvite = false
+        exploreInvitation.cancel()
+        guidedTour.setPresentation(exploreBarrier, visible: false)
+        explorePresentation = nil
+    }
+
+    private func markExploreInvitationPresented() {
+        guard exploreInvitation.markPresented(currentConnection: store.monitor.processConnectionID,
+            connected: store.monitor.connected, active: scenePhase == .active) else { return }
+        exploreAudience = MARCExploreInvitation.Audience.handled.rawValue
+        if !exploreInvitation.replayingSetup {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
-        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     private func workspace<Content: View>(@ViewBuilder content: () -> Content) -> some View {

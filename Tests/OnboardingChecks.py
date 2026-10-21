@@ -11,6 +11,66 @@ hints = (root / 'MARC/Services/MARCLearningHint.swift').read_text()
 placement = (root / 'MARC/Services/MARCGuidePlacement.swift').read_text()
 tour = (root / 'MARC/Services/MARCGuidedTour.swift').read_text()
 tour = tour.replace('import Observation\n', '').replace('@MainActor @Observable ', '@MainActor ')
+# Exercise the actual root invitation helpers with lightweight presentation/monitor doubles.
+content = (root / 'MARC/ContentView.swift').read_text()
+def swift_block(marker):
+    start = content.index(marker)
+    brace = content.index('{', start)
+    depth = 1
+    end = brace + 1
+    while depth:
+        depth += (content[end] == '{') - (content[end] == '}')
+        end += 1
+    return content[start:end]
+root_fixture = r"""
+enum ExploreFixtureScene: Equatable { case active, inactive, background }
+@MainActor final class ExploreFixtureMonitor {
+    var processConnectionID = UUID()
+    var connected = true
+    var automaticReconnectEnabled = true
+    func cancelConnection(reconnectAutomatically: Bool) { connected = false }
+}
+@MainActor final class ExploreFixtureStore {
+    let monitor = ExploreFixtureMonitor()
+    var servers = [1]
+    var storageError: String?
+}
+@MainActor final class ExploreFixtureWorkspace {
+    var calls = 0
+    func pause() { calls += 1 }
+    func stop() { calls += 1 }
+}
+@MainActor final class ExploreRootFixture {
+    enum ExplorePresentation: Equatable { case invitation, gallery }
+    let store = ExploreFixtureStore()
+    let terminalWorkspace = ExploreFixtureWorkspace()
+    let remoteFiles = ExploreFixtureWorkspace()
+    let guidedTour = MARCGuidedTour()
+    var scenePhase = ExploreFixtureScene.active
+    var explorePresentation: ExplorePresentation?
+    var exploreInvitation = MARCExploreInvitation()
+    var exploreAudience = "eligible"
+    var openGalleryAfterInvite = false
+    var exploreBarrier = UUID()
+    var onboardingVersion = 1
+    var initialConnectionCheck = false
+    var tab = 0
+    __NEEDS_INTRODUCTION__
+    __PREPARE__
+    __OFFER__
+    __CANCEL__
+    func disappear() __DISAPPEAR__
+}
+"""
+for token, marker in [
+    ('__NEEDS_INTRODUCTION__', '    private var needsIntroduction:'),
+    ('__PREPARE__', '    private func prepareIntroduction()'),
+    ('__OFFER__', '    private func offerExploration('),
+    ('__CANCEL__', '    private func cancelExploreInvitation()'),
+]:
+    root_fixture = root_fixture.replace(token, swift_block(marker).replace('private func ', 'func ').replace('private var ', 'var '))
+disappear = swift_block('        .onDisappear {')
+root_fixture = root_fixture.replace('__DISAPPEAR__', disappear[disappear.index('{'):])
 checks = r'''
 @main struct OnboardingChecks {
     @MainActor static func main() {
@@ -21,6 +81,92 @@ checks = r'''
         precondition(MARCOnboardingPolicy.migratedVersion(0, hasSavedServers: true, profileReadFailed: false) == 1)
         precondition(MARCOnboardingPolicy.migratedVersion(0, hasSavedServers: false, profileReadFailed: true) == 1)
         precondition(MARCOnboardingPolicy.migratedVersion(4, hasSavedServers: false, profileReadFailed: false) == 4)
+        // Production invitation policy: first-use migration and session-bound presentation.
+        precondition(MARCExploreInvitation.audience(stored: "", onboardingVersion: 0,
+            hasSavedServers: false, profileReadFailed: false) == .eligible)
+        precondition(MARCExploreInvitation.audience(stored: "", onboardingVersion: 1,
+            hasSavedServers: false, profileReadFailed: false) == .existing)
+        precondition(MARCExploreInvitation.audience(stored: "", onboardingVersion: 0,
+            hasSavedServers: true, profileReadFailed: false) == .existing)
+        precondition(MARCExploreInvitation.audience(stored: "", onboardingVersion: 0,
+            hasSavedServers: false, profileReadFailed: true) == .existing)
+        precondition(MARCExploreInvitation.audience(stored: "eligible", onboardingVersion: 1,
+            hasSavedServers: true, profileReadFailed: false) == .eligible,
+            "A fresh user's eligibility survives relaunch before the successful add finishes")
+        precondition(MARCExploreInvitation.audience(stored: "handled", onboardingVersion: 0,
+            hasSavedServers: false, profileReadFailed: false) == .handled)
+        precondition(MARCExploreInvitation.audience(stored: "unknown", onboardingVersion: 0,
+            hasSavedServers: false, profileReadFailed: false) == .existing)
+        let exploreSession = UUID()
+        var invitation = MARCExploreInvitation()
+        precondition(!invitation.request(connection: exploreSession, currentConnection: exploreSession,
+            connected: false, audience: .eligible, replayingSetup: false))
+        precondition(!invitation.request(connection: UUID(), currentConnection: exploreSession,
+            connected: true, audience: .eligible, replayingSetup: false))
+        for audience in [MARCExploreInvitation.Audience.existing, .handled] {
+            precondition(!invitation.request(connection: exploreSession, currentConnection: exploreSession,
+                connected: true, audience: audience, replayingSetup: false))
+        }
+        precondition(invitation.request(connection: exploreSession, currentConnection: exploreSession,
+            connected: true, audience: .eligible, replayingSetup: false))
+        precondition(!invitation.request(connection: exploreSession, currentConnection: exploreSession,
+            connected: true, audience: .eligible, replayingSetup: false), "Duplicate callbacks cannot queue another offer")
+        precondition(!invitation.markPresented(currentConnection: exploreSession, connected: true, active: false))
+        precondition(!invitation.presented, "A hidden offer must not be marked as shown")
+        precondition(invitation.markPresented(currentConnection: exploreSession, connected: true, active: true))
+        precondition(!invitation.markPresented(currentConnection: exploreSession, connected: true, active: true),
+            "Reappearing cannot repeat completion feedback")
+        precondition(!invitation.valid(currentConnection: UUID(), connected: true, active: true))
+        precondition(!invitation.valid(currentConnection: exploreSession, connected: false, active: true))
+        precondition(!invitation.valid(currentConnection: exploreSession, connected: true, active: false))
+        invitation.cancel()
+        precondition(invitation.connection == nil && !invitation.presented)
+        precondition(!invitation.valid(currentConnection: exploreSession, connected: true, active: true))
+        precondition(invitation.request(connection: exploreSession, currentConnection: exploreSession,
+            connected: true, audience: .handled, replayingSetup: true))
+        precondition(invitation.replayingSetup, "Explicit Getting started replay can offer the gallery again")
+        invitation.cancel()
+        print("PASS: exploration invitation migration, real-connection gate, once-only presentation, replay and stale/disconnected/background rejection")
+        let owner = ExploreRootFixture()
+        let ownerSession = owner.store.monitor.processConnectionID
+        owner.offerExploration(connection: ownerSession, replayingSetup: false)
+        precondition(owner.explorePresentation == .invitation && owner.guidedTour.hasBlockingPresentation)
+        owner.disappear()
+        precondition(owner.explorePresentation == nil && owner.exploreInvitation.connection == nil &&
+            !owner.openGalleryAfterInvite && !owner.guidedTour.hasBlockingPresentation,
+            "Disappearing must cancel explicitly without relying on an onChange callback")
+        precondition(owner.terminalWorkspace.calls == 1 && owner.remoteFiles.calls == 1 && !owner.store.monitor.connected)
+        owner.store.monitor.connected = true
+        owner.offerExploration(connection: ownerSession, replayingSetup: false)
+        owner.explorePresentation = nil
+        owner.openGalleryAfterInvite = true
+        owner.cancelExploreInvitation()
+        precondition(!owner.openGalleryAfterInvite && owner.exploreInvitation.connection == nil && !owner.guidedTour.hasBlockingPresentation)
+        owner.offerExploration(connection: ownerSession, replayingSetup: false)
+        owner.store.monitor.connected = false
+        owner.prepareIntroduction()
+        precondition(owner.explorePresentation == nil && owner.exploreInvitation.connection == nil,
+            "A view returning after connection loss cannot restore a stale success invitation")
+        owner.store.monitor.connected = true
+        owner.offerExploration(connection: ownerSession, replayingSetup: false)
+        owner.store.monitor.processConnectionID = UUID()
+        owner.prepareIntroduction()
+        precondition(owner.explorePresentation == nil && !owner.guidedTour.hasBlockingPresentation)
+        owner.guidedTour.startSetup()
+        owner.offerExploration(connection: owner.store.monitor.processConnectionID, replayingSetup: false)
+        precondition(owner.explorePresentation == nil, "An add callback cannot interrupt active Getting started")
+        owner.guidedTour.skip()
+        owner.exploreAudience = "handled"
+        owner.offerExploration(connection: owner.store.monitor.processConnectionID, replayingSetup: false)
+        precondition(owner.explorePresentation == nil)
+        owner.offerExploration(connection: owner.store.monitor.processConnectionID, replayingSetup: true)
+        precondition(owner.explorePresentation == .invitation)
+        owner.cancelExploreInvitation()
+        owner.explorePresentation = .gallery
+        owner.store.monitor.connected = false
+        owner.cancelExploreInvitation()
+        precondition(owner.explorePresentation == .gallery, "An already-open screenshot gallery is independent of SSH")
+        print("PASS: production root invitation helpers cancel disappearing/stale sessions, preserve offline gallery and reject setup interruption")
         // Hints are quiet during setup, typing, inactive scenes and blocking presentations.
         precondition(MARCLearningHint.canPresent(dismissed: false, enabled: true, active: true,
             setupActive: false, blocked: false, keyboardVisible: false))
@@ -152,33 +298,7 @@ checks = r'''
         guide.skip()
         precondition(!guide.active && !guide.finished && guide.completedFlow == .setup && guide.feedbackID == beforeSkip,
                      "Skip must not produce success haptics")
-        let connection = UUID()
-        precondition(MARCFeatureAction.allCases.count == 6)
-        precondition(Set(MARCFeatureAction.allCases.map(\.rawValue)).count == 6)
-        precondition(MARCOnboardingPolicy.canStartFeatures(approvedConnection: connection, currentConnection: connection, connected: true))
-        precondition(!MARCOnboardingPolicy.canStartFeatures(approvedConnection: nil, currentConnection: connection, connected: true))
-        precondition(!MARCOnboardingPolicy.canStartFeatures(approvedConnection: UUID(), currentConnection: connection, connected: true))
-        precondition(!MARCOnboardingPolicy.canStartFeatures(approvedConnection: connection, currentConnection: connection, connected: false))
-        for action in MARCFeatureAction.allCases {
-            guide.openFeature(action, connection: connection)
-            precondition(!guide.active, "Show me must not start a sequential tour")
-            precondition(guide.takeFeatureRequest(currentConnection: connection, connected: true) == action)
-            precondition(guide.takeFeatureRequest(currentConnection: connection, connected: true) == nil,
-                         "Each navigation request must be consumed only once")
-        }
-        guide.openFeature(.moveFile, connection: connection)
-        precondition(guide.takeFeatureRequest(currentConnection: UUID(), connected: true) == nil)
-        precondition(guide.featureRequest == nil, "A stale Mac request must be discarded")
-        guide.openFeature(.runCommand, connection: connection)
-        precondition(guide.takeFeatureRequest(currentConnection: connection, connected: false) == nil)
-        guide.openFeature(.controlMac, connection: connection)
-        guide.discardFeatureRequest()
-        precondition(guide.featureRequest == nil)
-        guide.openFeature(.checkMac, connection: connection)
         guide.startSetup()
-        precondition(guide.featureRequest == nil)
-        guide.openFeature(.runCommand, connection: connection)
-        precondition(guide.featureRequest == nil, "Setup must not be interrupted by a feature request")
         guide.next(); guide.next(); guide.next()
         precondition(guide.active && !guide.finished)
         guide.connectionSucceeded()
@@ -255,7 +375,6 @@ checks = r'''
         }
         print("PASS: contextual hint suppression, visible-target priority, empty folders, independent dismissal and per-topic replay")
         print("PASS: real setup progression, Back/Skip, first-launch migration and completion feedback")
-        print("PASS: six real-screen destinations, one-shot navigation, stale/disconnected request rejection and setup ownership")
         print("PASS: setup guidance and \(layouts) coach placements without target overlap, including short windows and large text")
     }
 }
@@ -265,7 +384,7 @@ if not compiler:
     raise SystemExit('Swift compiler required. Run this check on your Mac.')
 with tempfile.TemporaryDirectory(prefix='marc-live-tour-checks-') as directory:
     path = Path(directory) / 'OnboardingChecks.swift'
-    path.write_text(policy + hints + placement + tour + checks)
+    path.write_text(policy + hints + placement + tour + root_fixture + checks)
     binary = Path(directory) / 'onboarding-checks'
     subprocess.run([compiler, '-swift-version', '5', '-parse-as-library', str(path), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=30)

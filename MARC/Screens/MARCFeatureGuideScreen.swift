@@ -1,173 +1,250 @@
 import SwiftUI
 import UIKit
 
-/// Choose a topic here; the guidance itself appears on the real screen.
+/// Offered after a verified connection; choosing Later never opens the gallery.
+struct MARCExploreInvitationScreen: View {
+    let explore: () -> Void
+    let later: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
+
+    var body: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 24, weight: .light)).foregroundStyle(p.accent)
+                    .accessibilityHidden(true)
+                Text("Your Mac, within reach.").font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Text("Take a quick look at what you can do with MARC.")
+                    .font(.subheadline).foregroundStyle(p.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 20) { exploreButton(p); laterButton(p) }
+                    VStack(alignment: .leading, spacing: 4) { exploreButton(p); laterButton(p) }
+                }.padding(.top, 2)
+            }.padding(24).frame(maxWidth: 520, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .foregroundStyle(p.text).background(p.background.ignoresSafeArea())
+        .presentationDetents(dynamicType.isAccessibilitySize ? [.large] : [.height(250)])
+        .presentationDragIndicator(.visible)
+    }
+    private func exploreButton(_ p: MARCPalette) -> some View {
+        Button(action: explore) {
+            Label("Explore MARC", systemImage: "arrow.right")
+                .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+        }.buttonStyle(.plain).foregroundStyle(p.accent)
+    }
+    private func laterButton(_ p: MARCPalette) -> some View {
+        Button("Not now", action: later).font(.subheadline)
+            .frame(minWidth: 60, minHeight: 44).buttonStyle(.plain).foregroundStyle(p.muted)
+    }
+}
+
+/// A self-contained gallery of real screenshots; never creates SSH, file or AI clients.
 struct MARCFeatureGuideScreen: View {
-    let connected: Bool
-    let show: (MARCFeatureAction) -> Void
-    let setup: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
-    @AppStorage("marc.learn.revision") private var hintRevision = 0
-    @State private var selected = MARCFeatureAction.moveFile
-    @State private var replayedAll = false
+    @State private var selection = 0
+    private var pageCount: Int { MARCPreviewTopic.allCases.count }
+    private var isLastPage: Bool { selection == pageCount - 1 }
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Your Mac. A little closer.").font(.title2.weight(.semibold))
-                        Text("Pick something you’d like to try. We’ll show you where, right on your screen.")
-                            .font(.subheadline).foregroundStyle(p.muted)
-                    }
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 8) {
-                            ForEach(MARCFeatureAction.allCases) { action in
-                                Button {
-                                    guard selected != action else { return }
-                                    selected = action
-                                    UISelectionFeedbackGenerator().selectionChanged()
-                                } label: {
-                                    Text(action.title).font(.subheadline.weight(.medium))
-                                        .padding(.horizontal, 15).frame(minHeight: 44)
-                                        .foregroundStyle(selected == action ? p.accent : p.muted)
-                                        .background(selected == action ? p.accent.opacity(0.12) : p.surface, in: Capsule())
-                                        .overlay(Capsule().stroke(selected == action ? p.accent.opacity(0.5) : p.border, lineWidth: 0.5))
-                                }.buttonStyle(.plain)
-                                    .accessibilityAddTraits(selected == action ? .isSelected : [])
-                            }
-                        }.padding(.vertical, 2)
-                    }.scrollIndicators(.visible)
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack(spacing: 10) {
-                            Image(systemName: selected.symbol).font(.system(size: 20)).foregroundStyle(p.muted)
-                            Text(selected.outcome).font(.title3.weight(.semibold))
-                        }
-                        Text(selected.detail).font(.subheadline).foregroundStyle(p.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("A HINT YOU’LL SEE").font(.caption2.weight(.medium)).tracking(1).foregroundStyle(p.muted)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(selected.hints[0].title).font(.subheadline.weight(.semibold))
-                                Text(selected.hints[0].message).font(.footnote).foregroundStyle(p.muted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(p.accent.opacity(0.5), lineWidth: 1))
-                        }
-                        Button {
-                            replay(selected.hints)
-                            show(selected)
-                        } label: {
-                            HStack {
-                                Text("Show me in \(selected.title)")
-                                Spacer(minLength: 8)
-                                Image(systemName: "arrow.right")
-                            }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-                        }.buttonStyle(.borderedProminent).disabled(!connected)
-                        Button("Open directly") {
-                            show(selected)
-                        }.font(.footnote).frame(minHeight: 44).disabled(!connected)
-                            .accessibilityLabel("Open \(selected.title) without replaying dismissed hints")
-                    }
-                    .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(p.surface.opacity(0.65), in: RoundedRectangle(cornerRadius: 22))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: selected)
-                    if !connected {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Connect your Mac to try it.").font(.subheadline).foregroundStyle(p.muted)
-                            Button("Getting started", action: setup).frame(minHeight: 44)
-                        }
-                    }
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Go at your own pace").font(.subheadline.weight(.medium))
-                            Text("Hints appear one at a time. Got it keeps each one dismissed.")
-                                .font(.footnote).foregroundStyle(p.muted)
-                        }
-                        Spacer(minLength: 0)
-                        Button(replayedAll ? "Ready" : "Replay all") {
-                            replay(MARCLearningHint.allCases)
-                            replayedAll = true
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        }.font(.footnote.weight(.medium)).frame(minWidth: 60, minHeight: 44)
-                            .accessibilityLabel("Replay all learning hints")
-                    }
-                    if replayedAll {
-                        Text("All hints are ready. Open a topic above whenever you like.")
-                            .font(.footnote).foregroundStyle(p.muted)
-                    }
-                }.frame(maxWidth: 560).padding(20).frame(maxWidth: .infinity)
+        VStack(spacing: 0) {
+            HStack {
+                Text("What’s inside MARC").font(.subheadline.weight(.medium)).foregroundStyle(p.muted)
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").font(.system(size: 15, weight: .medium))
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                }.accessibilityLabel("Close What’s inside MARC")
+            }.padding(.horizontal, 20)
+            TabView(selection: $selection) {
+                ForEach(MARCPreviewTopic.allCases) { topic in
+                    MARCFeaturePreviewPage(topic: topic).tag(topic.rawValue)
+                }
             }
-            .marcCanvas().foregroundStyle(p.text).tint(p.accent)
-            .navigationTitle("What’s inside MARC").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-                .marcToolbarBackgroundHidden()
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .accessibilityLabel("MARC feature previews")
+            VStack(spacing: 6) {
+                HStack(spacing: 7) {
+                    ForEach(MARCPreviewTopic.allCases) { topic in
+                        Button { move(to: topic.rawValue) } label: {
+                            Capsule().fill(selection == topic.rawValue ? p.accent : p.border)
+                                .frame(width: selection == topic.rawValue ? 18 : 6, height: 6)
+                                .frame(minWidth: 30, minHeight: 44).contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("\(topic.name), \(topic.rawValue + 1) of \(pageCount)")
+                        .accessibilityAddTraits(selection == topic.rawValue ? .isSelected : [])
+                    }
+                }
+                HStack {
+                    Button("Previous") { move(to: selection - 1) }
+                        .disabled(selection == 0).opacity(selection == 0 ? 0.35 : 1)
+                        .frame(minWidth: 80, minHeight: 44)
+                    Spacer(minLength: 4)
+                    Text("\(selection + 1) / \(pageCount)").font(.caption).monospacedDigit()
+                        .foregroundStyle(p.muted).accessibilityLabel("Page \(selection + 1) of \(pageCount)")
+                    Spacer(minLength: 4)
+                    Button(isLastPage ? "Done" : "Next →") {
+                        if isLastPage { dismiss() } else { move(to: selection + 1) }
+                    }.frame(minWidth: 80, minHeight: 44)
+                }.font(.subheadline.weight(.medium))
+            }.padding(.horizontal, 20).padding(.bottom, 8)
+        }
+        .buttonStyle(.plain).foregroundStyle(p.text).tint(p.accent)
+        .background(p.background.ignoresSafeArea())
+        .onChange(of: selection) { _, value in
+            UISelectionFeedbackGenerator().selectionChanged()
+            if UIAccessibility.isVoiceOverRunning, let topic = MARCPreviewTopic(rawValue: value) {
+                UIAccessibility.post(notification: .announcement,
+                    argument: "\(topic.name), page \(value + 1) of \(pageCount). \(topic.headline). \(topic.explanation)")
             }
         }
     }
 
-    private func replay(_ hints: [MARCLearningHint]) {
-        for hint in hints { UserDefaults.standard.removeObject(forKey: hint.preferenceKey) }
-        hintRevision += 1
+    private func move(to index: Int) {
+        guard MARCPreviewTopic(rawValue: index) != nil else { return }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = index }
     }
 }
 
-private extension MARCFeatureAction {
-    var title: String {
+private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
+    case status, system, statistics, processes, terminal, files, controls
+    var id: Int { rawValue }
+    var name: String {
         switch self {
-        case .checkMac: return "Status"
-        case .inspectSystem: return "System"
-        case .findProcess: return "Processes"
-        case .moveFile: return "Files"
-        case .controlMac: return "Controls"
-        case .runCommand: return "Terminal & AI"
+        case .status: return "Status"
+        case .system: return "System"
+        case .statistics: return "Statistics"
+        case .processes: return "Processes"
+        case .files: return "Files"
+        case .controls: return "Controls"
+        case .terminal: return "Terminal & AI"
         }
     }
-    var symbol: String {
+    var headline: String {
         switch self {
-        case .checkMac: return "gauge.with.needle"
-        case .inspectSystem: return "desktopcomputer"
-        case .findProcess: return "list.bullet.rectangle"
-        case .moveFile: return "folder"
-        case .controlMac: return "slider.horizontal.3"
-        case .runCommand: return "terminal"
+        case .status: return "Your Mac, at a glance."
+        case .system: return "A closer look at usage."
+        case .statistics: return "See the bigger picture."
+        case .processes: return "Find what’s keeping it busy."
+        case .files: return "Your files, closer."
+        case .controls: return "A little more control."
+        case .terminal: return "A terminal, within reach."
         }
     }
-    var outcome: String {
+    var explanation: String {
         switch self {
-        case .checkMac: return "Know how your Mac is doing"
-        case .inspectSystem: return "Make sense of the numbers"
-        case .findProcess: return "Find the busy app"
-        case .moveFile: return "Bring a file over"
-        case .controlMac: return "Keep your Mac within reach"
-        case .runCommand: return "Get things done at the prompt"
+        case .status: return "See usage, battery and storage in one place."
+        case .system: return "Explore CPU cores, memory and storage."
+        case .statistics: return "Follow CPU, memory, network and disk usage over time."
+        case .processes: return "Sort by CPU or memory. Review an app before ending it."
+        case .files: return "Browse, preview, upload and download over SSH."
+        case .controls: return "Adjust supported controls and launch your Mac’s apps."
+        case .terminal: return "Use the shell. Ask AI, then review commands before Run."
         }
     }
-    var detail: String {
+    var assetName: String {
         switch self {
-        case .checkMac: return "See live usage, spot what needs attention and open your statistics history."
-        case .inspectSystem: return "Get a closer look at CPU, memory, network, storage and battery details where available."
-        case .findProcess: return "Sort by CPU or memory, find an app, then review its identity before deciding to end it."
-        case .moveFile: return "Send a photo to your Mac, download a document, or find your way through folders."
-        case .controlMac: return "Use supported volume and brightness controls, manage playback and choose Quick Launch apps."
-        case .runCommand: return "Use an SSH shell or ask Local/API AI for a suggestion. You choose what runs."
+        case .status: return "MARCGuideStatus"
+        case .system: return "MARCGuideSystem"
+        case .statistics: return "MARCGuideStatistics"
+        case .processes: return "MARCGuideProcesses"
+        case .files: return "MARCGuideFiles"
+        case .controls: return "MARCGuideControls"
+        case .terminal: return "MARCGuideTerminal"
         }
     }
-    var hints: [MARCLearningHint] {
-        switch self {
-        case .checkMac: return [.statusSystem, .status]
-        case .inspectSystem: return [.systemCPU, .systemMemory, .systemStorage]
-        case .findProcess: return [.processes]
-        case .moveFile: return [.files, .filesFolders, .filesActions]
-        case .controlMac: return [.controls]
-        case .runCommand: return [.terminal]
+    var summary: String {
+        "Screenshot of MARC’s \(name) screen. \(explanation)"
+    }
+
+}
+
+private struct MARCFeaturePreviewPage: View {
+    let topic: MARCPreviewTopic
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        GeometryReader { geometry in
+            let phoneHeight = min(570, max(300, geometry.size.height - 130))
+            ScrollView {
+                VStack(spacing: 12) {
+                    Text(topic.headline).font(.title2.weight(.semibold))
+                        .multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
+                    Text(topic.explanation).font(.subheadline)
+                        .foregroundStyle(MARCPalette(dark: scheme == .dark).muted)
+                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                    MARCPhoneScreenshotFrame(image: Image(topic.assetName),
+                        accessibilityDescription: topic.summary)
+                        .frame(width: max(1, min(geometry.size.width - 56, phoneHeight * MARCPhoneScreenshotFrame.displayAspectRatio)))
+                        .padding(.top, 8)
+                    Text("Swipe to explore")
+                        .font(.caption).foregroundStyle(MARCPalette(dark: scheme == .dark).muted)
+                }
+                .frame(maxWidth: 520).padding(.horizontal, 20).padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+            }.scrollIndicators(.hidden)
         }
+    }
+}
+
+
+/// A decorative Pro-style frame around an unmodified, full-resolution screenshot.
+/// Hardware colours are independent of MARC's interface palette.
+private struct MARCPhoneScreenshotFrame: View {
+    let image: Image
+    let accessibilityDescription: String
+
+    private static let screenWidth: CGFloat = 306
+    private static let screenHeight: CGFloat = screenWidth * 2048.0 / 946.0
+    static let displayAspectRatio: CGFloat = 328 / (screenHeight + 14)
+    private var shellHeight: CGFloat { Self.screenHeight + 14 }
+    private var metal: LinearGradient {
+        LinearGradient(colors: [Color(white: 0.68), Color(white: 0.27), Color(white: 0.56), Color(white: 0.22)],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                RoundedRectangle(cornerRadius: 42).fill(metal)
+                RoundedRectangle(cornerRadius: 40).fill(Color.black).padding(2)
+                image.resizable().interpolation(.high)
+                    .frame(width: Self.screenWidth, height: Self.screenHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 35))
+                    .overlay(alignment: .top) {
+                        // No recreated clock, dock, home indicator or UI labels.
+                        Capsule().fill(Color.black).frame(width: 82, height: 23).padding(.top, 12)
+                            .accessibilityHidden(true)
+                    }
+                RoundedRectangle(cornerRadius: 41).stroke(Color.white.opacity(0.30), lineWidth: 0.8).padding(0.8)
+            }
+            .frame(width: 320, height: shellHeight)
+            .overlay(alignment: .topLeading) {
+                VStack(spacing: 18) {
+                    sideButton(height: 18)
+                    sideButton(height: 38)
+                    sideButton(height: 38)
+                }.offset(x: -3, y: 80)
+            }
+            .overlay(alignment: .topTrailing) {
+                sideButton(height: 64).offset(x: 3, y: 141)
+            }
+            .padding(.horizontal, 4)
+            .frame(width: 328, height: shellHeight)
+            .scaleEffect(geometry.size.width / 328, anchor: .topLeading)
+            .allowsHitTesting(false)
+        }
+        .aspectRatio(328 / shellHeight, contentMode: .fit)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
+    }
+    private func sideButton(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 1.5).fill(metal).frame(width: 3, height: height)
     }
 }

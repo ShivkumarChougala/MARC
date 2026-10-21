@@ -1,13 +1,12 @@
 import SwiftUI
 struct SettingsScreen: View {
     let store: ServerStore
+    var onAddedConnection: (UUID) -> Void = { _ in }
+    @State private var addedConnection: UUID?
     @State private var customizingSettings = false
     @State private var setupScroll = ScrollPosition(edge: .top)
     @Environment(\.marcGuidedTour) private var guidedTour
     @State private var showingFeatureGuide = false
-    @State private var requestedFeatureConnection: UUID?
-    @State private var requestedFeature: MARCFeatureAction?
-    @State private var requestedSetup = false
     @AppStorage("marc.settings.order") private var settingsOrder = MARCSettingsSection.defaultOrder
     @AppStorage("marc.settings.hidden") private var settingsHidden = ""
     private var visibleSettingsSections: [MARCSettingsSection] {
@@ -66,26 +65,12 @@ struct SettingsScreen: View {
             .onChange(of: guidedTour?.stage) { _, stage in
                 if stage == .addServer { setupScroll.scrollTo(edge: .top) }
             }
-            .sheet(isPresented: $showingFeatureGuide, onDismiss: {
-                let connection = requestedFeatureConnection
-                let setup = requestedSetup
-                let action = requestedFeature
-                requestedFeatureConnection = nil; requestedSetup = false; requestedFeature = nil
-                if setup { guidedTour?.startSetup() }
-                else if let action, MARCOnboardingPolicy.canStartFeatures(approvedConnection: connection,
-                    currentConnection: store.monitor.processConnectionID, connected: store.monitor.connected) {
-                    guidedTour?.openFeature(action, connection: store.monitor.processConnectionID)
-                }
-            }) {
-                MARCFeatureGuideScreen(connected: store.monitor.connected, show: { action in
-                    requestedFeature = action
-                    requestedFeatureConnection = store.monitor.processConnectionID
-                    showingFeatureGuide = false
-                }, setup: {
-                    requestedSetup = true
-                    showingFeatureGuide = false
-                })
-                .marcGuidePresentationBarrier()
+            .sheet(isPresented: $showingFeatureGuide) {
+                MARCFeatureGuideScreen()
+                    .environment(\.colorScheme, scheme)
+                    .marcGuidePresentationBarrier()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.hidden)
             }
             .marcSetupCoach(target: "add", title: "Add your Mac",
                 message: "Tap Add server to begin.",
@@ -107,7 +92,15 @@ struct SettingsScreen: View {
             .sheet(isPresented: $customizingSettings) {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
             }
-            .sheet(isPresented: $adding) { AddServerScreen(store: store) }
+            .sheet(isPresented: $adding, onDismiss: {
+                let connection = addedConnection
+                addedConnection = nil
+                if let connection { onAddedConnection(connection) }
+            }) {
+                AddServerScreen(store: store, onConnected: {
+                    if store.monitor.connected { addedConnection = store.monitor.processConnectionID }
+                })
+            }
             .onDisappear(perform: stopConnectionRequest)
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background { stopConnectionRequest() }
@@ -236,11 +229,10 @@ struct SettingsScreen: View {
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
                     Button {
-                        requestedFeatureConnection = nil; requestedSetup = false; requestedFeature = nil
                         showingFeatureGuide = true
                     } label: {
                         MARCSettingsSupportRow(title: "What’s inside MARC", icon: "square.grid.2x2", external: false)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(.plain).disabled(guidedTour?.active == true)
                     MARCSettingsDivider()
                     Link(destination: URL(string: "https://marc.thechougala.in/help.html#contact")!) {
                         MARCSettingsSupportRow(title: "Help & feedback", icon: "bubble.left")

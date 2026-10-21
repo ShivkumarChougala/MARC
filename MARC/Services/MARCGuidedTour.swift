@@ -1,15 +1,6 @@
 import Foundation
 import Observation
 
-enum MARCFeatureAction: String, CaseIterable, Equatable, Identifiable {
-    case checkMac, inspectSystem, findProcess, moveFile, controlMac, runCommand
-    var id: String { rawValue }
-}
-struct MARCFeatureRequest: Identifiable {
-    let id = UUID()
-    let action: MARCFeatureAction
-    let connection: UUID
-}
 @MainActor @Observable final class MARCGuidedTour {
     enum Flow: Equatable { case setup }
     enum Feedback: Equatable { case selection, completion }
@@ -21,7 +12,6 @@ struct MARCFeatureRequest: Identifiable {
     private(set) var finished = false
     private(set) var feedbackID = UUID()
     private(set) var feedback = Feedback.selection
-    private(set) var featureRequest: MARCFeatureRequest?
     var keyboardVisible = false
     private var presentationBarriers: Set<UUID> = []
     var hasBlockingPresentation: Bool { !presentationBarriers.isEmpty }
@@ -32,7 +22,6 @@ struct MARCFeatureRequest: Identifiable {
         else { presentationBarriers.remove(id) }
     }
     func startSetup() {
-        featureRequest = nil
         flow = .setup; stage = .welcome
         completedFlow = nil; finished = false
         feedback = .selection; feedbackID = UUID()
@@ -68,16 +57,6 @@ struct MARCFeatureRequest: Identifiable {
         completionID = UUID()
         if finished { feedback = .completion; feedbackID = UUID() }
     }
-    func openFeature(_ action: MARCFeatureAction, connection: UUID) {
-        guard !active else { return }
-        featureRequest = MARCFeatureRequest(action: action, connection: connection)
-    }
-    func takeFeatureRequest(currentConnection: UUID, connected: Bool) -> MARCFeatureAction? {
-        defer { featureRequest = nil }
-        guard !active, connected, let request = featureRequest, request.connection == currentConnection else { return nil }
-        return request.action
-    }
-    func discardFeatureRequest() { featureRequest = nil }
 
 }
 
