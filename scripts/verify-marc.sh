@@ -54,6 +54,7 @@ python3 Tests/StoragePresentationChecks.py
 python3 Tests/LoginMetadataChecks.py
 python3 Tests/SettingsChecks.py
 python3 Tests/OnboardingChecks.py
+python3 Tests/GalleryAnnotationChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/MARCLocalDownload.swift \
     Tests/LocalDownloadChecks.swift \
