@@ -185,7 +185,7 @@
     '#contact': '/docs/troubleshooting.html#contact'
   };
 
-  if (['/help', '/help.html'].includes(location.pathname) && legacy[location.hash]) {
+  if (['/help', '/help.html', '/docs', '/docs.html'].includes(location.pathname) && legacy[location.hash]) {
     location.replace(legacy[location.hash]);
   }
 })();

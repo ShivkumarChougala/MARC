@@ -4277,8 +4277,8 @@ footer.marc-footer-v2 {
   display: grid;
   grid-template-columns: minmax(240px, 1.7fr) repeat(3, minmax(130px, 1fr));
   align-items: start;
-  gap: 44px;
-  padding: 48px 0 40px;
+  gap: 32px;
+  padding: 36px 0 24px;
 }
 .marc-footer-v2 .footer-identity {
   grid-column: auto;
@@ -4292,13 +4292,13 @@ footer.marc-footer-v2 {
 }
 .marc-footer-v2 .footer-identity > p {
   max-width: 290px;
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   color: #9999a7;
   font-size: 13px;
   line-height: 1.75;
 }
 .marc-footer-v2 .footer-identity > .footer-credit {
-  margin-top: 16px;
+  margin-top: 12px;
   font-size: 12px;
 }
 .marc-footer-v2 .marc-footer-column {
@@ -4312,7 +4312,7 @@ footer.marc-footer-v2 {
   padding: 0;
 }
 .marc-footer-v2 .marc-footer-column h2 {
-  margin: 4px 0 14px;
+  margin: 4px 0 8px;
   color: #eeeef2;
   font-size: 13px;
   font-weight: 600;
@@ -4322,8 +4322,8 @@ footer.marc-footer-v2 {
 .marc-footer-v2 .marc-footer-column a {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 6px 0;
+  min-height: 32px;
+  padding: 4px 0;
   color: #9999a7;
   font-size: 13px;
   line-height: 1.5;
@@ -4338,7 +4338,7 @@ footer.marc-footer-v2 {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 16px 0 22px;
+  padding: 8px 0 12px;
   border-top: 1px solid #ffffff12;
   color: #8f8f9c;
   font-size: 11px;
@@ -4351,8 +4351,8 @@ footer.marc-footer-v2 {
 @media (max-width: 900px) {
   .marc-footer-v2 .footer-content.marc-footer-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 30px;
-    padding-top: 36px;
+    gap: 24px;
+    padding-top: 28px;
   }
   .marc-footer-v2 .footer-identity {
     grid-column: 1 / -1;
@@ -4365,7 +4365,7 @@ footer.marc-footer-v2 {
   .marc-footer-v2 .footer-content.marc-footer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 28px 20px;
-    padding-bottom: 28px;
+    padding-bottom: 20px;
   }
   .marc-footer-v2 .marc-footer-bottom {
     flex-wrap: wrap;
@@ -4375,6 +4375,13 @@ footer.marc-footer-v2 {
 @media (prefers-reduced-motion: reduce) {
   .marc-footer-v2 .marc-footer-column a {
     transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .marc-footer-v2 .marc-footer-column a {
+    min-height: 44px;
+    box-sizing: border-box;
   }
 }
 /* MARC footer polish END */
