@@ -165,8 +165,15 @@ extension ServerStore {
               let id = UUID(uuidString: text),
               let server = servers.first(where: { $0.id == id }) else { return }
 
+        let saved: MARCCredentials.Saved
         do {
-            guard let saved = try MARCCredentials.readChecked(id) else { return }
+            guard let login = try MARCCredentials.readChecked(id) else { return }
+            saved = login
+        } catch {
+            storageError = error.localizedDescription
+            return
+        }
+        do {
             try Task.checkCancellation()
             selectedID = id
             try await monitor.connect(
@@ -177,8 +184,8 @@ extension ServerStore {
         } catch is CancellationError {
             return
         } catch {
-            // Connection failures are presented by the monitor; also expose Keychain failures.
-            if monitor.connectionIssue == nil { storageError = error.localizedDescription }
+            // The monitor owns connection feedback. A stale request must not
+            // republish a transport error as a Settings storage failure.
         }
     }
 }

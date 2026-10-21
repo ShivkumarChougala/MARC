@@ -1,0 +1,99 @@
+{
+  "title": "MARC Privacy Policy",
+  "effectiveDate": "19 October 2026",
+  "introduction": "MARC (Macintosh Access & Remote Control) is developed by Shivkumar Chougala. It connects your iPhone to a Mac you choose using SSH. This policy explains the app’s local storage, remote connections, optional AI features and support communications.",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "What goes to the developer",
+      "paragraphs": [
+        "MARC does not operate a developer account service, SSH relay, advertising service or behavioral analytics system. Normal app use does not send your Mac credentials, terminal output, files or system readings to the developer.",
+        "If you contact support, the developer receives the information you choose to include in your message. Optional AI requests go to the service you select, as described below."
+      ],
+      "links": []
+    },
+    {
+      "id": "connections",
+      "title": "Connections and information on your iPhone",
+      "paragraphs": [
+        "Saved Mac profiles and preferences are stored on your iPhone. They can include Mac names, addresses, SSH usernames and ports, appearance preferences, Quick Launch choices, model selections and remembered folders. Connection credentials, trusted host identities, SSH private keys and named API keys are stored using Apple’s Keychain.",
+      "When you connect, MARC exchanges commands, responses and requested files directly with your selected Mac over SSH. It reads system statistics, process details, files and control information to display them and perform the actions you request. Network discovery queries SSH services on the local network. Your Mac and the services you access may keep their own authentication or activity logs.",
+        "SSH keys are used to authenticate the connection; the normal key-authentication flow does not upload your private key to the Mac. SSH protects the remote connection and API mode requires HTTPS. These protections do not replace securing your devices or reviewing commands before running them."
+      ],
+      "links": []
+    },
+    {
+      "id": "files-history",
+      "title": "Files and monitoring history",
+      "paragraphs": [
+        "Previewing or downloading a remote file creates a temporary copy on your iPhone. MARC keeps it available while the preview or sharing interface needs it and attempts to remove its temporary directory when that use ends. Unexpected app termination can leave temporary files until later system cleanup.",
+        "Uploaded, exported or shared files are separate copies controlled by the destination you choose. Removing a temporary copy in MARC does not delete those copies. File changes on the Mac use the permissions of your SSH account.",
+        "While monitoring, MARC saves samples about every five seconds on the connected Mac under the SSH account at ~/.local/share/marc/history.sqlite. During active monitoring it periodically removes MARC-created sample rows older than two hours. If monitoring stops, the database can remain on the Mac; pruning resumes during a later active session. Older history tables created by a previous collector are preserved.",
+        "The recent live chart buffer and terminal display are held in app memory. Removing a Mac profile does not remove the Mac’s history database, files or logs. You can delete those items using the Mac account that owns them."
+      ],
+      "links": []
+    },
+    {
+      "id": "ai",
+      "title": "Optional AI and where your prompt goes",
+      "paragraphs": [
+        "AI starts Off. You can use MARC without enabling it. In Local mode, your prompt travels through the selected Mac’s SSH connection to Ollama on that Mac. The local service, model and any configuration you install determine processing, logging and further network activity.",
+        "In API mode, after you approve the destination, MARC sends your submitted prompt, selected model and command-generation instructions to your configured HTTPS endpoint. A selected API key is sent for authentication. The recipient also receives your IP address and ordinary network request information.",
+        "Built-in API presets are OpenAI at api.openai.com, Google Gemini at generativelanguage.googleapis.com and Groq at api.groq.com. A custom endpoint sends the request to the operator of that endpoint. The destination is shown before approval. Model-catalogue loading asks for separate permission and sends the selected key and network information, but not your command prompt.",
+        "MARC does not automatically attach terminal output, remote files, saved Mac passwords or SSH private keys to AI requests. Anything you type or paste into the prompt is sent. Do not include secrets or sensitive personal information you do not want the selected service to receive.",
+        "Provider retention, human review, model training, processing locations and account data controls depend on the service, region and account plan. Free and paid services may handle inputs differently. MARC does not promise zero retention or no training for every provider or custom endpoint. Review the current service terms before use.",
+        "You can cancel a pending request or turn AI Off in Settings → Terminal & AI to stop future AI requests. Canceling cannot recall data already transmitted. Turning AI Off or removing a saved key does not erase a provider’s records or revoke the key at its provider; use that provider’s account controls or privacy contact.",
+        "Generated commands are suggestions. MARC sends a suggested command to your shell only when you choose Run. Review it first."
+      ],
+      "links": [
+        {
+          "title": "OpenAI API data controls",
+          "url": "https://developers.openai.com/api/docs/guides/your-data"
+        },
+        {
+          "title": "Google Gemini API terms and data use",
+          "url": "https://ai.google.dev/gemini-api/terms"
+        },
+        {
+          "title": "GroqCloud data controls",
+          "url": "https://console.groq.com/docs/your-data"
+        }
+      ]
+    },
+    {
+      "id": "permissions",
+      "title": "Permissions and your choices",
+      "paragraphs": [
+        "Local Network access supports discovering and connecting to nearby Macs. If you enable app locking, Apple’s device-authentication system checks Face ID or device authentication; MARC does not receive your face data. System file and photo pickers let you choose specific items for transfer.",
+        "You can remove saved Mac profiles, manage SSH keys, API keys and trusted fingerprints in Settings → Keychain, switch AI Off and change permissions in iPhone Settings. Removing a Mac profile removes its connection credential and associated per-Mac preferences after credential deletion succeeds. Reusable SSH keys, trusted fingerprints and global AI settings are managed separately.",
+        "Do not rely on uninstalling MARC to erase Keychain entries, remote Mac files, exported copies, provider records or existing device backups. These have separate storage and deletion rules. Delete saved secrets in MARC before uninstalling if that is your intention.",
+        "MARC has no developer-operated user account to delete. For information held by an AI provider, your Mac administrator or a file-sharing destination, contact that operator. Requests concerning support information held by the developer can be sent to the contact below."
+      ],
+      "links": []
+    },
+    {
+      "id": "support",
+      "title": "Support, retention and privacy requests",
+      "paragraphs": [
+        "Support messages are used to respond to your request and resolve the issue you report. They may include your email address, correspondence and any attachments you choose to send. Do not send passwords, SSH private keys or API keys in messages, logs or screenshots.",
+        "The developer deletes resolved support correspondence from active support records within 90 days after resolution, unless a longer period is required by law. Email providers and existing backups can have separate retention rules. This 90-day period applies to developer support records, not your Mac, AI provider or exported files.",
+        "To ask about access, correction or deletion of support information, email shivakumarchougala9@gmail.com. The developer may request enough information to verify that the request concerns you. Applicable privacy rights depend on your location."
+      ],
+      "links": [
+        {
+          "title": "Contact MARC privacy support",
+          "url": "mailto:shivakumarchougala9@gmail.com?subject=MARC%20privacy"
+        }
+      ]
+    },
+    {
+      "id": "updates",
+      "title": "Policy updates and external pages",
+      "paragraphs": [
+        "This policy describes the current MARC app. Changes to its data practices will be reflected in an updated policy and effective date. A policy update alone does not replace any consent required before sharing your information.",
+        "Opening provider policies, support email or a hosted copy of this policy contacts the service you choose. That website or email provider can process connection information under its own terms. The bundled policy can be read inside MARC without opening a website."
+      ],
+      "links": []
+    }
+  ]
+}

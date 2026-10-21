@@ -151,16 +151,23 @@ struct MARCAppLockSetting: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
+        let authentication = lock.authenticationName
         VStack(alignment: .leading, spacing: 8) {
-            Toggle("Require \(lock.authenticationName)", isOn: Binding(
+            Toggle(isOn: Binding(
                 get: { lock.enabled },
                 set: { value in Task { await lock.setEnabled(value) } }
-            ))
-            .font(.system(size: 15)).tint(p.accent).disabled(lock.busy)
+            )) {
+                HStack(spacing: 12) {
+                    MARCSettingsRowIcon(symbol: authentication == "Face ID" ? "faceid" : authentication == "Touch ID" ? "touchid" : "lock")
+                    Text("Require \(authentication)")
+                }
+            }
+            .font(.system(size: 15)).disabled(lock.busy)
             if lock.busy { ProgressView().controlSize(.small) }
             if let failure = lock.failure {
                 Text(failure).font(.system(size: 11)).foregroundStyle(.red)
             }
-        }.padding(16)
+        }.padding(.horizontal, 14).padding(.vertical, 10)
+            .frame(minHeight: 50)
     }
 }

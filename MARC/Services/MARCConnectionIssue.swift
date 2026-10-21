@@ -102,7 +102,7 @@ struct MARCConnectionIssue {
             case .connectTimeout(_):
                 return .init(
                     kind: .timeout, title: "Connection timed out",
-                    detail: "The connection didn’t complete in time. Check the Mac’s address and network, then retry."
+                    detail: "Wake your Mac, check its current address and Remote Login, and check that your iPhone’s network can reach it. Then retry."
                 )
             case .eof:
                 return .init(
@@ -164,15 +164,15 @@ struct MARCConnectionIssue {
             return .init(
                 kind: .login, title: "SSH login didn’t complete",
                 detail: login?.isKeyLogin == true
-                    ? "Check the username and that the selected key’s public key is authorized for that user on the Mac. A stalled SSH login can also cause this."
-                    : "Check the username and password, and that Remote Login allows this user. A stalled SSH login can also cause this."
+                    ? "Check the Mac account’s short username and that the selected key’s public key is authorized for it. Remote Login must allow this account. A stalled SSH login can also cause this."
+                    : "Use the Mac account’s short username and Mac login password. Check that Remote Login allows this account. A stalled SSH login can also cause this."
             )
         }
 
         if typeName.hasSuffix(".NIOConnectionError") {
             return .init(
                 kind: .network, title: "Mac couldn’t be reached",
-                detail: "Check the Mac’s current address, network, and Remote Login. If it is sleeping, wake it and retry."
+                detail: "Wake your Mac, check its current address and confirm Remote Login is enabled. Check that your iPhone’s network can reach it, then retry."
             )
         }
 
@@ -187,12 +187,12 @@ struct MARCConnectionIssue {
         case ECONNREFUSED:
             return .init(
                 kind: .network, title: "SSH connection refused",
-                detail: "The address refused this SSH connection. Check that Remote Login is enabled and that the server port is correct."
+                detail: "On your Mac, check System Settings → General → Sharing → Remote Login. Enable it for your account and check the server port, then retry."
             )
         case ETIMEDOUT:
             return .init(
                 kind: .timeout, title: "Connection timed out",
-                detail: "Check the Mac’s address and network. Wake it if needed, then retry."
+                detail: "Wake your Mac, check its current address and Remote Login, and check that your iPhone’s network can reach it. Then retry."
             )
         case ENETUNREACH, EHOSTUNREACH, ENETDOWN:
             return .init(

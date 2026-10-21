@@ -2,12 +2,18 @@ import SwiftUI
 struct SettingsScreen: View {
     let store: ServerStore
     @State private var customizingSettings = false
-    @AppStorage("marc.settings.order") private var settingsOrder = "servers,security,terminal,general,support"
+    @State private var setupScroll = ScrollPosition(edge: .top)
+    @Environment(\.marcGuidedTour) private var guidedTour
+    @State private var showingFeatureGuide = false
+    @State private var requestedFeatureConnection: UUID?
+    @State private var requestedFeature: MARCFeatureAction?
+    @State private var requestedSetup = false
+    @AppStorage("marc.settings.order") private var settingsOrder = MARCSettingsSection.defaultOrder
     @AppStorage("marc.settings.hidden") private var settingsHidden = ""
     private var visibleSettingsSections: [MARCSettingsSection] {
         let hidden = Set(settingsHidden.split(separator: ",").map(String.init))
         return MARCSettingsSection.ordered(settingsOrder).filter {
-            $0 == .security || !hidden.contains($0.rawValue)
+            $0.alwaysVisible || !hidden.contains($0.rawValue)
         }
     }
     @AppStorage("marc.appearance") private var appearance = "system"
@@ -17,29 +23,74 @@ struct SettingsScreen: View {
     @State private var editingServer: ServerProfile?
     @State private var testingServer: ServerProfile?
     @State private var connectingServer: ServerProfile?
-    @State private var support: String?
+    @State private var connectionFeedback: String?
+    @State private var connectionTask: Task<Void, Never>?
+    @State private var connectionRequest = UUID()
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Button { adding = true } label: {
+                Button {
+                    if guidedTour?.active == true && guidedTour?.stage == .addServer {
+                        guidedTour?.next()
+                    } else { adding = true }
+                } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "plus").font(.system(size: 23, weight: .regular))
-                            .frame(width: 30, height: 30).background(p.raised, in: RoundedRectangle(cornerRadius: 9)).foregroundStyle(p.accent)
+                        MARCSettingsRowIcon(symbol: "plus")
                         Text("Add server").font(.system(size: 15)).foregroundStyle(p.text)
                         Spacer()
                         Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(p.muted)
                     }.padding(.horizontal, 16).frame(minHeight: 58)
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 16))
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plain).marcSetupTarget("add")
+                if let error = store.storageError {
+                    HStack(alignment: .top) {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                        Spacer(minLength: 8)
+                        Button("Dismiss") { store.storageError = nil }.font(.footnote)
+                    }
+                }
                 ForEach(visibleSettingsSections) { item in
                     settingsSection(item)
                 }
-                if let error = store.storageError { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
+                if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                    Text("MARC · Version \(version)")
+                        .font(.footnote).foregroundStyle(p.muted)
+                        .frame(maxWidth: .infinity).padding(.top, 2)
+                }
             }.padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 16)
-        }.scrollClipDisabled().scrollIndicators(.hidden).marcCanvas()
+        }.scrollPosition($setupScroll).scrollClipDisabled().scrollIndicators(.hidden).marcCanvas()
+            .onChange(of: guidedTour?.stage) { _, stage in
+                if stage == .addServer { setupScroll.scrollTo(edge: .top) }
+            }
+            .sheet(isPresented: $showingFeatureGuide, onDismiss: {
+                let connection = requestedFeatureConnection
+                let setup = requestedSetup
+                let action = requestedFeature
+                requestedFeatureConnection = nil; requestedSetup = false; requestedFeature = nil
+                if setup { guidedTour?.startSetup() }
+                else if let action, MARCOnboardingPolicy.canStartFeatures(approvedConnection: connection,
+                    currentConnection: store.monitor.processConnectionID, connected: store.monitor.connected) {
+                    guidedTour?.openFeature(action, connection: store.monitor.processConnectionID)
+                }
+            }) {
+                MARCFeatureGuideScreen(connected: store.monitor.connected, show: { action in
+                    requestedFeature = action
+                    requestedFeatureConnection = store.monitor.processConnectionID
+                    showingFeatureGuide = false
+                }, setup: {
+                    requestedSetup = true
+                    showingFeatureGuide = false
+                })
+                .marcGuidePresentationBarrier()
+            }
+            .marcSetupCoach(target: "add", title: "Add your Mac",
+                message: "Tap Add server to begin.",
+                enabled: guidedTour?.active == true && guidedTour?.stage == .addServer && guidedTour?.hasBlockingPresentation != true,
+                next: { guidedTour?.next() }, skip: { guidedTour?.skip() })
             .marcNavigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -57,16 +108,18 @@ struct SettingsScreen: View {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
             }
             .sheet(isPresented: $adding) { AddServerScreen(store: store) }
+            .onDisappear(perform: stopConnectionRequest)
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { stopConnectionRequest() }
+            }
+            .onChange(of: store.monitor.connected) { _, connected in
+                if connected { connectionFeedback = nil }
+            }
             .sheet(item: $editingServer) { server in
                 MARCEditServerScreen(store: store, server: server)
             }
             .sheet(item: $connectingServer) { server in SSHConnectScreen(server: server, monitor: store.monitor) }
             .sheet(item: $testingServer) { server in SSHTestScreen(server: server) }
-            .alert(support ?? "", isPresented: Binding(get: { support != nil }, set: { if !$0 { support = nil } })) {
-                Button("OK") { support = nil }
-            } message: {
-                Text(support == "SSH logs" ? "SSH test results appear in the Test SSH sheet. Persistent session logging is not enabled yet." : "Use the saved server’s menu → Connect, then open Home for live macOS readings. Monitoring pauses when the app goes into the background. Use Terminal for SSH commands and Files to browse and transfer files.")
-            }
             .sheet(item: $removing) { server in
                 MARCRemoveServerSheet(server: server, store: store) {
                     let removed = store.remove(server)
@@ -85,8 +138,7 @@ struct SettingsScreen: View {
                     MARCSettingsGroup(title: "Saved servers") {
                         ForEach(store.servers) { server in
                             HStack(spacing: 12) {
-                                Image(systemName: "laptopcomputer").font(.system(size: 21))
-                                    .frame(width: 34, height: 34).background(p.raised, in: RoundedRectangle(cornerRadius: 10)).foregroundStyle(p.muted)
+                                MARCSettingsRowIcon(symbol: "laptopcomputer")
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(server.name).font(.system(size: 14, weight: .semibold))
                                     Text("\(server.username)@\(server.host):\(server.port)").font(.system(size: 11)).foregroundStyle(p.muted).lineLimit(1)
@@ -126,46 +178,35 @@ struct SettingsScreen: View {
                             if server.id != store.servers.last?.id { MARCSettingsDivider() }
                         }
                     }
+                    if let connectionFeedback {
+                        HStack(alignment: .top) {
+                            Text(connectionFeedback).font(.footnote).foregroundStyle(p.muted)
+                            Spacer(minLength: 8)
+                            Button("Dismiss") { self.connectionFeedback = nil }.font(.footnote)
+                        }
+                        .padding(.horizontal, 14)
+                    }
                 }
         case .security:
                 MARCSettingsGroup(title: "Security") {
                     MARCAppLockSetting()
                     MARCSettingsDivider()
                     NavigationLink {
-                        MARCKeychainScreen(store: store)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text("Keychain").font(.system(size: 15))
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(p.muted)
-                        }.foregroundStyle(p.text).padding(16)
-                            .frame(maxWidth: .infinity, minHeight: 58)
-                            .contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                }
-        case .terminal:
-                MARCSettingsGroup(title: "Terminal & AI") {
-                    NavigationLink {
                         MARCTerminalAISettings(monitor: store.monitor)
                     } label: {
-                        HStack(spacing: 12) {
-                            Text("Terminal & AI")
-                                .font(.system(size: 15))
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(p.muted)
-                        }
-                        .foregroundStyle(p.text)
-                        .padding(.horizontal, 14)
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                        MARCSettingsSupportRow(title: "Terminal & AI", icon: "terminal", external: false)
+                    }.buttonStyle(.plain)
+                    MARCSettingsDivider()
+                    NavigationLink {
+                        MARCKeychainScreen(store: store)
+                    } label: {
+                        MARCSettingsSupportRow(title: "Keychain", icon: "key", external: false)
+                    }.buttonStyle(.plain)
                 }
         case .general:
                 MARCSettingsGroup(title: "General") {
-                    HStack {
+                    HStack(spacing: 12) {
+                        MARCSettingsRowIcon(symbol: "sun.max")
                         Text("Appearance").font(.system(size: 15))
                         Spacer()
                         Picker("Appearance", selection: $appearance) {
@@ -177,7 +218,8 @@ struct SettingsScreen: View {
                     MARCSettingsDivider()
                     MARCAccentPicker()
                     MARCSettingsDivider()
-                    HStack {
+                    HStack(spacing: 12) {
+                        MARCSettingsRowIcon(symbol: "arrow.clockwise")
                         Text("Refresh interval").font(.system(size: 15))
                         Spacer()
                         Picker("Refresh interval", selection: $refreshInterval) {
@@ -189,17 +231,49 @@ struct SettingsScreen: View {
                 }
         case .support:
                 MARCSettingsGroup(title: "Support") {
-                    ShareLink(item: "MARC — Macintosh Access & Remote Control. Monitor. Access. Control.") {
-                        MARCSettingsAction(title: "Share", symbol: "arrow.up.right")
+                    Button { guidedTour?.startSetup() } label: {
+                        MARCSettingsSupportRow(title: "Getting started", icon: "book", external: false)
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    Link(destination: URL(string: "mailto:shivakumarchougala9@gmail.com?subject=MARC%20feedback")!) {
-                        MARCSettingsAction(title: "Feedback")
+                    Button {
+                        requestedFeatureConnection = nil; requestedSetup = false; requestedFeature = nil
+                        showingFeatureGuide = true
+                    } label: {
+                        MARCSettingsSupportRow(title: "What’s inside MARC", icon: "square.grid.2x2", external: false)
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    Button { support = "Help" } label: { MARCSettingsAction(title: "Help") }.buttonStyle(.plain)
+                    Link(destination: URL(string: "https://marc.thechougala.in/help.html#contact")!) {
+                        MARCSettingsSupportRow(title: "Help & feedback", icon: "bubble.left")
+                    }.buttonStyle(.plain)
+                }
+        case .contribute:
+                MARCSettingsGroup(title: "Ways to Help") {
+                    MARCSettingsSupportRow(title: "Rate MARC", icon: "star", detail: "Coming soon", enabled: false)
+                        .accessibilityLabel("Rate MARC. Available after the App Store launch.")
                     MARCSettingsDivider()
-                    Button { support = "SSH logs" } label: { MARCSettingsAction(title: "SSH logs") }.buttonStyle(.plain)
+                    ShareLink(item: URL(string: "https://marc.thechougala.in/")!,
+                              subject: Text("MARC — your Mac, within reach"),
+                              message: Text("Check out MARC, an open-source iPhone app for monitoring and controlling your Mac over SSH.")) {
+                        MARCSettingsSupportRow(title: "Share MARC", icon: "square.and.arrow.up", external: false)
+                    }.buttonStyle(.plain)
+                    MARCSettingsDivider()
+                    Link(destination: URL(string: "https://github.com/ShivkumarChougala/MARC")!) {
+                        MARCSettingsSupportRow(title: "Star on GitHub", icon: "chevron.left.forwardslash.chevron.right")
+                    }.buttonStyle(.plain)
+                    MARCSettingsDivider()
+                    Link(destination: URL(string: "https://marc.thechougala.in/support.html")!) {
+                        MARCSettingsSupportRow(title: "Support MARC", icon: "heart")
+                    }.buttonStyle(.plain)
+                }
+        case .legal:
+                MARCSettingsGroup(title: "Legal") {
+                    Link(destination: URL(string: "https://marc.thechougala.in/privacy.html")!) {
+                        MARCSettingsSupportRow(title: "Privacy Policy", icon: "doc.text")
+                    }.buttonStyle(.plain)
+                    MARCSettingsDivider()
+                    Link(destination: URL(string: "https://marc.thechougala.in/terms.html")!) {
+                        MARCSettingsSupportRow(title: "Terms of Use", icon: "doc.text")
+                    }.buttonStyle(.plain)
                 }
         }
     }
@@ -219,6 +293,10 @@ struct SettingsScreen: View {
 
     private func selectAndConnect(_ server: ServerProfile) {
         guard !store.monitor.connecting else { return }
+        connectionTask?.cancel()
+        let request = UUID()
+        connectionRequest = request
+        connectionFeedback = nil
 
         if store.monitor.connected && store.monitor.server?.id == server.id {
             return
@@ -235,14 +313,31 @@ struct SettingsScreen: View {
             return
         }
 
-        Task { @MainActor in
+        connectionTask = Task { @MainActor in
+            defer {
+                if connectionRequest == request { connectionTask = nil }
+            }
             store.storageError = nil
             do {
                 try await store.switchToSavedServer(server)
+            } catch is CancellationError {
+                return
             } catch {
-                store.storageError = error.localizedDescription
+                guard !Task.isCancelled, connectionRequest == request,
+                      store.monitor.automaticReconnectEnabled,
+                      store.servers.contains(where: { $0.id == server.id }),
+                      store.selectedID == server.id,
+                      !(store.monitor.connected && store.monitor.server?.id == server.id) else { return }
+                connectionFeedback = MARCConnectionIssue.message(error, login: nil)
             }
         }
+    }
+
+    private func stopConnectionRequest() {
+        connectionRequest = UUID()
+        connectionTask?.cancel()
+        connectionTask = nil
+        connectionFeedback = nil
     }
 }
 
@@ -274,7 +369,7 @@ private struct MARCEditServerScreen: View {
     }
 
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @State private var testMessage: String?
 
     var body: some View {
@@ -579,7 +674,7 @@ private struct MARCRemoveServerSheet: View {
     let remove: () -> Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -631,20 +726,27 @@ private struct MARCRemoveServerSheet: View {
 }
 
 private enum MARCSettingsSection: String, CaseIterable, Identifiable {
-    case servers, security, terminal, general, support
+    case servers, general, security, support, contribute, legal
+    static let defaultOrder = "servers,general,security,support,contribute,legal"
     var id: String { rawValue }
+    var alwaysVisible: Bool { self == .security || self == .legal }
     var title: String {
         switch self {
         case .servers: return "Saved servers"
         case .security: return "Security"
-        case .terminal: return "Terminal & AI"
         case .general: return "General"
         case .support: return "Support"
+        case .contribute: return "Ways to Help"
+        case .legal: return "Legal"
         }
     }
     static func ordered(_ stored: String) -> [Self] {
+        // Adopt the new default without overwriting a deliberately customized order.
+        let legacyDefaults = ["servers,security,terminal,general,support", "servers,general,terminal,security,support",
+                              "servers,general,terminal,security,support,contribute,legal"]
+        let order = legacyDefaults.contains(stored) ? defaultOrder : stored
         var result: [Self] = []
-        for raw in stored.split(separator: ",") {
+        for raw in order.split(separator: ",") {
             if let item = Self(rawValue: String(raw)), !result.contains(item) {
                 result.append(item)
             }
@@ -662,9 +764,9 @@ private struct MARCSettingsCustomizeSheet: View {
 
     private func shown(_ item: MARCSettingsSection) -> Binding<Bool> {
         Binding(get: {
-            item == .security || !hidden.split(separator: ",").contains(Substring(item.rawValue))
+            item.alwaysVisible || !hidden.split(separator: ",").contains(Substring(item.rawValue))
         }, set: { enabled in
-            guard item != .security else { return }
+            guard !item.alwaysVisible else { return }
             var values = Set(hidden.split(separator: ",").map(String.init))
             if enabled { values.remove(item.rawValue) }
             else { values.insert(item.rawValue) }
@@ -679,7 +781,7 @@ private struct MARCSettingsCustomizeSheet: View {
                 Section {
                     ForEach(MARCSettingsSection.ordered(order)) { item in
                         Toggle(item.title, isOn: shown(item))
-                            .tint(p.accent).disabled(item == .security)
+                            .tint(p.accent).disabled(item.alwaysVisible)
                     }.onMove { indices, destination in
                         var items = MARCSettingsSection.ordered(order)
                         items.move(fromOffsets: indices, toOffset: destination)
@@ -687,11 +789,11 @@ private struct MARCSettingsCustomizeSheet: View {
                     }
                 } header: { Text("Settings sections") }
                   footer: {
-                    Text("Drag to reorder. Add server and Security stay available. Hiding a section does not change its settings.")
+                    Text("Drag to reorder. Add server, Security and Legal stay available. Hiding a section does not change its settings.")
                 }
                 Section {
                     Button("Reset layout") {
-                        order = "servers,security,terminal,general,support"
+                        order = MARCSettingsSection.defaultOrder
                         hidden = ""
                     }.foregroundStyle(p.accent)
                 }

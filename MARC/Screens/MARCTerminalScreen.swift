@@ -535,7 +535,7 @@ struct TerminalScreen: View {
     let workspace: MARCTerminalWorkspace
     let navigate: (Int) -> Void
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSessions = false
     @State private var aiFocused = false
@@ -593,6 +593,7 @@ struct TerminalScreen: View {
             )
             .clipped()
             .layoutPriority(-1)
+
 
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
@@ -658,6 +659,8 @@ struct TerminalScreen: View {
                         .contentShape(Rectangle())
                     }
 
+
+
                     Button {
                         workspace.reconnectSelected()
                     } label: {
@@ -684,6 +687,7 @@ struct TerminalScreen: View {
                 if let slot = workspace.selected {
                     MARCTerminalAI(session: slot.session, focusChanged: { aiFocused = $0 })
                         .id(slot.id)
+
                     if !aiFocused {
                         MARCTerminalKeyStrip(session: slot.session)
                     }
@@ -711,6 +715,9 @@ struct TerminalScreen: View {
         }
 
         .marcCanvas()
+        .marcLearnOverlay(.terminal, enabled: monitor.connected &&
+            workspace.selected?.session.ready == true && !aiFocused && !showingSessions &&
+            workspace.pendingDirectoryCommand == nil)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: connectionID) {
             guard scenePhase == .active, monitor.connected,

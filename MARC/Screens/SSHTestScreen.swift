@@ -5,7 +5,7 @@ struct SSHTestScreen: View {
     let server: ServerProfile
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @State private var loginDraft = MARCLoginDraft()
     @State private var hostKey = ""
     @State private var trust = MARCHostTrust()

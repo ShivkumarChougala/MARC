@@ -6,7 +6,7 @@ struct MARCTerminalAI: View {
     let session: MARCTerminalSession
     var focusChanged: (Bool) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @AppStorage("marc.ai.provider") private var provider = "off"
     @AppStorage("marc.ai.localModel") private var localModel = ""
     @AppStorage("marc.ai.apiModel") private var apiModel = ""
@@ -98,6 +98,7 @@ struct MARCTerminalAI: View {
             .padding(.horizontal, 3)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(provider == "off" ? "AI off" : "\(statusLabel). Model: \(modelLabel)")
+            .marcLearnTarget(.terminal)
 
             HStack(alignment: .center, spacing: 8) {
                 if provider == "off" {
@@ -417,7 +418,7 @@ struct MARCTerminalAI: View {
 struct MARCTerminalAISettings: View {
     let monitor: SSHMonitor
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     @AppStorage("marc.ai.provider") private var provider = "off"
     @AppStorage("marc.ai.localModel") private var localModel = ""

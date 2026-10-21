@@ -25,6 +25,8 @@ edit_methods = edit[edit.index('    private func existingKey('):edit.rfind('\n}'
 add_methods = add[add.index('    private func saveAndConnect('):add.rfind('\n}')].replace('private func ', 'func ')
 connect_methods = connect[connect.index('    private func startTest('):connect.rfind('\n}')].replace('private func ', 'func ')
 test_methods = test[test.index('    private func run(authenticate:'):test.index('\n}\n\n@MainActor')].replace('private func ', 'func ')
+row_methods = settings[settings.index('    private func selectAndConnect('):settings.index('\n\nprivate struct MARCEditServerScreen:')].strip()
+row_methods = row_methods[:row_methods.rfind('\n}')].replace('private func ', 'func ')
 
 support = r'''
 enum FixtureError: Error { case storage, authentication }
@@ -64,8 +66,10 @@ struct MARCConnectionIssue {
     var connectionIssue: MARCConnectionIssue?
     var calls = 0
     var cancellations = 0
+    var connectHook: (() async throws -> Void)?
     func connect(server: ServerProfile, login: MARCCredentials.Saved, hostKey: String) async throws {
         try Task.checkCancellation()
+        if let hook = connectHook { try await hook() }
         calls += 1; self.server = server; connected = true
         try MARCCredentials.save(server.id, login: login, hostKey: hostKey)
     }
@@ -125,6 +129,15 @@ struct MARCConnectionIssue {
     __EDIT_VALID__
     __EDIT_METHODS__
 }
+@MainActor final class SavedRowFixture {
+    let store: ServerStore
+    var connectingServer: ServerProfile?
+    var connectionFeedback: String?
+    var connectionTask: Task<Void, Never>?
+    var connectionRequest = UUID()
+    init(_ store: ServerStore) { self.store = store }
+    __ROW_METHODS__
+}
 @MainActor final class AddFixture {
     let store: ServerStore
     var name = "New Mac"
@@ -140,9 +153,11 @@ struct MARCConnectionIssue {
     var requestID = UUID()
     let trust = MARCHostTrust()
     var dismissed = false
+    var connectionCallbacks = 0
     var openedID: UUID?
     init(_ store: ServerStore) { self.store = store; loginDraft.password = "fixture password" }
     func dismiss() { dismissed = true }
+    func onConnected() { connectionCallbacks += 1 }
     func openSaved(_ server: ServerProfile) { openedID = server.id }
     __ADD_METHODS__
 }
@@ -182,7 +197,7 @@ struct MARCConnectionIssue {
 for token, value in {'__SAVED__': saved_type, '__ENDPOINT__': endpoint,
                      '__EDIT_VALID__': edit_valid, '__EDIT_METHODS__': edit_methods,
                      '__ADD_METHODS__': add_methods, '__CONNECT_METHODS__': connect_methods,
-                     '__TEST_METHODS__': test_methods}.items():
+                     '__TEST_METHODS__': test_methods, '__ROW_METHODS__': row_methods}.items():
     support = support.replace(token, value)
 
 checks = r'''
@@ -215,7 +230,19 @@ checks = r'''
         precondition(ServerStore().storageError != nil)
         store.update(a)
         precondition(MARCSettingsSection.ordered("general,general,unknown").map(\.rawValue) ==
-                     ["general", "servers", "security", "terminal", "support"])
+                     ["general", "servers", "security", "support", "contribute", "legal"])
+        let defaultOrder = ["servers", "general", "security", "support", "contribute", "legal"]
+        precondition(MARCSettingsSection.ordered("").map(\.rawValue) == defaultOrder)
+        precondition(MARCSettingsSection.ordered(MARCSettingsSection.defaultOrder).map(\.rawValue) == defaultOrder)
+        precondition(MARCSettingsSection.ordered("servers,security,terminal,general,support").map(\.rawValue) == defaultOrder)
+        precondition(MARCSettingsSection.ordered("servers,general,terminal,security,support").map(\.rawValue) == defaultOrder)
+        precondition(MARCSettingsSection.ordered("servers,general,terminal,security,support,contribute,legal").map(\.rawValue) == defaultOrder)
+        precondition(MARCSettingsSection.ordered("support,terminal,general,servers,security").map(\.rawValue) ==
+                     ["support", "general", "servers", "security", "contribute", "legal"])
+        precondition(MARCSettingsSection.allCases.count == 6 && MARCSettingsSection.support.title == "Support")
+        precondition(MARCSettingsSection.security.alwaysVisible && MARCSettingsSection.legal.alwaysVisible)
+        precondition(!MARCSettingsSection.support.alwaysVisible && !MARCSettingsSection.contribute.alwaysVisible)
+        precondition(!MARCSettingsSection.general.alwaysVisible)
 
         store.monitor.server = a; store.monitor.connected = true; store.selectedID = b.id
         let editB = EditFixture(store, b); editB.name = "Renamed B"
@@ -302,9 +329,18 @@ checks = r'''
         let add = AddFixture(store); add.saveAndConnect(); let addTask = add.requestTask
         add.stopRequest(); await addTask?.value
         precondition(add.trust.calls == 0 && store.servers.count == 1)
+        precondition(add.connectionCallbacks == 0, "Cancelled add must not report a connection")
+        store.monitor.connectHook = { throw FixtureError.authentication }
+        let failedAdd = AddFixture(store); failedAdd.saveAndConnect()
+        let failedAddTask = failedAdd.requestTask; await failedAddTask?.value
+        precondition(!failedAdd.dismissed && failedAdd.connectionCallbacks == 0 && store.servers.count == 1,
+                     "Failed SSH authentication must not report connection success")
+        store.monitor.connectHook = nil
         let successfulAdd = AddFixture(store); successfulAdd.saveAndConnect()
         let successTask = successfulAdd.requestTask; await successTask?.value
         precondition(successfulAdd.dismissed && successfulAdd.pending == nil && store.servers.count == 2)
+        precondition(successfulAdd.connectionCallbacks == 1,
+                     "A successful add must notify onboarding exactly once")
 
         let connect = ConnectFixture(store.monitor, updatedB); connect.startTest()
         let connectTask = connect.requestTask; connect.stopRequest(); await connectTask?.value
@@ -327,6 +363,67 @@ checks = r'''
         precondition(defaults.string(forKey: "marc.ai.localModel") == "model-b")
         precondition(store.monitor.connected && store.monitor.server?.id == activeBeforeRemoval)
         print("PASS: removed Mac preferences cleared only after credential deletion; other Macs and malformed shared data preserved")
+        // Exercise the real saved-row action, including failures after an await.
+        let rowStore = ServerStore()
+        let rowServer = ServerProfile(name: "Row", host: "row.invalid", port: 22, username: "demo")
+        rowStore.add(rowServer); MARCCredentials.items[rowServer.id] = login
+        let row = SavedRowFixture(rowStore)
+        rowStore.monitor.connectHook = { throw FixtureError.authentication }
+        defaults.set(rowServer.id.uuidString, forKey: "marc.autoServer")
+        await rowStore.reconnectRememberedServer()
+        precondition(rowStore.storageError == nil, "Automatic connection failures are not storage failures")
+        MARCCredentials.readFails = true
+        await rowStore.reconnectRememberedServer()
+        precondition(rowStore.storageError != nil, "Actual Keychain read failures must remain visible")
+        MARCCredentials.readFails = false; rowStore.storageError = nil
+        row.selectAndConnect(rowServer); await row.connectionTask?.value
+        precondition(row.connectionFeedback == "Fixture failure" && rowStore.storageError == nil,
+                     "Connection errors must use the readable classifier, not leak into storage feedback")
+        rowStore.monitor.connectHook = { throw CancellationError() }
+        row.selectAndConnect(rowServer); await row.connectionTask?.value
+        precondition(row.connectionFeedback == nil && rowStore.storageError == nil)
+        let rowGate = Gate()
+        rowStore.monitor.connectHook = { await rowGate.wait(); throw FixtureError.authentication }
+        row.selectAndConnect(rowServer); let staleRowTask = row.connectionTask
+        await waitFor { rowGate.entered }
+        row.connectionRequest = UUID(); rowStore.selectedID = UUID()
+        rowGate.open(); await staleRowTask?.value
+        precondition(row.connectionFeedback == nil, "An old request cannot report a new Mac's failure")
+        let recoveredGate = Gate()
+        rowStore.monitor.connectHook = { await recoveredGate.wait(); throw FixtureError.authentication }
+        row.selectAndConnect(rowServer); let recoveredTask = row.connectionTask
+        await waitFor { recoveredGate.entered }
+        rowStore.monitor.server = rowServer; rowStore.monitor.connected = true
+        recoveredGate.open(); await recoveredTask?.value
+        precondition(row.connectionFeedback == nil, "A late failure must not replace a recovered connection")
+        rowStore.monitor.connected = false
+        let cancelledGate = Gate()
+        rowStore.monitor.connectHook = { await cancelledGate.wait(); throw FixtureError.authentication }
+        row.selectAndConnect(rowServer); let cancelledRowTask = row.connectionTask
+        await waitFor { cancelledGate.entered }
+        rowStore.monitor.cancelConnection()
+        rowStore.monitor.automaticReconnectEnabled = false
+        cancelledGate.open(); await cancelledRowTask?.value
+        precondition(row.connectionFeedback == nil, "Manual Disconnect must suppress late transport feedback")
+        rowStore.monitor.automaticReconnectEnabled = true
+        let backgroundGate = Gate()
+        rowStore.monitor.connectHook = { await backgroundGate.wait(); throw FixtureError.authentication }
+        row.selectAndConnect(rowServer); let backgroundRowTask = row.connectionTask
+        await waitFor { backgroundGate.entered }
+        row.connectionFeedback = "Old feedback"
+        row.stopConnectionRequest()
+        backgroundGate.open(); await backgroundRowTask?.value
+        precondition(row.connectionFeedback == nil && row.connectionTask == nil,
+                     "Leaving Settings or backgrounding clears feedback and invalidates the pending action")
+        let removedGate = Gate()
+        rowStore.monitor.connectHook = { await removedGate.wait(); throw FixtureError.authentication }
+        row.selectAndConnect(rowServer); let removedRowTask = row.connectionTask
+        await waitFor { removedGate.entered }
+        precondition(rowStore.remove(rowServer))
+        removedGate.open(); await removedRowTask?.value
+        precondition(row.connectionFeedback == nil, "Removed profiles must not report late connection failures")
+        print("PASS: saved-row disconnect, background/leave and profile removal suppress late transport errors")
+        print("PASS: saved-row connection failures stay readable; cancellation, changed Macs and recovered connections cannot publish stale errors")
         print("PASS: saved profiles, Settings order, edit targeting, duplicates, Keychain failures and screen task cancellation")
     }
 }

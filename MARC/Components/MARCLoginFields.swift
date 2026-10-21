@@ -40,6 +40,11 @@ struct MARCLoginDraft {
 
 struct MARCLoginFields: View {
     @Binding var draft: MARCLoginDraft
+    var quiet = false
+    @State private var showingPassword = false
+    @FocusState private var passwordFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicType
     @State private var choosing = false
     @State private var keys: [MARCSSHKeyStore.Info] = []
     @State private var failure: String?
@@ -48,13 +53,31 @@ struct MARCLoginFields: View {
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         VStack(alignment: .leading, spacing: 14) {
+            if !quiet {
             Picker("Login method", selection: $draft.method) {
                 ForEach(MARCLoginDraft.Method.allCases, id: \.self) {
                     Text($0.rawValue).tag($0)
                 }
             }.pickerStyle(.segmented)
+            }
 
             if draft.method == .password {
+                if quiet {
+                    Group {
+                        if dynamicType.isAccessibilitySize {
+                            VStack(alignment: .leading, spacing: 0) {
+                                quietPasswordLabel
+                                quietPasswordInput
+                            }
+                        } else {
+                            HStack(spacing: 8) {
+                                quietPasswordLabel
+                                quietPasswordInput
+                            }
+                        }
+                    }
+                    .foregroundStyle(p.text).frame(minHeight: 44)
+                } else {
                 HStack(spacing: 12) {
                     Text("Password").foregroundStyle(p.text)
                     SecureField("Enter password", text: $draft.password)
@@ -64,6 +87,7 @@ struct MARCLoginFields: View {
                         .frame(maxWidth: .infinity)
                 }
                 .font(.system(size: 15)).frame(minHeight: 44)
+                }
             } else {
                 Button { choosing = true } label: {
                     HStack {
@@ -86,6 +110,12 @@ struct MARCLoginFields: View {
         }
         .textInputAutocapitalization(.never).autocorrectionDisabled()
         .onAppear(perform: reload)
+        .onChange(of: draft.method) { _, _ in
+            showingPassword = false
+            reload()
+        }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { showingPassword = false } }
+        .onDisappear { showingPassword = false }
         .sheet(isPresented: $choosing, onDismiss: reload) {
             MARCSSHKeyPicker(selected: draft.keyID) { key in
                 draft.keyID = key.id
@@ -95,8 +125,72 @@ struct MARCLoginFields: View {
         }
     }
 
+    private var quietPasswordLabel: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        return HStack(spacing: 0) {
+            Text("Password").font(.subheadline).fixedSize()
+            Button {
+                showingPassword.toggle()
+                Task { @MainActor in
+                    guard draft.method == .password else { return }
+                    passwordFocused = true
+                }
+            } label: {
+                Image(systemName: showingPassword ? "eye.slash" : "eye")
+                    .font(.caption).frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(p.muted)
+            .accessibilityLabel(showingPassword ? "Hide password" : "Show password")
+        }
+    }
+
+    private var quietPasswordInput: some View {
+        Group {
+            if showingPassword {
+                TextField("Enter password", text: $draft.password)
+            } else {
+                SecureField("Enter password", text: $draft.password)
+            }
+        }
+        .font(.subheadline).multilineTextAlignment(.trailing)
+        .textContentType(.password).focused($passwordFocused)
+        .privacySensitive().frame(maxWidth: .infinity, minHeight: 44)
+        .accessibilityLabel("Password")
+    }
+
     private func reload() {
+        guard draft.method == .key else {
+            keys = []; failure = nil
+            return
+        }
         do { keys = try MARCSSHKeyStore.entries(); failure = nil }
         catch { failure = error.localizedDescription }
+    }
+}
+
+/// Add Server uses a quiet native menu; existing editors keep their segmented picker.
+struct MARCLoginMethodMenu: View {
+    @Binding var method: MARCLoginDraft.Method
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        Menu {
+            Picker("Login method", selection: $method) {
+                ForEach(MARCLoginDraft.Method.allCases, id: \.self) {
+                    Text($0.rawValue).tag($0)
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(method.rawValue)
+                Image(systemName: "chevron.down").font(.caption2.weight(.medium))
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .tint(p.accent)
+        .accessibilityLabel("Login method, \(method.rawValue)")
+        .accessibilityHint("Choose Password or SSH Key")
     }
 }

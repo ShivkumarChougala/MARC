@@ -2,6 +2,7 @@
 set -euo pipefail
 marc_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$marc_root"
+python3 scripts/verify-source-hygiene.py
 if ! command -v xcodebuild >/dev/null 2>&1; then
     echo "Xcode is required. Run this script on your Mac." >&2
     exit 1
@@ -50,7 +51,9 @@ python3 Tests/DiskCollectorChecks.py
 python3 Tests/NetworkCollectorChecks.py
 python3 Tests/StorageCollectorChecks.py
 python3 Tests/StoragePresentationChecks.py
+python3 Tests/LoginMetadataChecks.py
 python3 Tests/SettingsChecks.py
+python3 Tests/OnboardingChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/MARCLocalDownload.swift \
     Tests/LocalDownloadChecks.swift \
@@ -77,5 +80,7 @@ xcodebuild \
 xcrun swift scripts/verify-plist.swift \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app/Info.plist"
 python3 scripts/verify-privacy.py \
+    "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
+python3 scripts/verify-source-hygiene.py \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
 echo "PASS: simulator build and generated plist verification. Log: $marc_build/build.log"

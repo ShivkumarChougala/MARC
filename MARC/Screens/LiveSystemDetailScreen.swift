@@ -4,7 +4,7 @@ struct LiveSystemDetailScreen: View {
     let store: ServerStore
     let openSettings: () -> Void
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let m = store.monitor
@@ -55,7 +55,7 @@ struct LiveSystemDetailScreen: View {
                             DetailStat(title: "TASKS",
                                 value: r.details?.tasks.map { String($0) } ?? "—",
                                 small: true, numericValue: r.details?.tasks.map(Double.init))
-                        }
+                        }.marcLearnTarget(.systemCPU)
 
                         if let values = r.details?.coreUsage, !values.isEmpty {
                             VStack(spacing: 4) {
@@ -106,7 +106,7 @@ struct LiveSystemDetailScreen: View {
                                 value: r.memoryPercent,
                                 color: Color(marcHex: 0xe5a000)
                             )
-                        }
+                        }.marcLearnTarget(.systemMemory)
                     }
 
                     SystemPanel(title: "Network", subtitle: r.interface ?? "Unavailable") {
@@ -152,7 +152,7 @@ struct LiveSystemDetailScreen: View {
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color(marcHex: 0xff8f24))
                                 .monospacedDigit()
-                        }
+                        }.marcLearnTarget(.systemStorage)
                         Divider()
                         VStack(spacing: 12) {
                             ReferenceIORow(
@@ -203,6 +203,8 @@ struct LiveSystemDetailScreen: View {
                 }
             }.padding(16).padding(.bottom, 16)
         }.scrollIndicators(.visible).marcCanvas()
+            .marcLearnOverlay([.systemCPU, .systemMemory, .systemStorage],
+                              enabled: m.connected && m.snapshot != nil)
             .marcLiveReadings(enabled: m.connected)
             .navigationTitle("System").navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
@@ -282,7 +284,7 @@ private struct SystemPanel<Content: View>: View {
     var numericSubtitle: Double? = nil
     @ViewBuilder var content: Content
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         VStack(alignment: .leading, spacing: 12) {

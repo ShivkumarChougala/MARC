@@ -24,7 +24,7 @@ struct HomeScreen: View {
     @AppStorage("marc.status.order") private var sectionOrder = "system,statistics,powerStorage,alerts"
     @AppStorage("marc.status.hidden") private var hiddenSections = ""
     @AppStorage("marc.refreshInterval") private var refreshInterval = 2
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     private var visibleSections: [MARCStatusSection] {
         let hidden = Set(hiddenSections.split(separator: ",").map(String.init))
@@ -65,6 +65,7 @@ struct HomeScreen: View {
                         .buttonStyle(.plain)
                         .disabled(switchingMac || store.monitor.connecting)
                         .accessibilityLabel("Choose a saved Mac. Current: \(activeMac?.name ?? "none")")
+
                         Spacer(minLength: 4)
                         Button { customizing = true } label: {
                             Label("Customize", systemImage: "square.grid.2x2")
@@ -209,6 +210,9 @@ struct HomeScreen: View {
                 statusVisible = false
                 switchTask?.cancel(); switchTask = nil
             }
+            .marcLearnOverlay([.statusSystem, .status], enabled: statusVisible && store.monitor.connected &&
+                store.monitor.snapshot != nil && !controls && !showingMacPicker && !customizing &&
+                !customizingAlerts && loginMac == nil && pickerMac == nil && !switchingMac)
             .sheet(isPresented: $controls) {
                 NavigationStack {
                     ControlsScreen(monitor: store.monitor).toolbar {
@@ -267,7 +271,7 @@ struct HomeScreen: View {
                 LiveSystemDetailScreen(store: store, openSettings: openSettings)
             } label: {
                 MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).marcLearnTarget(.statusSystem)
         case .statistics:
             NavigationLink {
                 MARCStatisticsScreen(monitor: store.monitor)
@@ -290,7 +294,7 @@ struct HomeScreen: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .modifier(MARCOverviewSurface(palette: palette))
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).marcLearnTarget(.status)
         case .powerStorage:
             HStack(alignment: .top, spacing: 12) {
                 MARCOverviewPowerCard(details: reading.details, palette: palette)

@@ -28,7 +28,7 @@ struct FilesScreen: View {
     @State private var showTransferProgress = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @Environment(\.scenePhase) private var scenePhase
 
     private var connectionID: String {
@@ -100,6 +100,7 @@ struct FilesScreen: View {
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityLabel("Details and actions for \(entry.name)")
+                                    .marcLearnTarget(.filesActions, enabled: entry.id == entries.first?.id)
                                 }
                                 .background(entry.path == files.lastUploadedPath ? p.accent.opacity(0.12) : Color.clear)
                                 .overlay(alignment: .bottom) {
@@ -171,6 +172,9 @@ struct FilesScreen: View {
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showTransferProgress)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: files.completionTitle)
         }
+        .marcLearnOverlay([.files, .filesFolders, .filesActions], enabled: files.ready && !files.busy && !searchFocused &&
+            !importing && !choosingPhoto && !preparingPhoto && !actionSheetVisible &&
+            selectedEntry == nil && preview == nil && export == nil && files.completionTitle == nil)
         .marcDelayedActivity(
             active: files.busy && !files.transferring && !preparingPhoto && selectedEntry == nil,
             title: files.ready ? files.activity : "Connecting to Files"
@@ -409,6 +413,7 @@ struct FilesScreen: View {
             .disabled(!files.ready || files.busy || files.path.isEmpty)
             .accessibilityLabel("Jump to a parent folder")
             .accessibilityValue(files.path)
+            .marcLearnTarget(.filesFolders)
             Spacer(minLength: 8)
             Button {
                 browseFolder((files.path as NSString).deletingLastPathComponent)
@@ -463,6 +468,8 @@ struct FilesScreen: View {
             HStack(spacing: 0) {
                 uploadMenu(palette: p)
                     .font(.system(size: 18))
+                    .marcLearnTarget(.files)
+
                 Rectangle().fill(p.border.opacity(0.5))
                     .frame(width: 0.5, height: 18)
                     .accessibilityHidden(true)
@@ -483,6 +490,7 @@ struct FilesScreen: View {
             .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 16)
+
     }
 
     private func uploadMenu(palette p: MARCPalette) -> some View {
@@ -661,7 +669,7 @@ private struct MARCFileTransferCard: View {
     let cancel: (() -> Void)?
 
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -750,7 +758,7 @@ private struct MARCFileCompletionCard: View {
     let title: String
     let filename: String
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)

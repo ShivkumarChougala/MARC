@@ -18,7 +18,7 @@ extension MARCRemoteEntry {
 struct MARCActivityCard: View {
     let title: String
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var accent = "coral"
+    @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -48,7 +48,7 @@ struct MARCFileActionSheet: View {
     let terminal: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var accent = "coral"
+    @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
     @State private var info: MARCFileInfo?
     @State private var loading = true
     @State private var failure: String?
@@ -129,6 +129,7 @@ struct MARCFileActionSheet: View {
             }
             .foregroundStyle(p.text)
             .marcCanvas()
+            .marcGuidePresentationBarrier()
             .navigationTitle("Details and actions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

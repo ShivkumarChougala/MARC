@@ -6,7 +6,7 @@ struct MARCStatisticsScreen: View {
     @State private var period = 300
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var accentPreference = "coral"
+    @AppStorage("marc.accent") private var accentPreference = MARCAccentColor.defaultColor.rawValue
 
     private var chartEnd: Date {
         monitor.snapshot.map { Date(timeIntervalSince1970: $0.sampledAt) } ?? Date()

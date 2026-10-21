@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct SSHConnectScreen: View {
     let server: ServerProfile
     let monitor: SSHMonitor
+    @Environment(\.marcGuidedTour) private var setupTour
     @Environment(\.dismiss) private var dismiss
     @State private var loginDraft = MARCLoginDraft()
     @State private var publicHostKey = ""
@@ -14,7 +16,7 @@ struct SSHConnectScreen: View {
     @State private var trust = MARCHostTrust()
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
@@ -53,6 +55,7 @@ struct SSHConnectScreen: View {
                 }.disabled(testing || !loaded || !loginDraft.hasLogin)
             }.padding(16).padding(.top, 12)
         }.marcCanvas().interactiveDismissDisabled(testing)
+            .marcGuidePresentationBarrier()
             .onAppear {
                 guard !loaded else { return }
                 do {
@@ -64,6 +67,11 @@ struct SSHConnectScreen: View {
             }
             .hostTrustPrompt(trust)
         .marcConnectionAlert($failure)
+            .onChange(of: failure) { old, message in
+                guard setupTour?.active == true, setupTour?.stage == .connect,
+                      scenePhase == .active, message != nil, message != old else { return }
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
             .onDisappear { stopRequest(); loginDraft.clear() }
             .onChange(of: scenePhase) { _, phase in
                 if phase != .active { stopRequest() }

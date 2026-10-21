@@ -5,7 +5,7 @@ import UIKit
 struct MARCTerminalKeyStrip: View {
     let session: MARCTerminalSession
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var accent = "coral"
+    @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)

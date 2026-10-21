@@ -1,7 +1,38 @@
 import SwiftUI
+import UIKit
 struct AddServerScreen: View {
     private enum EntryMode: String, CaseIterable { case nearby = "Nearby Macs", manual = "Manual" }
     let store: ServerStore
+    var onConnected: () -> Void = {}
+    @Environment(\.marcGuidedTour) private var setupTour
+    @State private var setupHints = MARCSetupHintProgress()
+    @State private var setupHelp: MARCSetupHelpTopic?
+    private var setupHint: String? {
+        guard setupTour?.active == true, setupTour?.stage == .connect else { return nil }
+        return setupHints.target(manual: mode == .manual, selected: selectedNearby != nil,
+            hasHost: !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            hasDevices: !discovery.devices.isEmpty, ready: valid)
+    }
+    private var setupHintTitle: String {
+        switch setupHint {
+        case "method": return "Find your Mac"
+        case "scan": return "Nearby Macs"
+        case "device": return "Choose your Mac"
+        case "address": return "Your Mac’s address"
+        case "connect": return "Make the connection"
+        default: return "Your Mac account"
+        }
+    }
+    private var setupHintMessage: String {
+        switch setupHint {
+        case "method": return "Choose a Mac below, or tap Manual to enter its address."
+        case "scan": return discovery.isSearching ? "Keep your Mac awake while we look nearby." : "No Mac yet? Try Refresh or Manual."
+        case "device": return "Tap your Mac to enter its login."
+        case "address": return "Enter the IP address or hostname shown on your Mac."
+        case "connect": return "Connect when ready. You may be asked to verify this Mac’s fingerprint."
+        default: return "Use the account allowed in Remote Login, with its password or SSH key."
+        }
+    }
     @State private var mode: EntryMode = .nearby
     @State private var selectedNearby: NearbyMac?
     @State private var existingNearby: NearbyMac?
@@ -52,7 +83,8 @@ struct AddServerScreen: View {
 
 
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @State private var testMessage: String?
 
     var body: some View {
@@ -67,48 +99,39 @@ struct AddServerScreen: View {
                     }
                     dismiss()
                 }
-                .disabled(busy)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(p.raised, in: Capsule())
-
+                .disabled(busy).frame(minHeight: 44)
                 Spacer(minLength: 8)
-                Text("Add Server")
-                    .font(.system(size: 18, weight: .semibold))
+                if !dynamicType.isAccessibilitySize { Text("Add a Mac").font(.headline) }
                 Spacer(minLength: 8)
-
-                Button(matchingLogin == nil ? "Add" : "Connect", action: saveAndConnect)
-                    .disabled((!valid && matchingLogin == nil) || busy)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(p.raised, in: Capsule())
+                if !dynamicType.isAccessibilitySize { Text("Cancel").hidden().accessibilityHidden(true) }
             }
-            .font(.system(size: 15))
-            .tint(p.accent)
-            .padding(16)
+            .font(.subheadline).tint(p.accent)
+            .padding(.horizontal, 20).padding(.vertical, 4)
 
+            if dynamicType.isAccessibilitySize {
+                Text("Add a Mac").font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20)
+            }
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 20) {
                     Picker("Connection method", selection: $mode) {
                         ForEach(EntryMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }.pickerStyle(.segmented)
+                    }.pickerStyle(.segmented).marcSetupTarget("method")
+                    .simultaneousGesture(TapGesture().onEnded { setupHints.review("method") })
                     if mode == .nearby { nearbyMacs }
                     if mode == .manual || selectedNearby != nil {
-                    VStack(spacing: 0) {
-                        inputRow("Name", hint: "Display Name", text: $name)
-                        Divider().padding(.horizontal, 16)
-                        if mode == .manual {
-                            inputRow("Host", hint: "IP or Domain", text: $host)
+                    if mode == .manual {
+                        VStack(spacing: 0) {
+                            inputRow("Name", hint: "Display name", text: $name)
+                            Divider().padding(.horizontal, 16)
+                            inputRow("Host", hint: "IP or hostname", text: $host, help: .address)
                             Divider().padding(.horizontal, 16)
                             inputRow("Port", hint: "22", text: $port)
                                 .keyboardType(.numberPad)
-                        } else {
-                            Text("\(host):\(port)")
-                                .font(.system(size: 12)).foregroundStyle(p.muted)
-                                .frame(maxWidth: .infinity, alignment: .leading).padding(16)
                         }
+                        .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
+                        .marcSetupTarget("address")
                     }
-                    .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
 
                     if let matchingLogin {
                         Text("Already saved as \(matchingLogin.username). Use the saved login below, or enter a different username to add another login.")
@@ -118,20 +141,29 @@ struct AddServerScreen: View {
                             .font(.system(size: 12)).foregroundStyle(p.muted)
                     }
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Login")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(p.muted)
-                            .padding(.horizontal, 16)
-
-                        VStack(spacing: 0) {
-                            inputRow("Username", hint: "Mac username", text: $username)
-                            Divider().padding(.horizontal, 16)
-
-                            MARCLoginFields(draft: $loginDraft)
-                                .padding(16)
+                        ViewThatFits(in: .horizontal) {
+                            HStack {
+                                Text("Login").foregroundStyle(p.muted)
+                                Spacer(minLength: 12)
+                                MARCLoginMethodMenu(method: $loginDraft.method)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Login").foregroundStyle(p.muted)
+                                MARCLoginMethodMenu(method: $loginDraft.method)
+                            }
                         }
-                        .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
+                        .font(.subheadline).padding(.horizontal, 4)
+                        VStack(alignment: .leading, spacing: 0) {
+                            MARCSetupTextField(title: "Username", hint: "Mac username", text: $username,
+                                help: { setupHelp = .username })
+                                .textContentType(.username)
+                            Divider()
+                            MARCLoginFields(draft: $loginDraft, quiet: true)
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 4)
+                        .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
                     }
+                    .marcSetupTarget("login")
 
                     Button(action: testConnection) {
                         HStack {
@@ -140,10 +172,8 @@ struct AddServerScreen: View {
                             if busy { ProgressView() }
                             else { Image(systemName: "arrow.right") }
                         }
-                        .font(.system(size: 15))
-                        .padding(16)
-                        .frame(minHeight: 54)
-                        .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
+                        .font(.subheadline).foregroundStyle(p.muted)
+                        .padding(.horizontal, 4).frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
                     .disabled(!valid || busy)
@@ -155,24 +185,6 @@ struct AddServerScreen: View {
                             .padding(.horizontal, 12)
                     }
 
-                    Button(action: saveAndConnect) {
-                        HStack {
-                            Spacer()
-                            if busy { ProgressView().tint(.white) }
-                            Text(busy ? "Please wait…" : matchingLogin == nil ? "Save & connect" : "Use saved login")
-                            Spacer()
-                        }
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(minHeight: 52)
-                        .background(p.accent, in: RoundedRectangle(cornerRadius: 18))
-                        .foregroundStyle(.white)
-                    }
-                    .disabled((!valid && matchingLogin == nil) || busy)
-
-                    Text("Your login and this Mac’s fingerprint are stored securely on this iPhone.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(p.muted)
-                        .padding(.horizontal, 12)
 
                     }
                 }
@@ -182,9 +194,13 @@ struct AddServerScreen: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if mode == .manual || selectedNearby != nil { connectionFooter }
+        }
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .marcCanvas()
+        .marcGuidePresentationBarrier()
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(busy || pending != nil)
         .onAppear {
@@ -192,14 +208,36 @@ struct AddServerScreen: View {
             if !hasStartedScan { hasStartedScan = true; discovery.start() }
         }
         .onChange(of: mode) { _, newMode in
+            setupHints = MARCSetupHintProgress()
+            setupHints.review("method")
+            if setupTour?.active == true && scenePhase == .active {
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
             discovery.stop()
             selectedNearby = nil
             name = ""; host = ""; port = "22"; loginDraft.clear()
             failure = nil; testMessage = nil
             if newMode == .nearby { discovery.start() }
         }
+        .marcSetupCoach(target: setupHint, title: setupHintTitle, message: setupHintMessage,
+            enabled: !busy && trust.request == nil && existingNearby == nil && existingServer == nil && failure == nil && setupHelp == nil,
+            next: {
+                if let setupHint {
+                    setupHints.review(setupHint)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+            }, skip: { setupTour?.skip() })
+        .sheet(item: $setupHelp) { topic in
+            MARCSetupHelpSheet(topic: topic).marcGuidePresentationBarrier()
+        }
         .hostTrustPrompt(trust)
         .marcConnectionAlert($failure)
+        .onChange(of: failure) { old, message in
+            guard setupTour?.active == true, setupTour?.stage == .connect,
+                  scenePhase == .active, message != nil, message != old else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+        .onChange(of: selectedNearby?.id) { _, _ in setupHints.restartLogin() }
         .onChange(of: trust.request?.id) { _, id in
             if id == nil { refreshNearbyTrust() }
         }
@@ -218,6 +256,7 @@ struct AddServerScreen: View {
         }
         .sheet(item: $existingServer, onDismiss: {
             if let id = usingSavedID, store.monitor.connected, store.monitor.server?.id == id {
+                onConnected()
                 dismiss()
             }
             usingSavedID = nil
@@ -230,11 +269,54 @@ struct AddServerScreen: View {
         }
     }
 
+    private var connectionFooter: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        return Group {
+            if dynamicType.isAccessibilitySize {
+                VStack(alignment: .trailing, spacing: 4) {
+                    connectAction
+                    Label("Connect over SSH", systemImage: "lock")
+                        .font(.caption).foregroundStyle(p.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                HStack(spacing: 16) {
+                    Label("Connect over SSH", systemImage: "lock")
+                        .font(.caption).foregroundStyle(p.muted)
+                    Spacer(minLength: 8)
+                    connectAction
+                }
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 10)
+        .background(p.background)
+        .overlay(alignment: .top) { Divider().padding(.horizontal, 20) }
+    }
+
+    private var connectAction: some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        return Button(action: saveAndConnect) {
+            HStack(spacing: 8) {
+                if busy { ProgressView().tint(.white) }
+                Text(busy ? "Please wait…" : "Connect")
+                if !busy { Image(systemName: "arrow.right") }
+            }
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 20).frame(minHeight: 44)
+            .background(p.accent, in: Capsule()).foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .disabled((!valid && matchingLogin == nil) || busy)
+        .opacity(!valid && matchingLogin == nil ? 0.45 : 1)
+        .accessibilityHint(matchingLogin == nil ? "Save this Mac and connect using the entered login" : "Connect using the saved login")
+        .marcSetupTarget("connect")
+    }
+
     private var nearbyMacs: some View {
         let p = MARCPalette(dark: scheme == .dark)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Nearby Macs").font(.system(size: 14, weight: .semibold))
+                Text(selectedNearby == nil ? "Nearby Macs" : "Selected Mac").font(.subheadline.weight(.medium))
                 Spacer()
                 if selectedNearby != nil {
                     Button("Change Mac") {
@@ -254,6 +336,7 @@ struct AddServerScreen: View {
                     .frame(minHeight: 44)
                 }
             }
+            .marcSetupTarget("scan")
             if selectedNearby == nil {
                 Text("Choose a Mac to continue. Enable Remote Login on your Mac to make it discoverable. Other SSH devices may also appear.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
@@ -268,11 +351,22 @@ struct AddServerScreen: View {
             if discovery.devices.isEmpty {
                 Text(discovery.isSearching ? "Looking for nearby Macs…" : "No nearby Macs found.")
                     .font(.system(size: 13)).foregroundStyle(p.muted)
+                if !discovery.isSearching && selectedNearby == nil {
+                    Text("Can’t find your Mac?").font(.subheadline.weight(.medium))
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 16) { emptyScanActions }
+                        VStack(alignment: .leading, spacing: 0) { emptyScanActions }
+                    }
+                    .font(.caption).tint(p.accent).buttonStyle(.borderless)
+                }
             }
             ForEach(selectedNearby.map { [$0] } ?? discovery.devices) { device in
                 let saved = !savedProfiles(for: device).isEmpty
                 let trusted = trustedEndpoints.contains(HostKeyIdentity.endpoint(host: device.host, port: device.port))
                 Button {
+                    if setupTour?.active == true && scenePhase == .active {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
                     if saved { discovery.stop(); existingNearby = device }
                     else { selectNearby(device) }
                 } label: {
@@ -284,22 +378,29 @@ struct AddServerScreen: View {
                                 Text(saved ? "Saved" : "Trusted · add a login")
                                     .font(.system(size: 10, weight: .medium)).foregroundStyle(p.accent)
                             }
-                            Text("\(device.host):\(device.port)")
+                            Text("\(device.host) · Port \(device.port)")
                                 .font(.system(size: 11)).foregroundStyle(p.muted)
                         }
                         Spacer()
-                        Image(systemName: selectedNearby?.id == device.id ? "checkmark.circle.fill" : (saved ? "chevron.right" : "plus.circle")).foregroundStyle(p.accent)
+                        Image(systemName: selectedNearby?.id == device.id ? "checkmark.circle.fill" : "chevron.right").foregroundStyle(p.accent)
                     }
                     .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedNearby?.id == device.id)
+                .marcSetupTarget("device", enabled: selectedNearby == nil && discovery.devices.first?.id == device.id)
                 .accessibilityLabel("\(selectedNearby?.id == device.id ? "Selected" : "Choose") \(device.name), \(device.host), port \(device.port)")
             }
         }
         .padding(16)
         .background(p.surface, in: RoundedRectangle(cornerRadius: 22))
+        .marcSetupTarget("nearbyPanel")
+    }
+
+    @ViewBuilder private var emptyScanActions: some View {
+        Button("Check Mac setup") { setupHelp = .remoteLogin }.frame(minHeight: 44)
+        Button("Enter address manually") { mode = .manual }.frame(minHeight: 44)
     }
 
     private func refreshNearbyTrust() {
@@ -329,6 +430,7 @@ struct AddServerScreen: View {
         loginDraft.clear()
         store.selectedID = server.id
         if store.monitor.connected && store.monitor.server?.id == server.id {
+            onConnected()
             dismiss()
         } else {
             usingSavedID = server.id
@@ -337,17 +439,11 @@ struct AddServerScreen: View {
     }
 
     private func inputRow(
-        _ title: String, hint: String, text: Binding<String>
+        _ title: String, hint: String, text: Binding<String>, help: MARCSetupHelpTopic? = nil
     ) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-            TextField(hint, text: text)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: .infinity)
-        }
-        .font(.system(size: 15))
-        .padding(.horizontal, 16)
-        .frame(minHeight: 56)
+        MARCSetupTextField(title: title, hint: hint, text: text,
+            help: help.map { topic in { setupHelp = topic } })
+            .padding(.horizontal, 16).padding(.vertical, 2)
     }
 
     private func testConnection() {
@@ -439,6 +535,7 @@ struct AddServerScreen: View {
                 guard requestID == request else { throw CancellationError() }
                 pending = nil
                 loginDraft.clear()
+                onConnected()
                 dismiss()
             } catch is CancellationError {
                 if requestID == request { failure = nil }

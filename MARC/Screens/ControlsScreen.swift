@@ -9,7 +9,7 @@ struct ControlsScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicType
     // Observe accent changes here because MARCPalette reads the saved value directly.
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @AppStorage("marc.quickLaunch.v1") private var quickLaunchStorage = "{}"
     @State private var quickLaunchApps = MARCQuickLaunchSelection.defaults
     @State private var quickLaunchScrollID: String?
@@ -113,6 +113,7 @@ struct ControlsScreen: View {
                             enabled: controlsEnabled && !editingBrightness, palette: p,
                             editing: { editingVolume = $0 },
                             commit: { send(.volume, value: Int(volume.rounded())) })
+
                     }
                 }
                 controlCard(p) {
@@ -162,6 +163,7 @@ struct ControlsScreen: View {
                                 .font(.caption.weight(.medium)).tint(p.accent)
                                 .frame(minWidth: 44, minHeight: 44)
                                 .disabled(!controlsEnabled || editingVolume || editingBrightness)
+                                .marcLearnTarget(.controls)
                         }
                         if quickLaunchApps.isEmpty {
                             Text("Tap Edit to add apps from your Mac.")
@@ -213,6 +215,9 @@ struct ControlsScreen: View {
         }.scrollIndicators(.hidden).marcCanvas()
             .marcLiveReadings(enabled: usable && !editingVolume && !editingBrightness)
             .overlay(alignment: .bottom) { floatingFeedback(p) }
+            .marcLearnOverlay(.controls, enabled: controlsEnabled &&
+                !editingVolume && !editingBrightness && !showQuickLaunch && !showControlDetails &&
+                !showMediaSetup && !confirmWiFiOff && notice == nil && failure == nil)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if !controlDetails.isEmpty {

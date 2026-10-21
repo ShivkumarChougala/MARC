@@ -13,7 +13,7 @@ struct ProcessesScreen: View {
     @State private var processes: [MARCProcess] = []
     @State private var failure: String?
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     private var currentConnection: Bool {
         monitor.connected && processConnection == monitor.processConnectionID
@@ -111,6 +111,7 @@ struct ProcessesScreen: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+
                             .overlay(alignment: .bottom) {
                                 Rectangle().fill(p.border.opacity(0.5))
                                     .frame(height: 0.5)
@@ -146,6 +147,8 @@ struct ProcessesScreen: View {
             }
         }
         .marcCanvas()
+        .marcLearnOverlay(.processes, enabled: currentConnection && !processes.isEmpty &&
+            !searchFocused && !scrolling && terminating == nil)
         .marcLiveReadings(enabled: currentConnection && !scrolling)
         .navigationTitle("Processes")
         .toolbar(.hidden, for: .navigationBar)
@@ -243,7 +246,9 @@ struct ProcessesScreen: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .accessibilityLabel("Sort processes")
                 .accessibilityValue(sorting)
+                .marcLearnTarget(.processes)
             }
+
             HStack(spacing: 8) {
                 Text("NAME / PID").frame(maxWidth: .infinity, alignment: .leading)
                 Text("CPU").frame(width: 52, alignment: .trailing)
@@ -276,7 +281,7 @@ private struct MARCTerminationSheet: View {
 
     let dismiss: () -> Void
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @State private var busy = false
     @State private var failure: String?
     @State private var visible = false
@@ -328,6 +333,7 @@ private struct MARCTerminationSheet: View {
             Text("Unsaved work may be lost.")
                 .font(.system(size: 12))
                 .foregroundStyle(p.muted)
+            MARCFirstUseTip(key: "process-review", message: "Check the name and PID above. Cancel leaves this process running.")
             if let failure {
                 Text(failure)
                     .font(.system(size: 12))

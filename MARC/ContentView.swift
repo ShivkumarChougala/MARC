@@ -12,9 +12,26 @@ struct ContentView: View {
     @State private var initialConnectionCheck = true
     @State private var keyboardVisible = false
     @State private var terminating: MARCProcessTarget?
+    @AppStorage("marc.onboarding.version") private var onboardingVersion = 0
+    @State private var showingControls = false
+    @State private var showingSystem = false
+    @State private var guidedTour = MARCGuidedTour()
+    @State private var addingFromSetup = false
+    @State private var setupConnectedProfile: UUID?
+    @State private var setupConnectedSession: UUID?
+    @State private var setupSuccessName: String?
+    @State private var setupSuccessSession: UUID?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
+    private var needsIntroduction: Bool {
+        MARCOnboardingPolicy.needsIntroduction(
+            completedVersion: onboardingVersion, hasSavedServers: !store.servers.isEmpty,
+            profileReadFailed: store.storageError != nil)
+    }
+    private var reconnectPermitted: Bool {
+        scenePhase == .active && !needsIntroduction && guidedTour.flow != .setup
+    }
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         Group {
@@ -54,6 +71,9 @@ struct ContentView: View {
                     processSorting = sorting
                     tab = 1
                 })
+                .navigationDestination(isPresented: $showingSystem) {
+                    LiveSystemDetailScreen(store: store, openSettings: { tab = 4 })
+                }
             }
             }
         }
@@ -80,10 +100,11 @@ struct ContentView: View {
             for: UIResponder.keyboardWillHideNotification
         )) { _ in keyboardVisible = false }
         .marcCanvas()
+        .environment(\.marcGuidedTour, guidedTour)
         .allowsHitTesting(terminating == nil)
         .accessibilityHidden(terminating != nil)
         .overlay {
-            if !store.servers.isEmpty &&
+            if guidedTour.flow != .setup && !needsIntroduction && !store.servers.isEmpty &&
                 ((initialConnectionCheck && store.monitor.error == nil) ||
                  store.monitor.connecting ||
                  (store.monitor.connected &&
@@ -106,10 +127,120 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: tab) { _, _ in terminating = nil }
-        .onChange(of: store.monitor.processConnectionID) { _, _ in terminating = nil }
-        .task(id: scenePhase) {
+        .onChange(of: tab) { _, destination in
+            terminating = nil
+            if destination != 0 { showingSystem = false }
+        }
+        .onChange(of: store.monitor.processConnectionID) { _, _ in
+            setupSuccessName = nil
+            setupSuccessSession = nil
+            terminating = nil
+            showingSystem = false
+            guidedTour.discardFeatureRequest()
+        }
+        .onAppear(perform: prepareIntroduction)
+        .fullScreenCover(isPresented: Binding(
+            get: { guidedTour.active && (guidedTour.stage == .welcome || guidedTour.stage == .prepare) },
+            set: { showing in
+                if !showing && guidedTour.active && (guidedTour.stage == .welcome || guidedTour.stage == .prepare) {
+                    guidedTour.skip()
+                }
+            }
+        )) {
+            MARCPrepareMacScreen(tour: guidedTour)
+                .environment(\.marcGuidedTour, guidedTour)
+                .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
+        }
+        .onChange(of: guidedTour.stage) { _, stage in
+            if stage == .welcome { setupSuccessName = nil; setupSuccessSession = nil }
+            if stage == .addServer { tab = 4 }
+            if stage == .connect {
+                setupConnectedProfile = nil
+                setupConnectedSession = nil
+                addingFromSetup = true
+            }
+        }
+        .sheet(isPresented: $addingFromSetup, onDismiss: {
+            if let id = setupConnectedProfile, store.monitor.connected,
+               store.monitor.server?.id == id,
+               setupConnectedSession == store.monitor.processConnectionID {
+                // Only the still-active setup can publish its successful finish.
+                if guidedTour.active && guidedTour.stage == .connect {
+                    setupSuccessName = store.monitor.server?.name ?? "your Mac"
+                    setupSuccessSession = store.monitor.processConnectionID
+                    guidedTour.connectionSucceeded()
+                    if scenePhase == .active {
+                        UIAccessibility.post(notification: .announcement,
+                            argument: "Connected to \(setupSuccessName ?? "your Mac")")
+                    }
+                }
+            } else if guidedTour.active && guidedTour.stage == .connect {
+                guidedTour.back()
+            }
+            setupConnectedProfile = nil
+            setupConnectedSession = nil
+        }) {
+            AddServerScreen(store: store, onConnected: {
+                if store.monitor.connected {
+                    setupConnectedProfile = store.monitor.server?.id
+                    setupConnectedSession = store.monitor.processConnectionID
+                }
+            })
+            .environment(\.marcGuidedTour, guidedTour)
+        }
+        .sheet(isPresented: $showingControls) {
+            NavigationStack {
+                ControlsScreen(monitor: store.monitor).toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showingControls = false }
+                    }
+                }
+            }
+
+        }
+        .overlay(alignment: .top) {
+            if let name = setupSuccessName, scenePhase == .active, tab == 0,
+               store.monitor.connected, !guidedTour.active,
+               setupSuccessSession == store.monitor.processConnectionID {
+                Label {
+                    Text("Connected to \(name)")
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(p.accent)
+                }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(p.text)
+                    .lineLimit(2)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(p.raised, in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(p.border, lineWidth: 0.75))
+                    .padding(.horizontal, 24).padding(.top, 8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .task(id: setupSuccessName) {
+            guard setupSuccessName != nil else { return }
+            do { try await Task.sleep(for: .seconds(3)) }
+            catch { return }
+            guard !Task.isCancelled else { return }
+            setupSuccessName = nil
+            setupSuccessSession = nil
+        }
+        .onChange(of: guidedTour.featureRequest?.id) { _, _ in openRequestedFeature() }
+        .onChange(of: guidedTour.completionID) { _, _ in
+            if guidedTour.completedFlow == .setup {
+                onboardingVersion = max(onboardingVersion, MARCOnboardingPolicy.currentVersion)
+                if guidedTour.finished { tab = 0 }
+            }
+        }
+        .onChange(of: guidedTour.feedbackID) { _, _ in
             guard scenePhase == .active else { return }
+            if guidedTour.feedback == .completion {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } else { UISelectionFeedbackGenerator().selectionChanged() }
+        }
+        .onChange(of: keyboardVisible) { _, visible in guidedTour.keyboardVisible = visible }
+        .task(id: reconnectPermitted) {
+            guard reconnectPermitted else { return }
             while !Task.isCancelled {
                 await store.reconnectRememberedServer()
                 guard !Task.isCancelled else { return }
@@ -123,6 +254,8 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
+                setupSuccessName = nil
+                setupSuccessSession = nil
                 terminating = nil
                 terminalWorkspace.pause()
                 remoteFiles.stop()
@@ -135,7 +268,11 @@ struct ContentView: View {
             store.monitor.cancelConnection(reconnectAutomatically: store.monitor.automaticReconnectEnabled)
         }
         .onChange(of: store.monitor.connected) { _, connected in
-            if !connected { terminating = nil; terminalWorkspace.pause(); remoteFiles.stop() }
+            if !connected {
+                setupSuccessName = nil
+                setupSuccessSession = nil
+                terminating = nil; terminalWorkspace.pause(); remoteFiles.stop()
+            }
         }
         .onChange(of: store.monitor.server?.id) { _, id in
             terminating = nil
@@ -144,6 +281,39 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "dark" ? .dark : .light))
     }
+
+    private func prepareIntroduction() {
+        onboardingVersion = MARCOnboardingPolicy.migratedVersion(
+            onboardingVersion, hasSavedServers: !store.servers.isEmpty,
+            profileReadFailed: store.storageError != nil)
+        if needsIntroduction && !guidedTour.active {
+            initialConnectionCheck = false
+            tab = 4
+            guidedTour.startSetup()
+        }
+    }
+
+    private func openRequestedFeature() {
+        guard scenePhase == .active else { guidedTour.discardFeatureRequest(); return }
+        guard let action = guidedTour.takeFeatureRequest(currentConnection: store.monitor.processConnectionID,
+                                                        connected: store.monitor.connected) else { return }
+        terminating = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        showingControls = false
+        if action != .inspectSystem { showingSystem = false }
+        switch action {
+        case .checkMac: tab = 0
+        case .inspectSystem: tab = 0; showingSystem = true
+        case .findProcess: processSorting = "CPU"; tab = 1
+        case .moveFile: tab = 3
+        case .controlMac: tab = 0; showingControls = true
+        case .runCommand:
+            if tab != 2 { terminalReturnTab = tab }
+            tab = 2
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
     private func workspace<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
             content()
@@ -193,7 +363,7 @@ private struct MARCConnectionLoadingView: View {
     let cancel: () -> Void
 
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.accent") private var marcAccentPreference = "coral"
+    @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)

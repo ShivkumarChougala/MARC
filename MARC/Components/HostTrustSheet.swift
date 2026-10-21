@@ -47,9 +47,11 @@ private struct HostTrustSheet: View {
                         .font(.system(size: 13)).tint(p.accent).disabled(hasPasted)
 
                     Divider()
-                    DisclosureGroup("Check using a Mac command") {
+                    DisclosureGroup("How do I check this?") {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Run this in Terminal on the Mac you want to connect to, then paste the result below.")
+                            Text("On the Mac you’re connecting to, open Terminal and run this command. It reads the public SSH host key; it does not change your Mac.")
+                                .font(.system(size: 12)).foregroundStyle(p.muted)
+                            Text("Compare the SHA256 value with the fingerprint above, or paste the full result below to check for a match. If they differ, cancel and check the Mac’s identity.")
                                 .font(.system(size: 12)).foregroundStyle(p.muted)
                             Text(command).font(.system(size: 11, design: .monospaced))
                                 .textSelection(.enabled)
