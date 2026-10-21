@@ -66,12 +66,13 @@ struct MARCFeatureGuideScreen: View {
             }.padding(.horizontal, 20)
             TabView(selection: $selection) {
                 ForEach(MARCPreviewTopic.allCases) { topic in
-                    MARCFeaturePreviewPage(topic: topic).tag(topic.rawValue)
+                    MARCFeaturePreviewPage(topic: topic, isActive: selection == topic.rawValue)
+                        .tag(topic.rawValue)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .accessibilityLabel("MARC feature previews")
-            VStack(spacing: 6) {
+            VStack(spacing: 0) {
                 HStack(spacing: 7) {
                     ForEach(MARCPreviewTopic.allCases) { topic in
                         Button { move(to: topic.rawValue) } label: {
@@ -165,35 +166,300 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         "Screenshot of MARC’s \(name) screen. \(explanation)"
     }
 
+    // Anchors refer to the original screenshots, not live controls.
+    var notes: [MARCPreviewNote] {
+        switch self {
+        case .status:
+            return [
+                .init(title: "Live activity", summary: "CPU & memory", detail: "Check how busy your Mac is, how much memory it uses and how data is moving.", x: 0.20, y: 0.27),
+                .init(title: "Power & storage", summary: "Battery & space", detail: "See your Mac’s battery level, charging state and available storage.", x: 0.76, y: 0.58),
+                .init(title: "Statistics", summary: "Usage over time", detail: "Open Statistics to explore CPU, memory, network and disk history.", x: 0.20, y: 0.42),
+                .init(title: "Attention", summary: "Check your alerts", detail: "Needs attention shows alerts from the checks you have enabled. Open its settings to choose which checks to use.", x: 0.78, y: 0.81)
+            ]
+        case .system:
+            return [
+                .init(title: "Each core", summary: "CPU activity", detail: "See activity across your Mac’s CPU cores, along with uptime and load.", x: 0.19, y: 0.27),
+                .init(title: "Memory", summary: "RAM & swap", detail: "Check available memory and swap to understand how your Mac is using RAM.", x: 0.80, y: 0.52),
+                .init(title: "Network", summary: "Data in and out", detail: "See current download and upload rates, your Mac’s network address and cumulative transfer totals.", x: 0.22, y: 0.66),
+                .init(title: "Storage", summary: "Space & disk activity", detail: "Check used and available space, along with current disk reads and writes.", x: 0.80, y: 0.85)
+            ]
+        case .statistics:
+            return [
+                .init(title: "Time range", summary: "Usage history", detail: "Switch time ranges to explore the history collected by MARC.", x: 0.23, y: 0.18),
+                .init(title: "Spot patterns", summary: "Usage trends", detail: "Compare CPU, load, memory, network and disk activity over time.", x: 0.76, y: 0.51)
+            ]
+        case .processes:
+            return [
+                .init(title: "Find an app", summary: "Search processes", detail: "Search the process list to find an app or background task on your Mac.", x: 0.23, y: 0.14),
+                .init(title: "Busy apps", summary: "CPU & memory", detail: "Sort the list to find busy processes. Review the selected process before ending it.", x: 0.82, y: 0.24)
+            ]
+        case .terminal:
+            return [
+                .init(title: "Ask in words", summary: "AI suggestions", detail: "Describe what you want to do. Your configured AI model can suggest a shell command.", x: 0.24, y: 0.47),
+                .init(title: "You decide", summary: "Review, then Run", detail: "Read the suggested command before choosing Run. Generating a suggestion does not run it.", x: 0.80, y: 0.54),
+                .init(title: "Add session", summary: "Another shell", detail: "Use + to open another terminal session on this Mac. Use the session selector to switch between sessions.", x: 0.92, y: 0.39)
+            ]
+        case .files:
+            return [
+                .init(title: "Your folders", summary: "Browse & preview", detail: "Open folders and preview supported files on your Mac over SSH.", x: 0.20, y: 0.26),
+                .init(title: "File actions", summary: "More options", detail: "Use a file’s menu to find actions such as download, rename, move and permissions.", x: 0.89, y: 0.34),
+                .init(title: "Upload", summary: "iPhone to Mac", detail: "Choose Upload to select a file or photo from your iPhone and send it to the current folder on your Mac.", x: 0.78, y: 0.14),
+                .init(title: "Back", summary: "One folder up", detail: "Use Back to open the parent folder. The Home button returns to your Mac account’s home folder.", x: 0.88, y: 0.19)
+            ]
+        case .controls:
+            return [
+                .init(title: "Adjust", summary: "Sound & display", detail: "Adjust supported audio and display settings on your connected Mac.", x: 0.24, y: 0.36),
+                .init(title: "Quick Launch", summary: "Open Mac apps", detail: "Choose a saved app to launch it on your Mac. Edit Quick Launch to pick your favourites.", x: 0.77, y: 0.85),
+                .init(title: "Now Playing", summary: "Playback controls", detail: "See what’s playing and use the supported play, pause and skip controls on your Mac.", x: 0.78, y: 0.70)
+            ]
+        }
+    }
+
+}
+
+private struct MARCPreviewNote {
+    let title: String
+    let summary: String
+    let detail: String
+    let x: CGFloat
+    let y: CGFloat
 }
 
 private struct MARCFeaturePreviewPage: View {
     let topic: MARCPreviewTopic
+    let isActive: Bool
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var revealed = false
+    @State private var expandedNote: Int?
+    @ScaledMetric(relativeTo: .caption2) private var noteGutter: CGFloat = 58
+
+    private var p: MARCPalette { MARCPalette(dark: scheme == .dark) }
+
     var body: some View {
         GeometryReader { geometry in
-            let phoneHeight = min(570, max(300, geometry.size.height - 130))
+            let width = max(1, min(520, geometry.size.width - 16))
+            let gutter = min(64, max(58, noteGutter))
+            // Ordinary text sizes keep the side labels. Only accessibility text
+            // or insufficient room for both measured gutters uses the vertical layout.
+            let besidePhone = !dynamicType.isAccessibilitySize && width >= 2 * gutter + 140
+            let phoneHeight = min(540, max(240, geometry.size.height - 126))
             ScrollView {
                 VStack(spacing: 12) {
-                    Text(topic.headline).font(.title2.weight(.semibold))
+                    Text(topic.headline).font(.title3.weight(.semibold))
                         .multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
-                    Text(topic.explanation).font(.subheadline)
-                        .foregroundStyle(MARCPalette(dark: scheme == .dark).muted)
-                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                    MARCPhoneScreenshotFrame(image: Image(topic.assetName),
-                        accessibilityDescription: topic.summary)
-                        .frame(width: max(1, min(geometry.size.width - 56, phoneHeight * MARCPhoneScreenshotFrame.displayAspectRatio)))
-                        .padding(.top, 8)
-                    Text("Swipe to explore")
-                        .font(.caption).foregroundStyle(MARCPalette(dark: scheme == .dark).muted)
+                        .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 8)
+                    if !besidePhone {
+                        Text(topic.explanation).font(.subheadline)
+                            .foregroundStyle(p.muted)
+                            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 8)
+                    }
+                    if besidePhone {
+                        annotatedPhone(width: width, maxHeight: phoneHeight, gutter: gutter)
+                    } else {
+                        phone.frame(width: max(1, min(width - 32,
+                            phoneHeight * MARCPhoneScreenshotFrame.displayAspectRatio)))
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(topic.notes.enumerated()), id: \.offset) { index, note in
+                                noteButton(note, index: index, besidePhone: false)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+                    }
+                    if let index = expandedNote, topic.notes.indices.contains(index) {
+                        Text(topic.notes[index].detail).font(.subheadline).foregroundStyle(p.muted)
+                            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12).transition(.opacity)
+                    }
+                    Text("Tap a label to learn more")
+                        .font(.caption).foregroundStyle(p.muted).multilineTextAlignment(.center)
                 }
-                .frame(maxWidth: 520).padding(.horizontal, 20).padding(.vertical, 12)
+                // A fixed top inset keeps the headline near the header. Centering
+                // a short page in the entire viewport created the oversized top gap.
+                .frame(width: width).padding(.top, 20).padding(.bottom, 12)
                 .frame(maxWidth: .infinity)
             }.scrollIndicators(.hidden)
         }
+        // TabView preloads neighbouring pages. Only reveal the selected, active page.
+        .task(id: isActive && scenePhase == .active) {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { revealed = false; expandedNote = nil }
+            guard isActive, scenePhase == .active else { return }
+            do { try await Task.sleep(for: .milliseconds(160)) } catch { return }
+            guard !Task.isCancelled else { return }
+            revealed = true
+        }
+    }
+
+    private var phone: some View {
+        MARCPhoneScreenshotFrame(image: Image(topic.assetName), accessibilityDescription: topic.summary)
+    }
+
+    private func annotatedPhone(width: CGFloat, maxHeight: CGFloat, gutter: CGFloat) -> some View {
+        MARCPreviewAnnotationLayout(notes: topic.notes, gutter: gutter, maxPhoneHeight: maxHeight) {
+            phone.anchorPreference(key: MARCPreviewLabelAnchors.self, value: .bounds) { [-1: $0] }
+            ForEach(Array(topic.notes.enumerated()), id: \.offset) { index, note in
+                noteButton(note, index: index, besidePhone: true)
+                    .anchorPreference(key: MARCPreviewLabelAnchors.self, value: .bounds) { [index: $0] }
+            }
+        }
+        .frame(width: width)
+        .overlayPreferenceValue(MARCPreviewLabelAnchors.self) { anchors in
+            GeometryReader { reader in
+                if let phoneAnchor = anchors[-1] {
+                    let phoneRect = reader[phoneAnchor]
+                    ForEach(Array(topic.notes.enumerated()), id: \.offset) { index, note in
+                        if let labelAnchor = anchors[index] {
+                            let label = reader[labelAnchor]
+                            let start = CGPoint(x: note.x < 0.5 ? label.maxX + 4 : label.minX - 4,
+                                                y: label.midY)
+                            let end = CGPoint(x: phoneRect.minX + phoneRect.width * (11 + 306 * note.x) / 328,
+                                              y: phoneRect.minY + phoneRect.height * note.y)
+                            MARCPreviewLeader(start: start, end: end)
+                                .trim(from: 0, to: reduceMotion ? 1 : (revealed ? 1 : 0))
+                                .stroke(p.accent.opacity(0.75), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                                .opacity(reduceMotion && !revealed ? 0 : 1)
+                                .animation(.easeOut(duration: reduceMotion ? 0.16 : 0.35)
+                                    .delay(reduceMotion ? 0 : Double(index) * 0.10), value: revealed)
+                            Circle().fill(p.accent).frame(width: 4, height: 4)
+                                .position(end).opacity(revealed ? 1 : 0)
+                                .animation(.easeOut(duration: 0.16).delay(reduceMotion ? 0 : 0.25), value: revealed)
+                        }
+                    }
+                }
+            }.accessibilityHidden(true).allowsHitTesting(false)
+        }
+        .padding(.top, 8)
+    }
+
+    private func noteButton(_ note: MARCPreviewNote, index: Int, besidePhone: Bool) -> some View {
+        return Button {
+            guard isActive, scenePhase == .active else { return }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.65)
+            withAnimation(.easeInOut(duration: reduceMotion ? 0.12 : 0.20)) {
+                expandedNote = expandedNote == index ? nil : index
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(note.title).font(besidePhone ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+                    .foregroundStyle(expandedNote == index ? p.accent : p.text)
+                Text(note.summary).font(besidePhone ? .caption2 : .caption).foregroundStyle(p.muted)
+            }
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 44,
+                   alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(note.title). \(note.summary)")
+        .accessibilityValue(expandedNote == index ? note.detail : "")
+        .accessibilityHint(expandedNote == index ? "Double tap to collapse explanation" : "Double tap for explanation")
+        .opacity(revealed ? 1 : 0)
+        .offset(y: reduceMotion || revealed ? 0 : 4)
+        .animation(.easeOut(duration: reduceMotion ? 0.16 : 0.28)
+            .delay(reduceMotion ? 0 : 0.12 + Double(index) * 0.10), value: revealed)
+        .allowsHitTesting(revealed && isActive && scenePhase == .active)
+        .accessibilityHidden(!revealed)
     }
 }
 
+private struct MARCPreviewLabelAnchors: PreferenceKey {
+    static var defaultValue: [Int: Anchor<CGRect>] { [:] }
+    static func reduce(value: inout [Int: Anchor<CGRect>], nextValue: () -> [Int: Anchor<CGRect>]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+/// Ordered labels keep their natural text height and at least one clear gap.
+private enum MARCPreviewLabelPlacement {
+    static func centers(targets: [CGFloat], heights: [CGFloat], height: CGFloat,
+                        gap: CGFloat = 12, padding: CGFloat = 8) -> [CGFloat] {
+        precondition(targets.count == heights.count)
+        guard !heights.isEmpty else { return [] }
+        var tops = [CGFloat](repeating: 0, count: heights.count)
+        var cursor = padding
+        for index in heights.indices {
+            tops[index] = max(cursor, min(targets[index] - heights[index] / 2,
+                                          height - padding - heights[index]))
+            cursor = tops[index] + heights[index] + gap
+        }
+        cursor = height - padding
+        for index in heights.indices.reversed() {
+            tops[index] = min(tops[index], cursor - heights[index])
+            cursor = tops[index] - gap
+        }
+        return heights.indices.map { tops[$0] + heights[$0] / 2 }
+    }
+}
+
+/// Measure captions before placement. Extra labels never squeeze the phone;
+/// if text needs more height the existing page ScrollView can accommodate it.
+private struct MARCPreviewAnnotationLayout: Layout {
+    let notes: [MARCPreviewNote]
+    let gutter: CGFloat
+    let maxPhoneHeight: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrangement(width: proposal.width ?? 374, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let layout = arrangement(width: bounds.width, subviews: subviews)
+        for index in subviews.indices {
+            let rect = layout.frames[index]
+            subviews[index].place(at: CGPoint(x: bounds.minX + rect.minX, y: bounds.minY + rect.minY),
+                                 anchor: .topLeading,
+                                 proposal: ProposedViewSize(width: rect.width, height: rect.height))
+        }
+    }
+
+    private func arrangement(width: CGFloat, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+        let phoneWidth = max(1, min(width - 2 * gutter - 16,
+                                   maxPhoneHeight * MARCPhoneScreenshotFrame.displayAspectRatio))
+        let phoneHeight = phoneWidth / MARCPhoneScreenshotFrame.displayAspectRatio
+        let heights = notes.indices.map {
+            subviews[$0 + 1].sizeThatFits(ProposedViewSize(width: gutter, height: nil)).height
+        }
+        var height = phoneHeight
+        for onLeft in [true, false] {
+            let column = notes.indices.filter { (notes[$0].x < 0.5) == onLeft }
+            let required = column.reduce(CGFloat.zero) { $0 + heights[$1] }
+                + CGFloat(max(0, column.count - 1)) * 12 + 16
+            height = max(height, required)
+        }
+        let phoneRect = CGRect(x: (width - phoneWidth) / 2, y: (height - phoneHeight) / 2,
+                               width: phoneWidth, height: phoneHeight)
+        var frames = [CGRect](repeating: .zero, count: notes.count + 1)
+        frames[0] = phoneRect
+        for onLeft in [true, false] {
+            let ordered = notes.indices.filter { (notes[$0].x < 0.5) == onLeft }
+                .sorted { notes[$0].y < notes[$1].y }
+            let centers = MARCPreviewLabelPlacement.centers(
+                targets: ordered.map { phoneRect.minY + phoneHeight * notes[$0].y },
+                heights: ordered.map { heights[$0] }, height: height)
+            for (position, index) in ordered.enumerated() {
+                frames[index + 1] = CGRect(x: onLeft ? 0 : width - gutter,
+                    y: centers[position] - heights[index] / 2, width: gutter, height: heights[index])
+            }
+        }
+        return (CGSize(width: width, height: height), frames)
+    }
+}
+
+private struct MARCPreviewLeader: Shape {
+    let start: CGPoint
+    let end: CGPoint
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: start)
+        path.addLine(to: end)
+        return path
+    }
+}
 
 /// A decorative Pro-style frame around an unmodified, full-resolution screenshot.
 /// Hardware colours are independent of MARC's interface palette.
@@ -217,11 +483,6 @@ private struct MARCPhoneScreenshotFrame: View {
                 image.resizable().interpolation(.high)
                     .frame(width: Self.screenWidth, height: Self.screenHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 35))
-                    .overlay(alignment: .top) {
-                        // No recreated clock, dock, home indicator or UI labels.
-                        Capsule().fill(Color.black).frame(width: 82, height: 23).padding(.top, 12)
-                            .accessibilityHidden(true)
-                    }
                 RoundedRectangle(cornerRadius: 41).stroke(Color.white.opacity(0.30), lineWidth: 0.8).padding(0.8)
             }
             .frame(width: 320, height: shellHeight)
