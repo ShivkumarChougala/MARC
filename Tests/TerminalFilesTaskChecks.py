@@ -20,6 +20,9 @@ reply_types = operations[operations.index('struct MARCFileInfo:'):operations.ind
 formatting = (root / 'MARC/Services/MARCFileFormatting.swift').read_text()
 local_download = (root / 'MARC/Services/MARCLocalDownload.swift').read_text()
 
+platform_source = (root / 'MARC/Services/SSHConnectionTest.swift').read_text()
+platform = platform_source[platform_source.index('enum MARCPlatformError:'):platform_source.index('/// One authenticated, read-only request.')]
+
 support = r'''
 struct ServerProfile {
     let id: UUID
@@ -82,6 +85,7 @@ struct SSHClientSettings {
     func write(_ buffer: ByteBuffer) async throws {}
 }
 @MainActor final class SSHClient {
+    static var platformOutput = "MARC_MACOS_V1"
     static var attempts = 0
     static var subsystemOpens = 0
     static var connectHook: ((String) async -> Void)?
@@ -92,6 +96,9 @@ struct SSHClientSettings {
         attempts += 1
         if let hook = connectHook { await hook(settings.host) }
         return SSHClient()
+    }
+    func executeCommand(_ command: String, maxResponseSize: Int, mergeStreams: Bool) async throws -> ByteBuffer {
+        ByteBuffer(readableBytesView: Array(Self.platformOutput.utf8))
     }
     func openSFTP() async throws -> SFTPClient { Self.subsystemOpens += 1; return Self.sftp }
     func withPTY(_ request: SSHChannelRequestEvent.PseudoTerminalRequest,
@@ -232,6 +239,17 @@ checks = r'''
         let cancelled = Task { await session.run(server: a) }
         cancelled.cancel(); await cancelled.value
         precondition(SSHClient.attempts == 0 && session.status == "Offline")
+
+        SSHClient.platformOutput = "MARC_UNSUPPORTED_V1"
+        await session.run(server: a)
+        precondition(!session.ready && session.failure?.contains("macOS") == true)
+        let rejectedFiles = MARCRemoteFiles()
+        await rejectedFiles.connect(server: a)
+        precondition(!rejectedFiles.ready && rejectedFiles.failure?.contains("macOS") == true)
+        precondition(SSHClient.subsystemOpens == 0 && SSHClient.latestWriter == nil)
+        SSHClient.platformOutput = "MARC_MACOS_V1"
+        SSHClient.attempts = 0
+        print("PASS: non-Mac login cannot open a terminal or file subsystem")
 
         let workspace = MARCTerminalWorkspace()
         workspace.prepare(server: a)
@@ -548,7 +566,7 @@ if not compiler:
     raise SystemExit('Swift compiler required. Run this check on your Mac.')
 with tempfile.TemporaryDirectory(prefix='marc-task-checks-') as directory:
     source = Path(directory) / 'TaskChecks.swift'
-    source.write_text('import Foundation\nimport Observation\n' + support + formatting + local_download + reply_types + terminal_session + workspace + remote_files + transfer_io + checks)
+    source.write_text('import Foundation\nimport Observation\n' + support + platform + formatting + local_download + reply_types + terminal_session + workspace + remote_files + transfer_io + checks)
     binary = Path(directory) / 'task-checks'
     subprocess.run([compiler, '-swift-version', '5', '-parse-as-library', str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=30)

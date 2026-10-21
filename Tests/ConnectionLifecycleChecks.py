@@ -18,6 +18,9 @@ remove = store[store.index('    func remove('):store.index('    func update(')]
 remove += store[store.index('    private func removePreferences('):store.index('    private func persist(')]
 extensions = store[store.index('extension ServerStore {'):]
 
+platform_source = (root / 'MARC/Services/SSHConnectionTest.swift').read_text()
+platform = platform_source[platform_source.index('enum MARCPlatformError:'):platform_source.index('/// One authenticated, read-only request.')]
+
 support = r'''
 struct ServerProfile: Equatable {
     let id: UUID
@@ -46,6 +49,7 @@ struct SSHClientSettings {
     func open() { continuation?.resume(); continuation = nil }
 }
 @MainActor final class SSHClient {
+    static var platformOutput = "MARC_MACOS_V1"
     static var attempts = 0
     static var latest: SSHClient?
     static var connectHook: (() async throws -> Void)?
@@ -67,6 +71,9 @@ struct SSHClientSettings {
         AsyncThrowingStream { continuation = $0 }
     }
     func executeCommand(_ command: String, maxResponseSize: Int, mergeStreams: Bool) async throws -> FixtureBytes {
+        if command == MARCMacCompatibility.command {
+            return FixtureBytes(readableBytesView: Array(Self.platformOutput.utf8))
+        }
         let result = try await Self.readHook?() ?? "[]"
         return FixtureBytes(readableBytesView: Array(result.utf8))
     }
@@ -95,13 +102,14 @@ enum MARCLogin {
     static func authentication(_ login: MARCCredentials.Saved, username: String) throws -> String { "fixture" }
 }
 struct MARCConnectionIssue {
-    enum Kind: Equatable { case session, unknown, login }
+    enum Kind: Equatable { case session, unknown, login, compatibility }
     let kind: Kind
     let title: String
     let detail: String
     var message: String { title + detail }
-    var canRetry: Bool { kind != .login }
+    var canRetry: Bool { kind != .login && kind != .compatibility }
     static func classify(_ error: Error, login: MARCCredentials.Saved) -> Self {
+        if error is MARCPlatformError { return Self(kind: .compatibility, title: "Mac required", detail: "") }
         let blocked = (error as? FixtureError) == .blocked
         return Self(kind: blocked ? .login : .unknown, title: "Fixture failure", detail: "")
     }
@@ -155,6 +163,17 @@ checks = r'''
         let a = ServerProfile(id: UUID())
         let b = ServerProfile(id: UUID())
         let login = MARCCredentials.Saved(password: "fixture", hostKey: "fixture")
+        let rejected = SSHMonitor()
+        SSHClient.platformOutput = "MARC_UNSUPPORTED_V1"
+        do {
+            try await rejected.connect(server: a, login: login, hostKey: "fixture")
+            preconditionFailure("Non-Mac must not connect")
+        } catch MARCPlatformError.unsupported {}
+        precondition(!rejected.connected && MARCCredentials.saved[a.id] == nil)
+        precondition(rejected.connectionIssue?.canRetry == false)
+        SSHClient.platformOutput = "MARC_MACOS_V1"
+        SSHClient.attempts = 0
+        print("PASS: non-Mac monitoring is rejected before credentials or connection success")
         let store = ServerStore()
         store.servers = [a, b]
         MARCCredentials.saved[a.id] = login
@@ -282,7 +301,7 @@ if not compiler:
 with tempfile.TemporaryDirectory(prefix='marc-connection-checks-') as directory:
     source = Path(directory) / 'ConnectionChecks.swift'
     health = (root / 'MARC/Services/MARCCollectorHealth.swift').read_text()
-    source.write_text('import Foundation\nimport Observation\n' + support + health + prefix + end_monitor + remove + '\n}\n' + extensions + archive + checks)
+    source.write_text('import Foundation\nimport Observation\n' + support + platform + health + prefix + end_monitor + remove + '\n}\n' + extensions + archive + checks)
     binary = Path(directory) / 'connection-checks'
     subprocess.run([compiler, '-swift-version', '5', '-parse-as-library', str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=30)

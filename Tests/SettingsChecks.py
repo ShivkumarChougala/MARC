@@ -335,13 +335,16 @@ checks = r'''
         let failedAddTask = failedAdd.requestTask; await failedAddTask?.value
         precondition(!failedAdd.dismissed && failedAdd.connectionCallbacks == 0 && store.servers.count == 1,
                      "Failed SSH authentication must not report connection success")
-        store.monitor.connectHook = nil
+        store.monitor.connectHook = {
+            precondition(store.servers.count == 1, "A profile must not be saved before the verified connection finishes")
+        }
         let successfulAdd = AddFixture(store); successfulAdd.saveAndConnect()
         let successTask = successfulAdd.requestTask; await successTask?.value
         precondition(successfulAdd.dismissed && successfulAdd.pending == nil && store.servers.count == 2)
         precondition(successfulAdd.connectionCallbacks == 1,
                      "A successful add must notify onboarding exactly once")
 
+        store.monitor.connectHook = nil
         let connect = ConnectFixture(store.monitor, updatedB); connect.startTest()
         let connectTask = connect.requestTask; connect.stopRequest(); await connectTask?.value
         precondition(connect.trust.calls == 0 && !connect.dismissed)

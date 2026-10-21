@@ -24,6 +24,7 @@ xcrun swiftc -swift-version 5 \
     Tests/CollectorHealthChecks.swift \
     -o "$marc_build/collector-health-checks"
 "$marc_build/collector-health-checks"
+python3 Tests/MacCompatibilityChecks.py
 python3 Tests/ConnectionLifecycleChecks.py
 python3 Tests/TerminalFilesTaskChecks.py
 python3 Tests/TerminalScrollChecks.py
