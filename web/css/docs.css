@@ -1,0 +1,305 @@
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:110px;color-scheme:dark}
+body{margin:0;background:#101012;color:#ededf1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid #b9b9c4;outline-offset:4px}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.skip{position:fixed;top:-100px;left:16px;padding:12px;background:#eee;color:#111;z-index:100}
+.skip:focus{top:12px}
+
+.docs-header{min-height:74px;position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:24px;padding:14px 32px;background:#101012f5;border-bottom:1px solid #ffffff14}
+.brand{font-size:28px;font-weight:700;letter-spacing:-1px}
+.docs-label{border-left:1px solid #ffffff26;padding-left:24px;font-size:23px;color:#bbbcc6}
+.header-links{display:flex;gap:24px;font-size:13px;margin-left:auto;white-space:nowrap}
+.search{position:relative;max-width:390px;width:100%;margin-left:auto}
+.search input{width:100%;height:42px;padding:0 64px 0 14px;background:#17171b;border:1px solid #303038;border-radius:7px;color:#eee;font-size:13px}
+.search kbd{position:absolute;right:12px;top:12px;font-size:11px;color:#9a9aa5;pointer-events:none}
+#search-results{position:absolute;top:50px;left:0;right:0;max-height:65vh;overflow:auto;background:#19191e;border:1px solid #35353d;border-radius:8px;box-shadow:0 12px 32px #0005}
+#search-status{font-size:12px;color:#9999a7;padding:12px 14px;margin:0}
+#search-links a{display:block;padding:12px 14px;font-size:14px;border-top:1px solid #ffffff0b}
+#search-links a:hover,#search-links a:focus{background:#ffffff09;color:#e4e4eb}
+
+.docs-layout{display:grid;grid-template-columns:240px minmax(0,1fr) 210px;max-width:1600px;margin:auto;align-items:start}
+.sidebar{position:sticky;top:74px;max-height:calc(100dvh - 74px);overflow:auto;padding:30px 20px;border-right:1px solid #ffffff14;background:#0e0e10;scrollbar-width:thin}
+.sidebar summary{display:none}
+.nav-group{margin-bottom:28px}
+.nav-group>p{text-transform:uppercase;letter-spacing:1.1px;font-size:10px;color:#92929e;margin:0 12px 12px}
+.nav-group a{display:block;padding:10px 12px;margin:2px 0;font-size:13px;line-height:1.4;color:#b7b7c2;border-left:3px solid transparent;border-radius:4px}
+.nav-group a:hover{background:#ffffff06;color:#fff}
+.nav-group a[aria-current]{color:#e4e4eb;background:#ffffff0b;border-left-color:#b9b9c4}
+
+main{min-width:0;max-width:900px;width:100%;padding:36px 44px 24px;margin:auto}
+.breadcrumb{font-size:12px;color:#9999a7;margin-bottom:24px}
+h1{font-size:clamp(32px,3.4vw,48px);line-height:1.12;letter-spacing:-1.6px;margin:0 0 16px;font-weight:650}
+.intro{color:#b1b1bd;font-size:18px;line-height:1.65;margin:0 0 30px;padding-bottom:28px;border-bottom:1px solid #ffffff14}
+.article-body section{margin:0 0 34px}
+.article-body h2{font-size:22px;line-height:1.35;letter-spacing:-.4px;margin:0 0 14px;font-weight:600}
+.article-body p,.article-body li{font-size:15px;line-height:1.8;color:#b6b6c2}
+.article-body p{margin:12px 0}
+.article-body ul{padding-left:22px}
+.article-body li{padding:3px 0}
+.article-body strong{color:#ededf1;font-weight:550}
+.article-body a{color:#e4e4eb;text-decoration:underline;text-underline-offset:4px}
+.note{border:1px solid #303038;border-radius:8px;background:#18181c;padding:18px 20px}
+.note p{margin-bottom:0}
+
+.code{margin:18px 0;border:1px solid #303038;border-radius:7px;overflow:hidden;background:#0c0c0f}
+.code-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;padding:6px 14px;background:#1b1b20;font-size:12px;color:#aaaab6}
+.copy{background:transparent;border:1px solid #42424a;border-radius:4px;color:#dddde5;font-size:11px;padding:5px 9px;cursor:pointer}
+.copy:hover{border-color:#bbb}
+pre{margin:0;padding:18px;overflow:auto;line-height:1.7;font-size:13px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+p code,li code{font-size:.9em;background:#ffffff09;padding:2px 5px;border-radius:3px;color:#dedee7}
+
+.pager{display:flex;justify-content:space-between;gap:24px;border-top:1px solid #ffffff14;padding:24px 0;font-size:14px}
+.pager a:last-child{text-align:right}
+.pager small{display:block;color:#858592;font-size:11px;margin-bottom:8px}
+.pager a:hover{color:#e4e4eb}
+.docs-footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;border-top:1px solid #ffffff0c;padding:22px 0;color:#858592;font-size:11px;line-height:1.6}
+
+.toc{position:sticky;top:110px;padding:4px 22px;font-size:12px}
+.toc h2{font-size:12px;margin:0 0 18px;font-weight:600}
+.toc nav>a{display:block;border-left:1px solid #303038;padding:8px 0 8px 14px;line-height:1.5;color:#9999a7}
+.toc nav>a:hover,.toc nav>a[aria-current]{color:#ededf1;border-left-color:#b9b9c4}
+.issue{display:block;margin-top:28px;padding-top:18px;border-top:1px solid #ffffff14;color:#9999a7;line-height:1.7}
+
+@media(min-width:901px){
+  .sidebar details:not([open])>nav{display:block}
+  .sidebar details{display:block}
+}
+@media(max-width:1150px){
+  .docs-layout{grid-template-columns:220px minmax(0,1fr)}
+  .toc{display:none}
+  main{padding:32px}
+  .docs-header{gap:18px;padding-inline:24px}
+  .header-links{gap:18px}
+}
+@media(max-width:900px){
+  html{scroll-padding-top:180px}
+  .docs-header{flex-wrap:wrap;gap:12px;padding:12px 20px}
+  .brand{font-size:24px}
+  .docs-label{font-size:20px;padding-left:14px}
+  .header-links{font-size:12px;gap:16px}
+  .search{order:3;max-width:none;flex-basis:100%}
+  .docs-layout{display:block}
+  .sidebar{position:static;max-height:none;border-right:0;border-bottom:1px solid #ffffff14;padding:0 20px}
+  .sidebar summary{display:block;padding:15px 0;cursor:pointer;font-size:13px;color:#b7b7c2}
+  .sidebar nav{padding:12px 0}
+  .nav-group{margin-bottom:20px}
+  main{padding:28px 22px}
+  .intro{font-size:16px}
+  h1{font-size:34px}
+  .article-body h2{font-size:21px}
+  .article-body p,.article-body li{font-size:14px}
+  .breadcrumb{margin-bottom:20px}
+  .pager{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+}
+
+
+/* MARC neutral docs START */
+.nav-group a[aria-current] {
+  color: #f4f4f6;
+  background: #ffffff0b;
+  border-left-color: transparent;
+}
+.toc nav > a[aria-current],
+.toc nav > a:hover {
+  color: #ededf1;
+  border-left-color: #aaaab5;
+}
+.docs-callout,
+.docs-explainer {
+  margin: 20px 0;
+  border: 1px solid #ffffff16;
+  border-radius: 8px;
+  background: #17171b;
+}
+.docs-callout {
+  padding: 18px 20px;
+}
+.docs-callout > strong {
+  display: block;
+  font-size: 14px;
+}
+.article-body .docs-callout p {
+  margin: 8px 0 0;
+}
+.docs-explainer > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 54px;
+  padding: 16px 18px;
+  color: #dedee6;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  list-style: none;
+  cursor: pointer;
+}
+.docs-explainer > summary::-webkit-details-marker {
+  display: none;
+}
+.docs-explainer > summary::marker {
+  content: "";
+}
+.docs-explainer > summary::after {
+  content: "+";
+  flex: 0 0 16px;
+  text-align: center;
+  color: #9999a7;
+  font-size: 18px;
+}
+.docs-explainer[open] > summary::after {
+  content: "−";
+}
+.docs-explainer > summary:hover {
+  color: #fff;
+  background: #ffffff03;
+}
+.docs-explainer > div {
+  padding: 0 18px 16px;
+}
+.article-body .docs-explainer p,
+.article-body .docs-explainer li {
+  font-size: 14px;
+}
+.docs-explainer > div > :last-child {
+  margin-bottom: 0;
+}
+/* MARC neutral docs END */
+
+
+/* MARC Docs readability START */
+.docs-layout {
+  max-width: 1480px;
+}
+main {
+  padding: 36px 40px 24px;
+}
+.article-body {
+  max-width: 74ch;
+}
+.article-body section {
+  margin-bottom: 36px;
+}
+.article-body h2 {
+  margin-bottom: 14px;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+.article-body p,
+.article-body li {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.article-body p {
+  margin: 0 0 14px;
+}
+.article-body p:last-child {
+  margin-bottom: 0;
+}
+.article-body ul,
+.article-body ol {
+  margin: 14px 0 18px;
+  padding-left: 25px;
+}
+.article-body li {
+  padding: 0 0 0 5px;
+  margin: 0 0 10px;
+}
+.article-body li:last-child {
+  margin-bottom: 0;
+}
+.article-body li::marker {
+  color: #aaaab5;
+  font-variant-numeric: tabular-nums;
+}
+.article-body li > p {
+  margin: 8px 0;
+}
+.article-body a {
+  overflow-wrap: anywhere;
+}
+.article-body .code {
+  margin: 18px 0 22px;
+}
+.article-body pre {
+  scrollbar-width: thin;
+}
+.article-body .note,
+.article-body .docs-callout {
+  margin: 20px 0;
+  padding: 18px 20px;
+}
+.article-body .note p,
+.article-body .docs-callout p {
+  margin: 8px 0 0;
+}
+.article-body .docs-explainer > div {
+  padding: 2px 18px 18px;
+}
+.article-body .docs-explainer > div > :last-child {
+  margin-bottom: 0;
+}
+.toc {
+  max-height: calc(100dvh - 130px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.toc nav > a {
+  padding-block: 7px;
+  line-height: 1.6;
+}
+.nav-group a {
+  min-height: 40px;
+}
+.pager {
+  margin-top: 12px;
+}
+.pager > a {
+  max-width: 48%;
+  line-height: 1.6;
+}
+@media (max-width: 1150px) {
+  main {
+    padding: 32px;
+  }
+}
+@media (max-width: 900px) {
+  main {
+    padding: 28px 22px 20px;
+  }
+  .article-body section {
+    margin-bottom: 30px;
+  }
+  .article-body h2 {
+    font-size: 21px;
+    margin-bottom: 12px;
+  }
+  .article-body p,
+  .article-body li {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  .article-body ul,
+  .article-body ol {
+    padding-left: 22px;
+  }
+  .article-body .note,
+  .article-body .docs-callout {
+    padding: 16px;
+  }
+  .article-body pre {
+    padding: 16px;
+    font-size: 12px;
+  }
+}
+/* MARC Docs readability END */

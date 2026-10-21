@@ -1,0 +1,4380 @@
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:#101012;color:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;color-scheme:dark}a{color:inherit;text-decoration:none}button{font:inherit}a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid #ff7986;outline-offset:5px}.container{max-width:1120px;margin:auto;padding:0 32px}.top{position:sticky;top:0;z-index:10;background:#101012ee;backdrop-filter:blur(20px);border-bottom:1px solid #ffffff0c}nav{height:76px;display:flex;justify-content:space-between;align-items:center}.logo-brand{width:112px;height:39px;overflow:hidden;position:relative;border-radius:5px}.logo-brand img{width:132px;height:132px;position:absolute;left:-10px;top:-45px}.navlinks{display:flex;align-items:center;gap:30px;font-size:12px;color:#b1b1ba}.pill{background:#f4f4f6;color:#151518;padding:10px 19px;border-radius:24px}.hero{padding:80px 0 60px;display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;min-height:720px}.eyebrow{color:#a1a1ad;letter-spacing:1.8px;text-transform:uppercase;font-size:10px;font-weight:600;margin:0 0 23px}.hero h1{font-size:clamp(52px,6.7vw,80px);font-weight:600;letter-spacing:-3.8px;line-height:1.06;margin:0 0 28px}.hero h1 span{color:#8e8e9a}.lead{font-size:19px;line-height:1.65;color:#a8a8b3;max-width:440px}.actions{display:flex;align-items:center;gap:26px;margin:30px 0 18px}.button{display:inline-block;background:#f4f4f6;color:#151518;border-radius:25px;padding:14px 25px;font-size:13px}.textlink{color:#ff8b96;font-size:13px}.note{color:#8d8d9b;font-size:10px}.hero-art{display:flex;gap:17px;align-items:center;justify-content:center;padding:25px 0}.hero-art .phone{width:225px;transform:translateY(-15px)}.hero-art .phone:last-child{width:202px;transform:translateY(36px)}.phone{padding:6px;background:#19191d;border:1px solid #4a4a52;border-radius:30px;box-shadow:0 25px 55px #0005;line-height:0;overflow:hidden}.phone img{display:block;width:100%;height:auto;border-radius:24px;aspect-ratio:946/2048;object-fit:contain;background:#111}.introstrip{display:flex;justify-content:space-between;border-top:1px solid #2d2d33;border-bottom:1px solid #2d2d33;padding:23px 0;color:#91919e;font-size:11px;gap:16px}.section{padding:100px 0}.sectionhead{display:flex;justify-content:space-between;gap:50px;align-items:end;margin-bottom:37px}h2{font-size:clamp(34px,4.3vw,50px);font-weight:550;line-height:1.12;letter-spacing:-1.9px;margin:0}p{line-height:1.7}.sectionhead>p{max-width:340px;color:#9999a7;font-size:14px;margin:0}.showcase{background:#18181c;border:1px solid #ffffff06;border-radius:28px;padding:25px 48px 21px}.showtabs{display:flex;justify-content:center;gap:3px;flex-wrap:wrap}.showtabs button{background:transparent;border:0;color:#a4a4b1;font-size:11px;padding:11px 14px;border-radius:23px;cursor:pointer;transition:background .2s}.showtabs button[aria-selected=true]{background:#eeeef2;color:#18181b}.showbody{display:grid;grid-template-columns:1fr 290px;gap:80px;align-items:center;max-width:760px;margin:40px auto 0}.showcopy h2{font-size:42px;max-width:340px}.showcopy>p:not(.eyebrow){color:#a1a1ae;font-size:15px;max-width:330px;margin-top:21px}.showcopy .eyebrow{color:#ff8490}.screen-note{font-size:10px;color:#797987;display:block;margin-top:25px}.showbody .phone{width:290px}.show-footnote{text-align:center;font-size:10px;color:#81818f;margin:28px 0 0}.phone img.switching{animation:fade .25s ease}@keyframes fade{from{opacity:.5}to{opacity:1}}.featuregrid{display:grid;grid-template-columns:1fr 1fr;gap:22px}.feature{background:#18181b;padding:37px 38px;border-radius:23px;border:1px solid #ffffff05}.feature small{color:#ff8a96;letter-spacing:1.3px;font-size:10px;text-transform:uppercase}.feature h3{font-size:26px;font-weight:500;letter-spacing:-.8px;margin:20px 0 13px}.feature p{color:#9b9ba8;font-size:14px;margin:0;max-width:400px}.feature .link{display:inline-block;margin-top:22px;font-size:11px;color:#cdccd5}.setup{border-top:1px solid #303036;border-bottom:1px solid #303036;padding:56px 0;display:grid;grid-template-columns:1fr 1fr;gap:70px}.setup h2{font-size:40px}.steps{display:grid;gap:25px}.step{display:grid;grid-template-columns:26px 1fr;gap:15px}.step>span{font-size:11px;color:#ff8490;padding-top:4px}.step h3{font-size:15px;font-weight:500;margin:0 0 7px}.step p{font-size:12px;color:#9494a1;margin:0}.release{padding:74px 20px;text-align:center}.release h2{font-size:52px}.release p{font-size:15px;color:#9e9eab;margin:24px 0}.release button{border:1px solid #494950;border-radius:25px;padding:14px 25px;font-size:12px;background:#222226;color:#b5b5bf}.release .note{margin-top:17px}.faq{max-width:720px;margin:10px auto 75px}.faq h2{font-size:27px;letter-spacing:-.7px;margin-bottom:27px}details{border-bottom:1px solid #303036;padding:19px 0}summary{display:flex;justify-content:space-between;cursor:pointer;font-size:13px;list-style:none}summary:after{content:'+';color:#9999a5}details[open] summary:after{content:'−'}details p{color:#9898a5;font-size:13px;margin:16px 0 0}details a{color:#ff8995}.foot{background:#151518;border-top:1px solid #28282e}footer{padding:32px 0;display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:10px;color:#8d8d9a}.footerbrand{font-size:17px;font-weight:650;color:#dedee4;letter-spacing:.5px}.footlinks{display:flex;gap:24px}.footnote{font-size:9px;color:#737380;padding-bottom:25px}@media(max-width:800px){.container{padding:0 22px}.navlinks{gap:17px}.navlinks a:nth-child(2){display:none}nav{height:65px}.hero{padding:53px 0 48px;grid-template-columns:1fr;gap:25px;text-align:center;min-height:0}.hero h1{font-size:57px;letter-spacing:-2.7px}.lead{margin:auto;font-size:16px;max-width:360px}.hero .eyebrow{font-size:9px}.actions{justify-content:center;gap:20px}.hero-art{gap:13px;padding:25px 0 16px}.hero-art .phone{width:46%;max-width:190px}.hero-art .phone:last-child{width:41%;max-width:170px;transform:translateY(20px)}.phone{border-radius:25px;padding:5px}.phone img{border-radius:20px}.introstrip{justify-content:center;flex-wrap:wrap;font-size:9px;gap:17px;padding:20px 0}.section{padding:65px 0}.sectionhead{display:block;margin-bottom:28px}.sectionhead>p{margin-top:18px;font-size:13px}.showcase{padding:20px 15px;border-radius:21px}.showtabs button{font-size:10px;padding:9px 10px}.showbody{grid-template-columns:1fr;gap:25px;text-align:center;margin-top:29px}.showcopy h2{font-size:29px;margin:auto}.showcopy>p:not(.eyebrow){font-size:13px;margin:15px auto 0;max-width:330px}.showcopy .eyebrow{margin-bottom:12px}.screen-note{display:none}.showbody .phone{width:255px;margin:auto}.show-footnote{font-size:9px}.featuregrid{grid-template-columns:1fr;gap:15px}.feature{padding:29px}.feature h3{font-size:24px}.feature p{font-size:13px}.setup{grid-template-columns:1fr;gap:33px;padding:40px 0}.setup h2{font-size:33px}.release{padding:60px 10px}.release h2{font-size:39px}.release p{font-size:13px}footer{flex-wrap:wrap}.footlinks{gap:18px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.phone img.switching{animation:none}.showtabs button{transition:none}}
+
+.skip-link{position:fixed;top:10px;left:16px;z-index:20;padding:12px 18px;border-radius:8px;background:#fff;color:#151518;transform:translateY(-160%)}.skip-link:focus{transform:translateY(0)}.hero h1 span{color:#b1b1be}.hero{gap:40px;min-height:680px}.hero .lead{font-size:18px}.hero-art .phone{flex-shrink:1;min-width:0}.introstrip{font-size:12px;color:#b0b0bd}.note,.screen-note,.show-footnote{color:#a5a5b2}.showtabs{gap:6px;padding:6px;border-radius:26px;background:#111114;max-width:fit-content;margin:auto}.showtabs button{min-height:42px;padding:11px 15px}.showtabs button:hover:not([aria-selected=true]){background:#28282e;color:#f1f1f5}.button,.pill,.textlink,.link{transition:opacity .18s}.button:hover,.pill:hover,.textlink:hover,.link:hover{opacity:.8}.showbody{min-height:638px}.showcopy h2{line-height:1.15}.showcopy>p:not(.eyebrow){min-height:78px}.feature{border-color:#2a2a30}.sectionhead>p,.feature p,.step p,details p{color:#acacb8}.feature .link{padding:10px 0}.faq summary{min-height:25px;font-size:14px}summary::-webkit-details-marker{display:none}.footnote{color:#9393a1}.showcase{border-color:#26262d}
+@media(max-width:800px){.hero{min-height:0;gap:20px}.hero h1{font-size:clamp(43px,10vw,57px)}.hero .lead{font-size:16px}.hero-art{max-width:430px;width:100%;margin:auto}.showtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:none;border-radius:17px;gap:3px;padding:5px}.showtabs button{padding:9px 4px;min-height:44px;font-size:10px;border-radius:12px;white-space:normal}.showbody{min-height:0;margin-top:26px}.showcopy{min-height:138px}.showcopy h2{font-size:28px}.showcopy>p:not(.eyebrow){min-height:45px}.introstrip{font-size:10px}.showbody .phone{width:min(100%,265px)}.section{padding:58px 0}.logo-brand{width:104px;flex-shrink:0}.navlinks{gap:15px}.pill{padding:10px 16px}.container{padding:0 20px}}
+@media(prefers-reduced-motion:reduce){.button,.pill,.textlink,.link{transition:none}}
+
+/* MARC project facts */
+.marc-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 28px;
+  padding: 30px 0;
+  border-top: 1px solid #2d2d33;
+  border-bottom: 1px solid #2d2d33;
+}
+.marc-fact strong {
+  display: block;
+  color: #f4f4f6;
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -.3px;
+}
+.marc-fact > span {
+  display: block;
+  margin-top: 7px;
+  color: #a5a5b2;
+  font-size: 12px;
+}
+.marc-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  color: #ff8b96;
+  font-size: 12px;
+}
+.marc-github:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 800px) {
+  .marc-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 12px;
+    padding: 25px 0;
+  }
+  .marc-fact strong {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .marc-fact > span {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .marc-github {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+}
+@media (max-width: 420px) {
+  .marc-facts {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+}
+
+.marc-facts {
+  border-top: none;
+  border-bottom: none;
+}
+
+/* Refined project facts layout */
+.marc-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 24px;
+  padding: 24px 0;
+  border: none;
+  text-align: left;
+}
+
+.marc-fact strong {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.marc-fact > span {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.marc-github {
+  grid-column: auto;
+  justify-self: end;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+  .marc-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 18px;
+    padding: 20px 0;
+  }
+
+  .marc-github {
+    justify-self: start;
+    align-self: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  .marc-facts {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+/* MARC facts — minimal icon layout */
+.marc-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px 40px;
+  padding: 40px 0 16px;
+  border: none;
+  text-align: left;
+}
+.marc-fact {
+  min-width: 0;
+}
+.fact-icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 19px;
+  color: #b5b5c0;
+}
+.marc-fact strong {
+  display: block;
+  color: #f4f4f6;
+  font-size: 19px;
+  font-weight: 550;
+  letter-spacing: -.45px;
+  line-height: 1.4;
+}
+.marc-fact > span {
+  display: block;
+  margin-top: 8px;
+  color: #a5a5b2;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.marc-github {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 0;
+  color: #b9b9c5;
+  font-size: 12px;
+  text-decoration: none;
+  transition: color .18s ease;
+}
+.marc-github svg {
+  flex-shrink: 0;
+}
+.marc-github:hover {
+  color: #ff8b96;
+  text-decoration: none;
+}
+@media (max-width: 800px) {
+  .marc-facts {
+    gap: 26px 20px;
+    padding-top: 30px;
+  }
+  .marc-fact strong {
+    font-size: 15px;
+  }
+  .marc-fact > span {
+    font-size: 11px;
+  }
+  .fact-icon {
+    width: 25px;
+    height: 25px;
+    margin-bottom: 15px;
+  }
+}
+@media (max-width: 540px) {
+  .marc-facts {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .marc-fact {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    column-gap: 17px;
+  }
+  .fact-icon {
+    grid-row: 1 / 3;
+    margin: 2px 0 0;
+  }
+  .marc-fact strong {
+    font-size: 17px;
+  }
+  .marc-fact > span {
+    grid-column: 2;
+    margin-top: 5px;
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-github {
+    transition: none;
+  }
+}
+
+
+/* MARC compact summary */
+.marc-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 0;
+  text-align: center;
+  font-family: inherit;
+}
+.marc-summary strong {
+  display: block;
+  color: #f4f4f6;
+  font-size: clamp(28px, 3.5vw, 38px);
+  font-weight: 550;
+  letter-spacing: -1.2px;
+  line-height: 1.15;
+}
+.marc-summary span {
+  display: block;
+  margin-top: 10px;
+  color: #aaaab7;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: .1px;
+  line-height: 1.6;
+}
+.marc-summary a {
+  text-decoration: none;
+}
+.marc-summary a:hover span {
+  color: #ff8b96;
+}
+@media (max-width: 600px) {
+  .marc-summary {
+    gap: 24px;
+    max-width: 420px;
+    padding: 30px 0;
+  }
+  .marc-summary strong {
+    font-size: clamp(24px, 6vw, 30px);
+    letter-spacing: -.8px;
+  }
+  .marc-summary span {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+}
+
+/* Smaller summary typography */
+.marc-summary {
+  max-width: 520px;
+  gap: 32px;
+  padding: 28px 0;
+}
+
+.marc-summary strong {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -.6px;
+  line-height: 1.3;
+}
+
+.marc-summary span {
+  margin-top: 7px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+@media (max-width: 600px) {
+  .marc-summary {
+    gap: 20px;
+    padding: 22px 0;
+  }
+
+  .marc-summary strong {
+    font-size: 21px;
+  }
+}
+
+
+/* MARC showcase polish */
+.showcase {
+  padding: 24px 40px 20px;
+}
+.showtabs {
+  gap: 4px;
+  background: #121215;
+  border-radius: 22px;
+}
+.showtabs button {
+  min-height: 42px;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 18px;
+}
+.showtabs button[aria-selected="true"] {
+  background: #f0f0f4;
+  color: #17171a;
+}
+.showbody {
+  gap: 64px;
+  margin-top: 32px;
+}
+.showcopy h2 {
+  font-size: clamp(28px, 3.2vw, 38px);
+  font-weight: 550;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+.showcopy .eyebrow {
+  margin-bottom: 16px;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+.showcopy > p:not(.eyebrow) {
+  font-size: 14px;
+  line-height: 1.75;
+  color: #acacb8;
+}
+.show-footnote {
+  margin-top: 24px;
+  font-size: 10px;
+  color: #9494a2;
+}
+@media (max-width: 800px) {
+  .showcase {
+    padding: 18px 14px;
+  }
+  .showtabs {
+    border-radius: 15px;
+  }
+  .showtabs button {
+    min-height: 44px;
+    padding: 9px 4px;
+    font-size: 10px;
+    border-radius: 11px;
+  }
+  .showbody {
+    gap: 24px;
+    margin-top: 26px;
+  }
+  .showcopy h2 {
+    font-size: 28px;
+  }
+  .showcopy > p:not(.eyebrow) {
+    font-size: 13px;
+  }
+}
+
+
+/* MARC centered screen explorer */
+section[aria-label="App screen explorer"] .sectionhead {
+  display: block;
+  margin-bottom: 30px;
+  text-align: center;
+}
+section[aria-label="App screen explorer"] .sectionhead h2 {
+  font-size: clamp(30px, 4vw, 42px);
+  letter-spacing: -1px;
+}
+.showcase-intro {
+  max-width: 590px;
+  margin: 16px auto 0;
+  color: #acacb8;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.showbody {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  margin: 28px auto 0;
+  text-align: center;
+}
+.showcopy {
+  min-height: 0;
+  width: 100%;
+  max-width: 540px;
+}
+.showcopy .eyebrow {
+  margin-bottom: 10px;
+}
+.showcopy h2 {
+  max-width: none;
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.25;
+  letter-spacing: -.8px;
+}
+.showcopy > p:not(.eyebrow) {
+  min-height: 0;
+  max-width: 480px;
+  margin: 12px auto 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.showbody .phone {
+  width: min(100%, 280px);
+  margin: 0 auto;
+}
+.show-footnote {
+  margin-top: 20px;
+}
+@media (max-width: 800px) {
+  .showcase-intro {
+    font-size: 13px;
+  }
+  .showbody {
+    gap: 22px;
+    margin-top: 24px;
+  }
+  .showcopy h2 {
+    font-size: 25px;
+  }
+  .showcopy > p:not(.eyebrow) {
+    font-size: 12px;
+  }
+  .showbody .phone {
+    width: min(100%, 255px);
+  }
+}
+/* END MARC centered screen explorer */
+
+
+/* MARC lightweight showcase */
+.showcase {
+  background: transparent;
+  border: none;
+  padding: 12px 0 0;
+}
+.showtabs {
+  background: #1b1b20;
+  padding: 5px;
+}
+.showcopy h2 {
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.6px;
+}
+.showbody {
+  gap: 22px;
+}
+.showbody .phone {
+  box-shadow: 0 18px 45px #0004;
+}
+.screen-zoom-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: zoom-in;
+}
+.screen-zoom-button img {
+  pointer-events: none;
+}
+.marc-lightbox {
+  width: min(94vw, 560px);
+  max-height: 94vh;
+  padding: 14px;
+  border: 1px solid #41414b;
+  border-radius: 20px;
+  background: #161619;
+  color: #f4f4f6;
+}
+.marc-lightbox::backdrop {
+  background: #000c;
+}
+.lightbox-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 12px;
+}
+.lightbox-toolbar span {
+  font-size: 13px;
+}
+.lightbox-close {
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: #29292f;
+  color: #f4f4f6;
+  cursor: pointer;
+  font-size: 20px;
+}
+.marc-lightbox img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: calc(90vh - 85px);
+  height: auto;
+  margin: auto;
+  border-radius: 12px;
+}
+@media (max-width: 800px) {
+  .showcase {
+    padding: 8px 0 0;
+  }
+  .showcopy h2 {
+    font-size: 23px;
+  }
+}
+ /* END MARC lightweight showcase */
+
+
+/* MARC mobile screen tabs */
+.showtabs {
+  position: relative;
+  column-gap: 6px;
+}
+.showtabs button {
+  font-size: 12px;
+}
+.showcopy > p:not(.eyebrow) {
+  max-width: 460px;
+}
+@media (max-width: 800px) {
+  .showtabs {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 100%;
+    gap: 5px;
+    padding: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-radius: 24px;
+    scroll-padding-inline: 6px;
+  }
+  .showtabs::-webkit-scrollbar {
+    display: none;
+  }
+  .showtabs button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 11px 17px;
+    border-radius: 20px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .showcopy h2 {
+    max-width: 340px;
+    margin-inline: auto;
+    font-size: 24px;
+    line-height: 1.3;
+  }
+  .showcopy > p:not(.eyebrow) {
+    max-width: 350px;
+    margin-top: 11px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+}
+/* END MARC mobile screen tabs */
+
+/* Interface heading spacing */
+section[aria-label="App screen explorer"] .sectionhead {
+  margin-bottom: 36px;
+}
+section[aria-label="App screen explorer"] .sectionhead h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.25;
+  letter-spacing: -1px;
+  text-wrap: balance;
+}
+.showcase-intro {
+  margin-top: 20px;
+}
+
+
+/* MARC explorer spacing */
+section[aria-label="App screen explorer"] {
+  padding-block: 72px;
+}
+section[aria-label="App screen explorer"] .sectionhead {
+  margin-bottom: 28px;
+}
+section[aria-label="App screen explorer"] .sectionhead h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+section[aria-label="App screen explorer"] .showcase-intro {
+  margin: 16px auto 0;
+  line-height: 1.65;
+}
+section[aria-label="App screen explorer"] .showcase {
+  padding: 0;
+}
+section[aria-label="App screen explorer"] .showbody {
+  margin-top: 28px;
+  gap: 22px;
+  min-height: 0;
+}
+section[aria-label="App screen explorer"] .showcopy {
+  min-height: 0;
+}
+section[aria-label="App screen explorer"] .showcopy .eyebrow {
+  margin: 0 0 9px;
+}
+section[aria-label="App screen explorer"] .showcopy h2 {
+  margin: 0;
+}
+section[aria-label="App screen explorer"] #screen-description {
+  min-height: 0;
+  margin: 10px auto 0;
+}
+section[aria-label="App screen explorer"] .show-footnote {
+  margin: 18px 0 0;
+}
+@media (max-width: 800px) {
+  section[aria-label="App screen explorer"] {
+    padding-block: 48px;
+  }
+  section[aria-label="App screen explorer"] .sectionhead {
+    margin-bottom: 24px;
+  }
+  section[aria-label="App screen explorer"] .showcase-intro {
+    margin-top: 14px;
+  }
+  section[aria-label="App screen explorer"] .showbody {
+    margin-top: 24px;
+    gap: 20px;
+  }
+}
+/* END MARC explorer spacing */
+
+
+/* MARC side-by-side explorer */
+section[aria-label="App screen explorer"] .showbody {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 420px);
+  justify-content: center;
+  align-items: center;
+  gap: clamp(40px, 7vw, 100px);
+  max-width: 900px;
+  margin: 36px auto 0;
+  text-align: left;
+}
+section[aria-label="App screen explorer"] .showbody .phone {
+  grid-column: 1;
+  grid-row: 1;
+  width: min(100%, 290px);
+  margin: 0 auto;
+}
+section[aria-label="App screen explorer"] .showcopy {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  max-width: 420px;
+}
+section[aria-label="App screen explorer"] .showcopy h2 {
+  margin: 0;
+  max-width: 380px;
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -.9px;
+}
+section[aria-label="App screen explorer"] #screen-description {
+  max-width: 360px;
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.75;
+}
+@media (max-width: 800px) {
+  section[aria-label="App screen explorer"] .showbody {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 26px;
+    text-align: center;
+  }
+  section[aria-label="App screen explorer"] .showcopy {
+    max-width: 350px;
+  }
+  section[aria-label="App screen explorer"] .showcopy h2 {
+    margin-inline: auto;
+    font-size: 25px;
+  }
+  section[aria-label="App screen explorer"] #screen-description {
+    margin: 12px auto 0;
+    font-size: 13px;
+  }
+  section[aria-label="App screen explorer"] .showbody .phone {
+    width: min(100%, 255px);
+  }
+}
+/* END MARC side-by-side explorer */
+
+
+/* MARC unified showcase panel */
+section[aria-label="App screen explorer"] {
+  --preview-phone-width: 246px;
+}
+
+section[aria-label="App screen explorer"] .showcase {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+section[aria-label="App screen explorer"] .showtabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 3px;
+  background: transparent;
+  border-radius: 0;
+  position: relative;
+}
+
+section[aria-label="App screen explorer"] .showtabs button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  background: transparent;
+  color: #aaaab6;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .18s, color .18s;
+}
+
+section[aria-label="App screen explorer"]
+.showtabs button:hover:not([aria-selected="true"]) {
+  background: #202024;
+  color: #f4f4f6;
+}
+
+section[aria-label="App screen explorer"]
+.showtabs button[aria-selected="true"] {
+  background: #f0f0f3;
+  color: #17171a;
+}
+
+section[aria-label="App screen explorer"] .showbody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: 960px;
+  min-height: 0;
+  margin: 24px auto 0;
+  overflow: hidden;
+  border: 1px solid #ffffff06;
+  border-radius: 24px;
+  background: #17171a;
+  text-align: left;
+}
+
+section[aria-label="App screen explorer"] .showbody .phone {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 28px;
+  border: none;
+  border-radius: 0;
+  background: #1b1b20;
+  box-shadow: none;
+  line-height: 0;
+}
+
+section[aria-label="App screen explorer"] .screen-zoom-button {
+  display: block;
+  width: min(100%, var(--preview-phone-width));
+  margin: auto;
+  padding: 5px;
+  border: 1px solid #42424b;
+  border-radius: 28px;
+  background: #111114;
+  box-shadow: 0 16px 32px #0003;
+  cursor: zoom-in;
+}
+
+section[aria-label="App screen explorer"] .phone img {
+  display: block;
+  width: 100%;
+  max-width: var(--preview-phone-width);
+  height: auto;
+  aspect-ratio: 946 / 2048;
+  object-fit: contain;
+  margin: auto;
+  border-radius: 22px;
+}
+
+section[aria-label="App screen explorer"] .showcopy {
+  grid-area: 1 / 2;
+  align-self: center;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  padding: clamp(28px, 4vw, 48px);
+}
+
+section[aria-label="App screen explorer"] .showcopy .eyebrow {
+  margin: 0 0 14px;
+  color: #ff8793;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+}
+
+section[aria-label="App screen explorer"] .showcopy h2 {
+  max-width: 350px;
+  margin: 0;
+  font-size: clamp(26px, 2.8vw, 33px);
+  font-weight: 550;
+  letter-spacing: -.8px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+section[aria-label="App screen explorer"] #screen-description {
+  max-width: 330px;
+  min-height: 0;
+  margin: 16px 0 0;
+  color: #acacb8;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+section[aria-label="App screen explorer"] .show-footnote {
+  margin: 14px 0 0;
+  color: #92929f;
+  text-align: center;
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  section[aria-label="App screen explorer"] {
+    --preview-phone-width: 230px;
+  }
+
+  section[aria-label="App screen explorer"] .showtabs {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  section[aria-label="App screen explorer"] .showtabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  section[aria-label="App screen explorer"] .showbody {
+    display: flex;
+    flex-direction: column;
+    margin-top: 18px;
+    border-radius: 20px;
+    text-align: center;
+  }
+
+  section[aria-label="App screen explorer"] .showcopy {
+    padding: 26px 22px;
+  }
+
+  section[aria-label="App screen explorer"] .showcopy h2 {
+    margin-inline: auto;
+    font-size: 25px;
+  }
+
+  section[aria-label="App screen explorer"] #screen-description {
+    margin: 12px auto 0;
+    font-size: 13px;
+  }
+
+  section[aria-label="App screen explorer"] .showbody .phone {
+    padding: 24px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section[aria-label="App screen explorer"] .showtabs button {
+    transition: none;
+  }
+}
+/* END MARC unified showcase panel */
+
+
+/* MARC product story */
+.marc-story {
+  max-width: 900px;
+  margin: auto;
+  padding-block: 64px 72px;
+}
+.story-heading {
+  margin-bottom: 40px;
+  text-align: center;
+}
+.story-heading h2 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 550;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+.story-heading > p {
+  margin: 16px 0 0;
+  color: #acacb8;
+  font-size: 15px;
+}
+.story-featured {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 48px;
+}
+.story-copy {
+  max-width: 380px;
+}
+.story-copy .story-label {
+  margin: 0 0 18px;
+  color: #ff8793;
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+.story-copy h3 {
+  margin: 0;
+  color: #f4f4f6;
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 500;
+  letter-spacing: -.8px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.story-copy > p:not(.story-label) {
+  margin: 18px 0 0;
+  color: #acacb8;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.story-phone {
+  width: min(100%, 240px);
+  margin: auto;
+  padding: 5px;
+  border: 1px solid #42424b;
+  border-radius: 28px;
+  background: #19191d;
+  box-shadow: 0 18px 36px #0003;
+}
+.story-phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 22px;
+}
+.story-features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px 48px;
+  margin-top: 48px;
+}
+.story-features article {
+  min-width: 0;
+}
+.story-features h3 {
+  margin: 0;
+  color: #f4f4f6;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -.4px;
+  line-height: 1.35;
+}
+.story-features p {
+  margin: 12px 0 0;
+  color: #acacb8;
+  font-size: 14px;
+  line-height: 1.75;
+}
+@media (max-width: 600px) {
+  .marc-story {
+    padding-block: 44px 52px;
+  }
+  .story-heading {
+    margin-bottom: 30px;
+  }
+  .story-heading > p {
+    font-size: 13px;
+  }
+  .story-featured {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .story-copy {
+    max-width: 420px;
+    margin: auto;
+  }
+  .story-copy h3 {
+    font-size: 27px;
+  }
+  .story-copy > p:not(.story-label) {
+    font-size: 13px;
+  }
+  .story-phone {
+    width: min(100%, 220px);
+  }
+  .story-features {
+    grid-template-columns: 1fr;
+    gap: 26px;
+    margin-top: 36px;
+  }
+  .story-features p {
+    font-size: 13px;
+  }
+}
+/* END MARC product story */
+
+
+/* MARC shared iPhone frames */
+
+/* Static screenshots: hero and product story */
+.hero-art > .phone,
+.story-phone {
+  position: relative;
+  isolation: isolate;
+  padding: 7px;
+  border: 1px solid #6b6b73;
+  border-radius: 34px;
+  background: #080809;
+  box-shadow:
+    inset 0 0 0 2px #29292e,
+    0 0 0 1px #242429,
+    0 20px 40px #0004;
+  overflow: visible;
+}
+
+.hero-art > .phone > img,
+.story-phone > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  border-radius: 27px;
+  background: #111;
+}
+
+/* Side buttons */
+.hero-art > .phone::before,
+.story-phone::before {
+  content: "";
+  position: absolute;
+  top: 22%;
+  left: -3px;
+  width: 2px;
+  height: 28px;
+  border-radius: 2px;
+  background: #686870;
+  box-shadow: 0 37px 0 #686870;
+}
+
+.hero-art > .phone::after,
+.story-phone::after {
+  content: "";
+  position: absolute;
+  top: 28%;
+  right: -3px;
+  width: 2px;
+  height: 43px;
+  border-radius: 2px;
+  background: #686870;
+}
+
+/* Interactive screenshot: frame belongs to the zoom button */
+section[aria-label="App screen explorer"] .screen-zoom-button {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: min(100%, var(--preview-phone-width, 246px));
+  margin: auto;
+  padding: 7px;
+  border: 1px solid #6b6b73;
+  border-radius: 34px;
+  background: #080809;
+  box-shadow:
+    inset 0 0 0 2px #29292e,
+    0 0 0 1px #242429,
+    0 20px 40px #0004;
+  overflow: visible;
+  cursor: zoom-in;
+}
+
+section[aria-label="App screen explorer"] .screen-zoom-button img {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  border-radius: 27px;
+  background: #111;
+}
+
+section[aria-label="App screen explorer"] .screen-zoom-button::before {
+  content: "";
+  position: absolute;
+  top: 22%;
+  left: -3px;
+  width: 2px;
+  height: 28px;
+  border-radius: 2px;
+  background: #686870;
+  box-shadow: 0 37px 0 #686870;
+}
+
+section[aria-label="App screen explorer"] .screen-zoom-button::after {
+  content: "";
+  position: absolute;
+  top: 28%;
+  right: -3px;
+  width: 2px;
+  height: 43px;
+  border-radius: 2px;
+  background: #686870;
+}
+
+@media (max-width: 600px) {
+  .hero-art > .phone,
+  .story-phone,
+  section[aria-label="App screen explorer"] .screen-zoom-button {
+    padding: 6px;
+    border-radius: 29px;
+  }
+
+  .hero-art > .phone > img,
+  .story-phone > img,
+  section[aria-label="App screen explorer"] .screen-zoom-button img {
+    border-radius: 23px;
+  }
+}
+/* END MARC shared iPhone frames */
+
+
+
+
+
+/* MARC connection guide */
+.marc-setup {
+  max-width: 960px;
+  margin: auto;
+  padding-block: 64px 72px;
+}
+.setup-heading {
+  max-width: 620px;
+  margin: 0 auto 40px;
+  text-align: center;
+}
+.setup-heading h2 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 550;
+  letter-spacing: -1px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.setup-heading > p {
+  margin: 16px 0 0;
+  color: #acacb8;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.setup-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+}
+.setup-guide article {
+  min-width: 0;
+}
+.setup-number {
+  display: block;
+  margin-bottom: 20px;
+  color: #ff8793;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.setup-guide h3 {
+  margin: 0;
+  color: #f4f4f6;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -.5px;
+  line-height: 1.35;
+}
+.setup-guide p {
+  margin: 12px 0 0;
+  color: #acacb8;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.setup-hint {
+  max-width: 640px;
+  margin: 32px auto 0;
+  color: #9999a7;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
+}
+@media (max-width: 700px) {
+  .marc-setup {
+    padding-block: 44px 52px;
+  }
+  .setup-heading {
+    margin-bottom: 30px;
+  }
+  .setup-heading > p {
+    font-size: 13px;
+  }
+  .setup-guide {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    max-width: 440px;
+    margin: auto;
+  }
+  .setup-guide article {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: 16px;
+  }
+  .setup-number {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    margin: 4px 0 0;
+  }
+  .setup-guide h3,
+  .setup-guide p {
+    grid-column: 2;
+  }
+  .setup-guide h3 {
+    font-size: 20px;
+  }
+  .setup-guide p {
+    margin-top: 10px;
+  }
+  .setup-hint {
+    margin-top: 26px;
+    text-align: left;
+    max-width: 440px;
+  }
+}
+/* END MARC connection guide */
+
+
+/* MARC download section */
+.marc-download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 64px);
+  max-width: 1040px;
+  margin: auto;
+  padding: 64px 0;
+  text-align: left;
+}
+
+.download-logo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3.3 / 1;
+  overflow: hidden;
+}
+
+.download-logo img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 120%;
+  max-width: none;
+  height: auto;
+  transform: translate(-50%, -51.5%);
+}
+
+.download-copy {
+  min-width: 0;
+}
+
+.download-copy h2 {
+  margin: 0;
+  font-size: clamp(28px, 3.3vw, 38px);
+  font-weight: 550;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+
+.download-copy h2 > span {
+  color: #ff8793;
+}
+
+.download-copy > p {
+  margin: 12px 0 24px;
+  color: #acacb8;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.marc-download .download-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  margin: 0;
+}
+
+.download-pending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 13px 20px;
+  border: 1px solid #383840;
+  border-radius: 14px;
+  background: #222226;
+  color: #bcbcc8;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 1;
+}
+
+.download-pending svg {
+  flex-shrink: 0;
+}
+
+.download-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  width: auto;
+  margin: 0;
+  color: #bcbcc8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.download-source:hover {
+  color: #ff8793;
+}
+
+@media (max-width: 700px) {
+  .marc-download {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding-block: 48px;
+    text-align: center;
+  }
+
+  .download-logo {
+    max-width: 360px;
+    margin: auto;
+  }
+
+  .download-copy h2 {
+    font-size: 30px;
+    letter-spacing: -.8px;
+  }
+
+  .download-copy > p {
+    margin-bottom: 22px;
+    font-size: 14px;
+  }
+
+  .marc-download .download-actions {
+    justify-content: center;
+    gap: 10px 20px;
+  }
+}
+/* END MARC download section */
+
+
+/* MARC signature panel */
+.marc-download {
+  padding: 42px 38px;
+  margin: 40px auto 56px;
+  border: 1px solid #ffffff08;
+  border-radius: 26px;
+  background: #19191d;
+}
+.marc-download .download-logo {
+  border-radius: 12px;
+}
+.marc-download .download-logo img {
+  mix-blend-mode: screen;
+}
+.marc-download.signature-enter {
+  animation: marc-signature-enter .65s cubic-bezier(.2,.7,.3,1) both;
+}
+@keyframes marc-signature-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 700px) {
+  .marc-download {
+    padding: 32px 22px;
+    margin-block: 28px 40px;
+    border-radius: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-download.signature-enter {
+    animation: none;
+  }
+}
+/* END MARC signature panel */
+
+/* Refine the signature logo */
+.marc-download .download-logo {
+  border-radius: 0;
+}
+
+.marc-download .download-logo img {
+  mix-blend-mode: lighten;
+  width: 112%;
+}
+
+.marc-download {
+  gap: clamp(36px, 5vw, 64px);
+}
+
+@media (max-width: 700px) {
+  .marc-download {
+    gap: 28px;
+  }
+}
+
+
+/* MARC subtle motion */
+@keyframes marc-reveal {
+  from {
+    opacity: .35;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.marc-reveal {
+  animation: marc-reveal .65s cubic-bezier(.2,.7,.3,1) both;
+}
+.marc-nav-links > a,
+.download-source,
+.story-features a {
+  transition: color .18s ease;
+}
+.button,
+.marc-nav-download {
+  transition: background .18s ease, opacity .18s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-art > .phone {
+    transition: translate .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .hero-art > .phone:hover {
+    translate: 0 -5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-reveal,
+  .marc-download.signature-enter,
+  .phone img.switching {
+    animation: none;
+  }
+  .hero-art > .phone,
+  .button,
+  .marc-nav-download,
+  .marc-nav-links > a,
+  .download-source,
+  .story-features a {
+    transition: none;
+  }
+  .hero-art > .phone:hover {
+    translate: none;
+  }
+}
+/* END MARC subtle motion */
+
+
+/* MARC footer */
+.marc-footer {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: #101012;
+}
+.footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 32px 0 36px;
+}
+.footer-identity {
+  min-width: 0;
+}
+.footer-wordmark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #f4f4f6;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -.5px;
+}
+.footer-identity p {
+  margin: 3px 0 0;
+  color: #9999a7;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.marc-footer .footer-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 24px;
+  height: auto;
+  min-height: 44px;
+  padding: 0;
+}
+.footer-navigation a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: #aaaab7;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: color .18s ease;
+}
+.footer-navigation a:hover {
+  color: #f4f4f6;
+}
+@media (max-width: 600px) {
+  .footer-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 24px 0 28px;
+  }
+  .marc-footer .footer-navigation {
+    justify-content: flex-start;
+    gap: 8px 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-navigation a {
+    transition: none;
+  }
+}
+/* END MARC footer */
+
+
+/* MARC navigation */
+.marc-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #101012;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
+.marc-header.is-scrolled {
+  background: rgba(16, 16, 18, .76);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .06);
+}
+.marc-header .container {
+  position: relative;
+}
+.marc-header .marc-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  min-height: 72px;
+  height: auto;
+  padding: 0;
+}
+.marc-nav .logo-brand {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 108px;
+  height: 40px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.marc-nav .logo-brand img {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  max-width: none;
+  left: -10px;
+  top: -44px;
+}
+.marc-nav-links {
+  grid-area: 1 / 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.marc-nav-links > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: #bcbcc8;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: color .18s ease, background-color .18s ease;
+}
+.marc-nav-actions {
+  grid-area: 1 / 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.marc-nav-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 24px;
+  background: #f0f0f3;
+  color: #17171a;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color .18s ease;
+}
+.marc-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #f4f4f6;
+  cursor: pointer;
+}
+.marc-menu-toggle svg {
+  transition: transform .2s ease;
+}
+.marc-menu-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.marc-nav-links[hidden],
+.marc-menu-toggle[hidden] {
+  display: none;
+}
+@media (hover: hover) {
+  .marc-nav-links > a:hover,
+  .marc-menu-toggle:hover {
+    background: #ffffff09;
+    color: #f4f4f6;
+  }
+  .marc-nav-download:hover {
+    background: #dcdce3;
+  }
+}
+@media (max-width: 700px) {
+  .marc-header .container {
+    padding-inline: 16px;
+  }
+  .marc-header .marc-nav {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+    min-height: 64px;
+  }
+  .marc-nav .logo-brand {
+    width: 98px;
+  }
+  .marc-nav .logo-brand img {
+    width: 116px;
+    height: 116px;
+    left: -9px;
+    top: -38px;
+  }
+  .marc-nav-actions {
+    grid-area: 1 / 2;
+    gap: 6px;
+  }
+  .marc-nav-download {
+    padding-inline: 15px;
+  }
+  .marc-menu-toggle:not([hidden]) {
+    display: inline-flex;
+  }
+  .marc-nav-links {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    width: 100%;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding: 6px 0 16px;
+  }
+  .marc-nav-links > a {
+    justify-content: flex-start;
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+}
+@supports not ((backdrop-filter: blur(20px)) or
+               (-webkit-backdrop-filter: blur(20px))) {
+  .marc-header.is-scrolled {
+    background: #101012f5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-header,
+  .marc-nav-links > a,
+  .marc-nav-download,
+  .marc-menu-toggle svg {
+    transition: none;
+  }
+}
+/* END MARC navigation */
+
+
+/* MARC floating navigation */
+.marc-header {
+  position: sticky;
+  top: 14px;
+  z-index: 20;
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  margin: 14px auto 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.marc-header.is-scrolled {
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.marc-header > .container {
+  position: relative;
+  max-width: none;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 40px;
+  background: rgba(25, 25, 28, .82);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  transition: background-color .2s ease;
+}
+
+.marc-header.is-scrolled > .container {
+  background: rgba(25, 25, 28, .68);
+}
+
+.marc-header .marc-nav {
+  min-height: 64px;
+  gap: 18px;
+}
+
+.marc-nav .logo-brand {
+  width: 108px;
+  height: 40px;
+}
+
+.marc-nav-links {
+  gap: 6px;
+}
+
+.marc-nav-links > a {
+  padding: 10px 13px;
+  border-radius: 20px;
+}
+
+.marc-nav-download {
+  min-height: 42px;
+  padding-inline: 21px;
+  border-radius: 24px;
+}
+
+@media (max-width: 700px) {
+  .marc-header {
+    top: 10px;
+    width: calc(100% - 24px);
+    margin-top: 10px;
+  }
+
+  .marc-header > .container {
+    padding-inline: 14px;
+    border-radius: 28px;
+  }
+
+  .marc-header .marc-nav {
+    min-height: 58px;
+    gap: 0;
+  }
+
+  .marc-nav .logo-brand {
+    width: 98px;
+  }
+
+  .marc-nav-actions {
+    gap: 4px;
+  }
+
+  .marc-nav-download {
+    min-height: 40px;
+    padding-inline: 14px;
+    font-size: 12px;
+  }
+
+  .marc-nav-links {
+    padding: 6px 0 14px;
+  }
+
+  .marc-nav-links > a {
+    min-height: 48px;
+    border-radius: 12px;
+  }
+}
+
+@supports not ((backdrop-filter: blur(20px)) or
+               (-webkit-backdrop-filter: blur(20px))) {
+  .marc-header > .container,
+  .marc-header.is-scrolled > .container {
+    background: #19191cf5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-header > .container {
+    transition: none;
+  }
+}
+/* END MARC floating navigation */
+
+
+/* MARC navbar position and mobile fix */
+.marc-header,
+.marc-header.is-scrolled {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  margin: 0;
+  z-index: 50;
+}
+
+body {
+  padding-top: 92px;
+}
+
+html {
+  scroll-padding-top: 110px;
+}
+
+.marc-header > .container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.marc-header.is-scrolled > .container {
+  background: rgba(25, 25, 28, .68);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+
+.marc-nav-links > a[aria-current="location"] {
+  color: #f4f4f6;
+  background: #ffffff0b;
+}
+
+@media (max-width: 700px) {
+  body {
+    padding-top: 80px;
+  }
+
+  .marc-header,
+  .marc-header.is-scrolled {
+    top: 10px;
+    width: calc(100% - 24px);
+    max-width: none;
+  }
+
+  .marc-header > .container {
+    padding: 0 12px;
+    border-radius: 28px;
+  }
+
+  .marc-header .marc-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+    width: 100%;
+    min-height: 58px;
+  }
+
+  .marc-header .logo-brand {
+    grid-area: 1 / 1;
+    width: 90px;
+    height: 40px;
+    min-width: 0;
+  }
+
+  .marc-header .logo-brand img {
+    width: 106px;
+    height: 106px;
+    left: -8px;
+    top: -33px;
+  }
+
+  .marc-header .marc-nav-actions {
+    grid-area: 1 / 2;
+    justify-self: end;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .marc-header .marc-nav-download {
+    min-height: 44px;
+    padding: 0 13px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .marc-header .marc-menu-toggle:not([hidden]) {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+
+  .marc-header .marc-nav-links:not([hidden]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    gap: 4px;
+    padding: 6px 0 12px;
+    max-height: calc(100dvh - 90px);
+    overflow-y: auto;
+  }
+
+  .marc-header .marc-nav-links > a {
+    justify-content: flex-start;
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .marc-header .marc-nav-links[hidden],
+  .marc-header .marc-menu-toggle[hidden] {
+    display: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(20px)) or
+               (-webkit-backdrop-filter: blur(20px))) {
+  .marc-header.is-scrolled > .container {
+    background: #19191cf5;
+  }
+}
+/* END MARC navbar position and mobile fix */
+
+/* Align page content with the floating navbar */
+body > main > .container,
+#main-content > .container {
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  box-sizing: border-box;
+}
+
+.hero,
+.hero > div,
+.hero-art,
+.showcase,
+.showbody,
+.story-featured,
+.story-features {
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  body > main > .container,
+  #main-content > .container {
+    width: calc(100% - 24px);
+    padding-inline: 12px;
+  }
+}
+
+
+/* MARC shared page alignment */
+:root {
+  --marc-page-width: 1120px;
+  --marc-page-gutter: 20px;
+  --marc-inner-space: 24px;
+}
+
+.marc-header,
+.marc-header.is-scrolled {
+  width: calc(100% - var(--marc-page-gutter) * 2);
+  max-width: var(--marc-page-width);
+}
+
+#main-content > .container,
+.marc-footer > .container {
+  width: calc(100% - var(--marc-page-gutter) * 2);
+  max-width: var(--marc-page-width);
+  margin-inline: auto;
+  padding-inline: var(--marc-inner-space);
+  box-sizing: border-box;
+}
+
+.marc-header > .container {
+  padding-inline: var(--marc-inner-space);
+}
+
+#main-content [data-component],
+#main-content section,
+.hero > div,
+.hero-art,
+.story-featured > div,
+.showcopy {
+  min-width: 0;
+}
+
+.hero {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.hero-art {
+  width: 100%;
+  max-width: 100%;
+}
+
+.hero-art > .phone {
+  width: min(46%, 225px);
+  max-width: 46%;
+  flex: 0 1 auto;
+}
+
+.hero-art > .phone:last-child {
+  width: min(41%, 202px);
+  max-width: 41%;
+}
+
+@media (max-width: 800px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hero-art {
+    max-width: 430px;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --marc-page-gutter: 12px;
+    --marc-inner-space: 12px;
+  }
+
+  .marc-header,
+  .marc-header.is-scrolled {
+    width: calc(100% - var(--marc-page-gutter) * 2);
+    max-width: var(--marc-page-width);
+  }
+}
+/* END MARC shared page alignment */
+
+
+/* MARC compact navigation and spacing */
+.hero {
+  min-height: 0;
+  padding-block: 48px 40px;
+  align-items: center;
+}
+
+#main-content section[aria-label="App screen explorer"] {
+  padding-top: 32px;
+}
+
+.marc-header .marc-nav-links[hidden],
+.marc-header .marc-menu-toggle[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  body {
+    padding-top: 80px;
+  }
+
+  .marc-header > .container {
+    padding: 0 12px;
+    border-radius: 28px;
+  }
+
+  .marc-header .marc-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+    min-height: 58px;
+    height: auto;
+    padding: 0;
+    align-items: center;
+  }
+
+  .marc-header .logo-brand {
+    grid-column: 1;
+    grid-row: 1;
+    width: 90px;
+    height: 36px;
+    margin: 0;
+    align-self: center;
+  }
+
+  .marc-header .marc-nav-actions {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .marc-header .marc-nav-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .marc-header .marc-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    transform: none;
+  }
+
+  .marc-header .marc-menu-toggle svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+    transform: none !important;
+    rotate: none;
+  }
+
+  .marc-header .marc-menu-toggle svg path {
+    transform: none !important;
+  }
+
+  .marc-header .marc-nav-links {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    position: static;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 2px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: calc(100dvh - 100px);
+    margin: 0;
+    padding: 4px 0 12px;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .marc-header .marc-nav-links a {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .marc-header .marc-nav-links a:hover,
+  .marc-header .marc-nav-links a:focus-visible {
+    background: rgba(255, 255, 255, .06);
+  }
+
+  .hero {
+    padding-block: 28px 28px;
+    gap: 32px;
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 10vw, 56px);
+    line-height: 1.08;
+  }
+
+  .hero .lead {
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .hero .actions .button {
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+
+  #main-content section[aria-label="App screen explorer"] {
+    padding-top: 24px;
+  }
+}
+/* END MARC compact navigation and spacing */
+
+
+/* MARC mobile menu animation */
+.marc-header .marc-mobile-download {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .marc-header .marc-nav-actions > .marc-nav-download {
+    display: none;
+  }
+
+  .marc-header .marc-nav-links:not([hidden]) {
+    animation: marc-menu-open 220ms ease-out both;
+    transform-origin: top center;
+  }
+
+  .marc-header .marc-nav-links a.marc-mobile-download {
+    display: flex;
+    justify-content: center;
+    min-height: 44px;
+    margin: 8px 0 0;
+    padding: 0 16px;
+    border-radius: 22px;
+    background: #f3f3f5;
+    color: #101012;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .marc-header .marc-nav-links a.marc-mobile-download:hover {
+    background: #ffffff;
+  }
+
+  .marc-header .marc-menu-toggle svg {
+    transition: opacity 160ms ease;
+  }
+
+  .marc-header .marc-menu-toggle[aria-expanded="true"] svg {
+    opacity: .65;
+  }
+}
+
+@keyframes marc-menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-header .marc-nav-links:not([hidden]) {
+    animation: none;
+  }
+
+  .marc-header .marc-menu-toggle svg {
+    transition: none;
+  }
+}
+/* END MARC mobile menu animation */
+
+
+/* MARC refined explorer */
+#main-content section[aria-label="App screen explorer"] {
+  --preview-phone-width: 230px;
+  padding-block: 32px 48px;
+}
+
+section[aria-label="App screen explorer"] .sectionhead {
+  margin-bottom: 22px;
+}
+
+section[aria-label="App screen explorer"] .sectionhead h2 {
+  font-size: clamp(27px, 3.5vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -.9px;
+}
+
+section[aria-label="App screen explorer"] .showcase-intro {
+  margin: 12px auto 0;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+section[aria-label="App screen explorer"] .showtabs {
+  box-sizing: border-box;
+  gap: 4px;
+  padding: 4px;
+  scroll-padding-inline: 4px;
+}
+
+section[aria-label="App screen explorer"] .showtabs button {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+section[aria-label="App screen explorer"] .showtabs button:focus-visible {
+  outline: 2px solid #ff8793;
+  outline-offset: -2px;
+}
+
+section[aria-label="App screen explorer"] .showbody {
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1fr);
+  max-width: 900px;
+  margin-top: 18px;
+  border-radius: 24px;
+}
+
+section[aria-label="App screen explorer"] .showbody .phone {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 26px;
+}
+
+section[aria-label="App screen explorer"] .showcopy {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 32px;
+}
+
+section[aria-label="App screen explorer"] .showcopy .eyebrow {
+  margin-bottom: 12px;
+}
+
+section[aria-label="App screen explorer"] .showcopy h2 {
+  font-size: clamp(25px, 2.8vw, 31px);
+  line-height: 1.25;
+}
+
+section[aria-label="App screen explorer"] #screen-description {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+section[aria-label="App screen explorer"] .screen-zoom-button {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+@media (max-width: 800px) {
+  #main-content section[aria-label="App screen explorer"] {
+    --preview-phone-width: 220px;
+    padding-block: 24px 36px;
+  }
+
+  section[aria-label="App screen explorer"] .sectionhead {
+    margin-bottom: 18px;
+  }
+
+  section[aria-label="App screen explorer"] .showcase-intro {
+    max-width: 300px;
+    font-size: 13px;
+  }
+
+  section[aria-label="App screen explorer"] .showtabs {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  section[aria-label="App screen explorer"] .showtabs button {
+    flex: 0 0 auto;
+    padding-inline: 15px;
+  }
+
+  section[aria-label="App screen explorer"] .showbody {
+    display: flex;
+    flex-direction: column;
+    margin-top: 14px;
+    border-radius: 20px;
+  }
+
+  section[aria-label="App screen explorer"] .showcopy {
+    order: 0;
+    padding: 24px 20px 22px;
+    text-align: center;
+  }
+
+  section[aria-label="App screen explorer"] .showcopy h2 {
+    font-size: 24px;
+  }
+
+  section[aria-label="App screen explorer"] #screen-description {
+    max-width: 320px;
+    margin: 10px auto 0;
+    font-size: 13px;
+  }
+
+  section[aria-label="App screen explorer"] .showbody .phone {
+    order: 1;
+    padding: 22px 20px;
+  }
+}
+/* END MARC refined explorer */
+
+
+/* MARC refined product story */
+.marc-story {
+  max-width: 900px;
+  padding-block: 40px 48px;
+}
+
+.marc-story .story-heading {
+  margin-bottom: 32px;
+}
+
+.marc-story .story-heading h2 {
+  font-size: clamp(28px, 3.5vw, 36px);
+  line-height: 1.2;
+  letter-spacing: -.9px;
+}
+
+.marc-story .story-heading > p {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.marc-story .story-featured {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  gap: clamp(28px, 5vw, 56px);
+}
+
+.marc-story .story-copy {
+  max-width: 410px;
+  min-width: 0;
+}
+
+.marc-story .story-copy .story-label {
+  margin-bottom: 12px;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+}
+
+.marc-story .story-copy h3 {
+  font-size: clamp(25px, 3vw, 31px);
+  line-height: 1.25;
+  letter-spacing: -.7px;
+}
+
+.marc-story .story-copy > p:not(.story-label) {
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.marc-story .story-phone {
+  box-sizing: border-box;
+  width: min(100%, 230px);
+}
+
+.marc-story .story-features {
+  gap: 28px 40px;
+  margin-top: 36px;
+}
+
+.marc-story .story-features h3 {
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -.35px;
+}
+
+.marc-story .story-features p {
+  max-width: 390px;
+  margin-top: 9px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+@media (max-width: 700px) {
+  .marc-story {
+    padding-block: 32px 36px;
+  }
+
+  .marc-story .story-heading {
+    margin-bottom: 26px;
+  }
+
+  .marc-story .story-heading > p {
+    font-size: 13px;
+  }
+
+  .marc-story .story-featured {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+  }
+
+  .marc-story .story-copy {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+  }
+
+  .marc-story .story-copy h3 {
+    font-size: 26px;
+  }
+
+  .marc-story .story-copy > p:not(.story-label) {
+    font-size: 14px;
+  }
+
+  .marc-story .story-phone {
+    width: min(100%, 210px);
+  }
+
+  .marc-story .story-features {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 420px;
+    gap: 24px;
+    margin: 30px auto 0;
+  }
+
+  .marc-story .story-features h3 {
+    font-size: 19px;
+  }
+
+  .marc-story .story-features p {
+    max-width: none;
+    margin-top: 8px;
+    font-size: 14px;
+  }
+}
+/* END MARC refined product story */
+
+
+/* MARC refined download and footer */
+.marc-download {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 900px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 40px;
+  margin: 24px auto 36px;
+  padding: 36px 32px;
+  border-radius: 24px;
+}
+
+.marc-download .download-logo {
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.marc-download .download-copy {
+  min-width: 0;
+}
+
+.marc-download .download-copy h2 {
+  font-size: clamp(27px, 3vw, 34px);
+  line-height: 1.2;
+  letter-spacing: -.8px;
+}
+
+.marc-download .download-copy > p {
+  margin: 12px 0 20px;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.marc-download .download-actions {
+  gap: 10px 18px;
+}
+
+.marc-download .download-pending {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 22px;
+  font-size: 13px;
+}
+
+.marc-download .download-source {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.marc-footer .footer-content {
+  gap: 24px;
+  padding-block: 24px 28px;
+}
+
+.marc-footer .footer-wordmark {
+  font-size: 20px;
+}
+
+.marc-footer .footer-identity p {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.marc-footer .footer-navigation {
+  gap: 6px 20px;
+}
+
+.marc-footer .footer-navigation a {
+  font-size: 13px;
+}
+
+.marc-download .download-source:focus-visible,
+.marc-footer a:focus-visible {
+  outline: 2px solid #ff8793;
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+@media (max-width: 700px) {
+  .marc-download {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    margin-block: 18px 24px;
+    padding: 28px 20px;
+    border-radius: 20px;
+    text-align: center;
+  }
+
+  .marc-download .download-logo {
+    max-width: 280px;
+  }
+
+  .marc-download .download-copy h2 {
+    font-size: 28px;
+  }
+
+  .marc-download .download-copy > p {
+    margin-bottom: 18px;
+  }
+
+  .marc-download .download-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+
+  .marc-footer .footer-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding-block: 20px 24px;
+  }
+
+  .marc-footer .footer-navigation {
+    justify-content: flex-start;
+    gap: 4px 18px;
+  }
+}
+/* END MARC refined download and footer */
+
+
+/* MARC GitHub Sponsors section */
+.marc-support {
+  padding: 76px 0 88px;
+  text-align: center;
+}
+
+.marc-support-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.marc-support-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 26px;
+  border: 1px solid rgba(255, 140, 175, .12);
+  border-radius: 19px;
+  background: rgba(255, 120, 160, .055);
+  color: #f080a2;
+}
+
+.marc-support-icon svg {
+  transition: transform .25s ease;
+}
+
+.marc-support-icon:hover svg {
+  transform: scale(1.1);
+}
+
+.marc-support-eyebrow {
+  margin-bottom: 14px;
+  color: #9999a7;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .15em;
+}
+
+.marc-support h2 {
+  margin: 0;
+  color: #f5f5f7;
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 600;
+  letter-spacing: -.045em;
+  line-height: 1.15;
+}
+
+.marc-support p {
+  max-width: 460px;
+  margin: 18px 0 27px;
+  color: #a4a4b1;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.marc-support-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 23px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 26px;
+  background: #f2f2f4;
+  color: #151518;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: transform .2s ease, background .2s ease,
+              box-shadow .2s ease;
+}
+
+.marc-support-button:hover {
+  transform: translateY(-2px);
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(255,255,255,.08);
+}
+
+.marc-support-button:focus-visible {
+  outline: 2px solid #f080a2;
+  outline-offset: 4px;
+}
+
+.marc-support-button svg {
+  color: #d5577e;
+}
+
+.marc-support-note {
+  margin-top: 17px;
+  color: #858591;
+  font-size: 11px;
+}
+
+/* Sponsor appears in the mobile menu only */
+.marc-header .marc-mobile-sponsor {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .marc-support {
+    padding: 55px 12px 65px;
+  }
+
+  .marc-support-icon {
+    width: 54px;
+    height: 54px;
+    margin-bottom: 22px;
+  }
+
+  .marc-support h2 {
+    font-size: 32px;
+  }
+
+  .marc-support p {
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .marc-header .marc-nav-links:not([hidden])
+    > a.marc-mobile-sponsor {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    color: #f0a2ba;
+  }
+
+  .marc-header .marc-nav-links
+    > a.marc-mobile-sponsor:hover {
+    background: rgba(240,162,186,.09);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-support-icon svg,
+  .marc-support-button {
+    transition: none;
+  }
+
+  .marc-support-button:hover {
+    transform: none;
+  }
+}
+/* END MARC GitHub Sponsors section */
+
+
+/* MARC dedicated support page */
+.marc-nav-support {
+  color: #df9db4 !important;
+}
+
+.marc-nav-support:hover {
+  color: #ffc4d6 !important;
+  background: rgba(240,162,186,.08);
+}
+
+body:has(.marc-support) #main-content {
+  min-height: 65vh;
+  display: flex;
+  align-items: center;
+}
+
+body:has(.marc-support) #main-content > .container {
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  body:has(.marc-support) #main-content {
+    min-height: 65vh;
+  }
+}
+/* END MARC dedicated support page */
+
+
+/* PREMIUM MARC SUPPORT PAGE — V2 */
+.marc-support-page {
+  background: #101012;
+  color: #f4f4f6;
+}
+
+.marc-support-page #main-content {
+  min-height: calc(100svh - 220px);
+  display: flex;
+  align-items: center;
+}
+
+.marc-support-page #main-content > .container {
+  width: 100%;
+}
+
+.marc-support-page .marc-support {
+  padding: 64px 0 80px;
+  text-align: left;
+}
+
+.marc-support-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 70px);
+}
+
+.marc-support-copy {
+  min-width: 0;
+}
+
+.marc-support-page .marc-support-eyebrow {
+  display: block;
+  margin: 0 0 20px;
+  color: #a3a3ad;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .19em;
+}
+
+.marc-support-page .marc-support h1 {
+  margin: 0;
+  color: #f5f5f7;
+  font-size: clamp(39px, 4.5vw, 62px);
+  font-weight: 650;
+  line-height: 1.09;
+  letter-spacing: -.055em;
+}
+
+.marc-support-page .marc-support-intro {
+  max-width: 525px;
+  margin: 23px 0 30px;
+  color: #aeaeb9;
+  font-size: clamp(15px, 1.5vw, 18px);
+  line-height: 1.75;
+}
+
+.marc-sponsor-card {
+  max-width: 530px;
+  padding: 26px;
+  border: 1px solid #303036;
+  border-radius: 20px;
+  background: rgba(26, 26, 29, .92);
+  transition: border-color .2s ease;
+}
+
+.marc-sponsor-card:hover {
+  border-color: #55555e;
+}
+
+.marc-sponsor-heading {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.marc-sponsor-heading svg {
+  flex-shrink: 0;
+  color: #f2f2f5;
+}
+
+.marc-sponsor-heading h2 {
+  margin: 0;
+  color: #f3f3f6;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+}
+
+.marc-sponsor-card p {
+  margin: 18px 0 23px;
+  color: #a8a8b3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.marc-sponsor-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 18px;
+  border-radius: 13px;
+  background: #efeff1;
+  color: #151517;
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background .2s ease, transform .2s ease;
+}
+
+.marc-sponsor-button:hover {
+  background: #fff;
+  transform: translateY(-2px);
+}
+
+.marc-sponsor-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+.marc-support-page .marc-support-note {
+  max-width: 530px;
+  margin: 25px 0 0;
+  color: #92929d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.marc-nav-support {
+  color: #f4f4f6;
+}
+
+.marc-nav-support:hover {
+  color: #fff;
+  background: rgba(255,255,255,.07);
+}
+
+.marc-support-page .marc-nav-support {
+  border-radius: 22px;
+  background: rgba(255,255,255,.10);
+  color: #fff;
+}
+
+@media (max-width: 800px) {
+  .marc-support-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .marc-support-page #main-content {
+    min-height: 0;
+  }
+
+  .marc-support-page .marc-support {
+    padding: 54px 0 50px;
+  }
+
+
+
+
+}
+
+@media (max-width: 700px) {
+  .marc-support-page .marc-support {
+    padding: 40px 0 30px;
+  }
+
+  .marc-support-page .marc-support h1 {
+    font-size: clamp(36px, 9vw, 46px);
+  }
+
+  .marc-support-page .marc-support-intro {
+    margin: 17px 0 26px;
+    font-size: 15px;
+  }
+
+  .marc-sponsor-card {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .marc-sponsor-heading h2 {
+    font-size: 18px;
+  }
+
+
+
+  .marc-support-page .marc-support-note {
+    margin-top: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-sponsor-card,
+  .marc-sponsor-button {
+    transition: none;
+  }
+
+  .marc-sponsor-button:hover {
+    transform: none;
+  }
+}
+/* END PREMIUM MARC SUPPORT PAGE — V2 */
+
+
+/* PREMIUM MARC SUPPORT PAGE — V2 */
+.marc-support-page {
+  background: #101012;
+  color: #f4f4f6;
+}
+
+.marc-support-page #main-content {
+  min-height: calc(100svh - 220px);
+  display: flex;
+  align-items: center;
+}
+
+.marc-support-page #main-content > .container {
+  width: 100%;
+}
+
+.marc-support-page .marc-support {
+  padding: 64px 0 80px;
+  text-align: left;
+}
+
+.marc-support-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 70px);
+}
+
+.marc-support-copy {
+  min-width: 0;
+}
+
+.marc-support-page .marc-support-eyebrow {
+  display: block;
+  margin: 0 0 20px;
+  color: #a3a3ad;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .19em;
+}
+
+.marc-support-page .marc-support h1 {
+  margin: 0;
+  color: #f5f5f7;
+  font-size: clamp(39px, 4.5vw, 62px);
+  font-weight: 650;
+  line-height: 1.09;
+  letter-spacing: -.055em;
+}
+
+.marc-support-page .marc-support-intro {
+  max-width: 525px;
+  margin: 23px 0 30px;
+  color: #aeaeb9;
+  font-size: clamp(15px, 1.5vw, 18px);
+  line-height: 1.75;
+}
+
+.marc-sponsor-card {
+  max-width: 530px;
+  padding: 26px;
+  border: 1px solid #303036;
+  border-radius: 20px;
+  background: rgba(26, 26, 29, .92);
+  transition: border-color .2s ease;
+}
+
+.marc-sponsor-card:hover {
+  border-color: #55555e;
+}
+
+.marc-sponsor-heading {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.marc-sponsor-heading svg {
+  flex-shrink: 0;
+  color: #f2f2f5;
+}
+
+.marc-sponsor-heading h2 {
+  margin: 0;
+  color: #f3f3f6;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+}
+
+.marc-sponsor-card p {
+  margin: 18px 0 23px;
+  color: #a8a8b3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.marc-sponsor-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 18px;
+  border-radius: 13px;
+  background: #efeff1;
+  color: #151517;
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background .2s ease, transform .2s ease;
+}
+
+.marc-sponsor-button:hover {
+  background: #fff;
+  transform: translateY(-2px);
+}
+
+.marc-sponsor-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+.marc-support-page .marc-support-note {
+  max-width: 530px;
+  margin: 25px 0 0;
+  color: #92929d;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.marc-nav-support {
+  color: #f4f4f6;
+}
+
+.marc-nav-support:hover {
+  color: #fff;
+  background: rgba(255,255,255,.07);
+}
+
+.marc-support-page .marc-nav-support {
+  border-radius: 22px;
+  background: rgba(255,255,255,.10);
+  color: #fff;
+}
+
+@media (max-width: 800px) {
+  .marc-support-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .marc-support-page #main-content {
+    min-height: 0;
+  }
+
+  .marc-support-page .marc-support {
+    padding: 54px 0 50px;
+  }
+
+
+
+
+}
+
+@media (max-width: 700px) {
+  .marc-support-page .marc-support {
+    padding: 40px 0 30px;
+  }
+
+  .marc-support-page .marc-support h1 {
+    font-size: clamp(36px, 9vw, 46px);
+  }
+
+  .marc-support-page .marc-support-intro {
+    margin: 17px 0 26px;
+    font-size: 15px;
+  }
+
+  .marc-sponsor-card {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .marc-sponsor-heading h2 {
+    font-size: 18px;
+  }
+
+
+
+  .marc-support-page .marc-support-note {
+    margin-top: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-sponsor-card,
+  .marc-sponsor-button {
+    transition: none;
+  }
+
+  .marc-sponsor-button:hover {
+    transform: none;
+  }
+}
+/* END PREMIUM MARC SUPPORT PAGE — V2 */
+
+
+/* MARC Support — shared homepage phone layout */
+.marc-support-page .marc-support-phones {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 25px 0;
+  min-width: 0;
+}
+
+.marc-support-page .marc-support-phones .phone {
+  width: min(46%, 225px);
+  flex: 0 1 auto;
+  transform: translateY(-15px);
+}
+
+.marc-support-page .marc-support-phones .phone:last-child {
+  width: min(41%, 202px);
+  transform: translateY(36px);
+}
+
+@media (max-width: 800px) {
+  .marc-support-page .marc-support-phones {
+    max-width: 430px;
+    gap: 13px;
+    padding: 30px 0 45px;
+  }
+
+  .marc-support-page .marc-support-phones .phone {
+    width: 46%;
+    max-width: 190px;
+  }
+
+  .marc-support-page .marc-support-phones .phone:last-child {
+    width: 41%;
+    max-width: 170px;
+    transform: translateY(20px);
+  }
+}
+
+@media (max-width: 700px) {
+  .marc-support-page .marc-support-phones {
+    max-width: 360px;
+    padding: 20px 0 30px;
+  }
+}
+/* END MARC Support shared phone layout */
+
+/* MARC Support — crossed iPhone arrangement */
+
+.marc-support-page .marc-support-phones {
+  position: relative;
+  isolation: isolate;
+  max-width: 500px;
+  min-height: 480px;
+  gap: 0;
+  overflow: visible;
+}
+
+.marc-support-page .marc-support-phones .phone {
+  position: relative;
+  width: min(49%, 225px);
+  flex: 0 0 auto;
+  transform: translate(25px, -12px) rotate(-10deg);
+  z-index: 2;
+  transition: transform .3s ease;
+}
+
+.marc-support-page .marc-support-phones .phone:last-child {
+  width: min(45%, 202px);
+  transform: translate(-15px, 40px) rotate(12deg);
+  z-index: 1;
+}
+
+/* Subtle hover */
+@media (hover: hover) {
+  .marc-support-page .marc-support-phones .phone:hover {
+    transform: translate(25px, -20px) rotate(-8deg);
+  }
+
+  .marc-support-page .marc-support-phones .phone:last-child:hover {
+    transform: translate(-15px, 30px) rotate(10deg);
+  }
+}
+
+/* Mobile optimization */
+@media (max-width: 800px) {
+  .marc-support-page .marc-support-phones {
+    min-height: 380px;
+    max-width: 400px;
+    padding: 25px 0;
+  }
+
+  .marc-support-page .marc-support-phones .phone {
+    width: min(49%, 190px);
+    transform: translate(18px, -5px) rotate(-9deg);
+  }
+
+  .marc-support-page .marc-support-phones .phone:last-child {
+    width: min(45%, 170px);
+    transform: translate(-12px, 30px) rotate(11deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .marc-support-page .marc-support-phones {
+    min-height: 320px;
+    max-width: 340px;
+  }
+
+  .marc-support-page .marc-support-phones .phone {
+    width: 49%;
+    transform: translate(14px, -5px) rotate(-9deg);
+  }
+
+  .marc-support-page .marc-support-phones .phone:last-child {
+    width: 45%;
+    transform: translate(-10px, 24px) rotate(11deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marc-support-page .marc-support-phones .phone {
+    transition: none;
+  }
+}
+
+/* END MARC crossed iPhone arrangement */
+
+/* MARC navbar logo refinement */
+.marc-header .logo-brand {
+  position: relative;
+  display: block;
+  width: 112px;
+  height: 44px;
+  min-width: 112px;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.marc-header .logo-brand img {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  max-width: none;
+  left: 0;
+  top: -34px;
+  object-fit: contain;
+}
+
+/* Mobile logo */
+@media (max-width: 700px) {
+  .marc-header .logo-brand {
+    width: 100px;
+    min-width: 100px;
+    height: 40px;
+  }
+
+  .marc-header .logo-brand img {
+    width: 100px;
+    height: 100px;
+    left: 0;
+    top: -30px;
+  }
+}
+
+/* END MARC navbar logo refinement */
+
+/* Use cases: matching the existing MARC visual language */
+.uc-hero{padding:110px 0 90px;max-width:790px}.uc-hero h1{font-size:clamp(46px,7vw,82px);line-height:1.06;letter-spacing:-3.5px;font-weight:600;margin:0 0 28px}.uc-hero>p{color:#aaaab6;font-size:19px;max-width:650px;line-height:1.75}.uc-jump{display:inline-block;color:#ff8b96;font-size:14px;margin-top:22px}.uc-row{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:75px;padding:95px 35px;border-top:1px solid #2c2c32;min-height:660px}.uc-row.uc-reverse .uc-copy{order:2}.uc-row.uc-reverse .uc-visual{order:1}.uc-kicker{font-size:11px;letter-spacing:1.7px;color:#ff8b96;font-weight:600}.uc-copy h2{font-size:clamp(34px,4vw,52px);line-height:1.12;letter-spacing:-1.8px;margin:20px 0}.uc-copy>p{font-size:16px;color:#b0b0bc;line-height:1.8;max-width:465px}.uc-copy .uc-note{font-size:13px;color:#8f8f9d;margin-top:25px;border-left:2px solid #ff8b96;padding-left:16px}.uc-visual{display:flex;justify-content:center;align-items:center;background:radial-gradient(ellipse at center,#25252b 0%,#151518 55%,transparent 75%);min-height:550px}.uc-visual .phone{width:min(100%,275px);transition:transform .3s ease}.uc-visual .phone:hover{transform:translateY(-7px)}.uc-end{border-top:1px solid #2c2c32;padding:95px 0 115px;max-width:790px}.uc-end h2{margin:14px 0;font-size:clamp(36px,5vw,55px)}.uc-end>p{color:#aaaab6;font-size:16px;line-height:1.8}.uc-end-actions{display:flex;align-items:center;gap:26px;margin-top:30px}@media(max-width:800px){.uc-hero{padding:65px 0 55px}.uc-hero h1{letter-spacing:-2px}.uc-hero>p{font-size:16px}.uc-row{grid-template-columns:1fr;gap:26px;padding:65px 0;min-height:0}.uc-row.uc-reverse .uc-copy,.uc-row.uc-reverse .uc-visual{order:initial}.uc-copy h2{font-size:35px}.uc-copy>p{font-size:15px}.uc-visual{min-height:0;padding:20px 0 10px}.uc-visual .phone{width:min(72%,265px)}.uc-end{padding:65px 0 80px}.uc-end-actions{flex-wrap:wrap}}
+
+/* Use Cases refinements — share the homepage iPhone shell */
+.uc-visual .phone{width:min(100%,290px);padding:7px;background:#19191d;border:1px solid #4a4a52;border-radius:34px;box-shadow:0 25px 55px #0007;overflow:hidden}
+.uc-visual .phone img{display:block;width:100%;height:auto;aspect-ratio:946/2048;object-fit:contain;border-radius:27px;background:#111}
+.uc-free{color:#e2c0c5!important;font-size:14px!important;margin-top:20px}
+.uc-copy>p{max-width:520px}.uc-row{gap:60px}.uc-copy .uc-note{line-height:1.7}
+@media(max-width:800px){.uc-visual .phone{width:min(74%,270px);border-radius:30px}.uc-visual .phone img{border-radius:24px}.uc-row{gap:24px}}
+
+/* MARC legal navigation and grouped footer */
+.marc-footer{display:block;padding:0}.marc-footer .footer-content.marc-footer-grid{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(3,minmax(120px,1fr));gap:36px;align-items:start;padding:44px 0 28px}.marc-footer .marc-footer-column{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;height:auto;padding:0}.marc-footer-column h2{font-size:12px;font-weight:600;letter-spacing:.3px;line-height:1.5;margin:0 0 12px;color:#eeeef2}.marc-footer-column a{display:inline-flex;align-items:center;min-height:40px;font-size:12px;line-height:1.5;color:#b1b1be}.marc-footer-column a:hover{color:#ff8b96}.marc-footer .footer-credit{margin-top:16px;font-size:11px}.marc-footer-bottom{padding:18px 0 22px;border-top:1px solid #303036;display:flex;justify-content:space-between;gap:20px;align-items:center;font-size:10px;color:#a5a5b2}.marc-footer-bottom a{min-height:40px;display:inline-flex;align-items:center}
+@media(max-width:1000px){.marc-header,.marc-header.is-scrolled{top:10px;width:calc(100% - 24px)}body{padding-top:80px}.marc-header>.container{padding:0 14px;border-radius:24px}.marc-header .marc-nav{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0;min-height:58px;height:auto}.marc-header .logo-brand{grid-area:1/1}.marc-header .marc-nav-actions{grid-area:1/2;justify-self:end;gap:6px}.marc-header .marc-menu-toggle:not([hidden]){display:inline-flex;width:44px;height:44px}.marc-header .marc-nav-links:not([hidden]){grid-column:1/-1;grid-row:2;position:static;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;width:100%;height:auto;min-height:0;max-height:calc(100dvh - 100px);margin:0;padding:6px 0 12px;gap:2px;overflow-y:auto}.marc-header .marc-nav-links>a{display:flex;justify-content:flex-start;align-items:center;min-height:44px;padding:0 14px;font-size:14px}.marc-header .marc-nav-links a.marc-mobile-download{display:flex}.marc-footer .footer-content.marc-footer-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}.marc-footer .footer-identity{grid-column:1/-1}}
+@media(max-width:480px){.marc-footer .footer-content.marc-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 18px}.marc-footer-bottom{flex-direction:column;align-items:flex-start;gap:0}}
+/* END MARC legal navigation and grouped footer */
+.uc-hero{padding-block:62px 48px}.uc-row{min-height:0;padding-block:58px;gap:48px}.uc-visual{min-height:0;padding-block:12px}.uc-end{padding-block:58px 72px}@media(max-width:800px){.uc-hero{padding-block:38px 32px}.uc-row{padding-block:42px;gap:24px}.uc-end{padding-block:42px 54px}}
+
+/* MARC HERO V2 START */
+.hero.marc-hero-v2 {
+  display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+  align-items:center;
+  gap:clamp(24px,4vw,64px);
+  min-height:calc(100svh - 110px);
+  padding-block:44px 64px;
+}
+.marc-hero-v2 .eyebrow {
+  font-size:10px;line-height:1.8;letter-spacing:2px;
+  color:#a1a1ad;margin:0 0 28px;
+}
+.marc-hero-v2 h1 {
+  font-size:clamp(48px,5.8vw,88px);line-height:1.04;
+  letter-spacing:-.055em;font-weight:600;margin:0 0 26px;
+}
+.marc-hero-v2 h1 span {color:#9696a2}
+.marc-hero-v2 .lead {
+  max-width:460px;font-size:clamp(16px,1.5vw,19px);
+  line-height:1.7;color:#aaaab6;margin:0;
+}
+.marc-hero-v2 .mh-download {margin-top:30px}
+.marc-hero-v2 .mh-store {
+  display:inline-flex;align-items:center;gap:12px;
+  padding:9px 17px;background:#000;color:#fff;
+  border:1px solid #a6a6ad;border-radius:12px;
+  text-align:left;opacity:1;cursor:default;
+  -webkit-text-fill-color:#fff;
+}
+.marc-hero-v2 .mh-store svg {width:30px;height:38px;flex:none}
+.marc-hero-v2 .mh-store span {display:grid;gap:1px}
+.marc-hero-v2 .mh-store small {
+  font-size:12px;line-height:1.2;letter-spacing:0;font-weight:400;
+}
+.marc-hero-v2 .mh-store strong {
+  font-size:25px;line-height:1.1;letter-spacing:-.5px;font-weight:500;
+}
+.marc-hero-v2 .mh-availability {
+  margin:9px 0 0;color:#90909c;font-size:12px;
+}
+.marc-hero-v2 .mh-benefits {
+  display:grid;gap:12px;list-style:none;
+  padding:0;margin:30px 0 0;color:#b2b2bf;font-size:14px;
+}
+.marc-hero-v2 .mh-benefits li {
+  display:flex;align-items:center;gap:12px;line-height:1.5;
+}
+.marc-hero-v2 .mh-benefits li::before {
+  content:"";width:12px;height:7px;flex:none;
+  border-left:2px solid #ff7986;border-bottom:2px solid #ff7986;
+  transform:rotate(-45deg) translateY(-2px);
+}
+.marc-hero-v2 .mh-benefits a:hover {color:#fff}
+.marc-hero-v2 .mh-visual {
+  display:flex;justify-content:center;align-items:center;
+  gap:18px;width:100%;padding:12px 0 36px;min-width:0;
+}
+.marc-hero-v2 .mh-device {
+  position:relative;flex:0 1 52%;min-width:0;
+  max-width:290px;padding:6px;background:#171719;
+  border:1px solid #85817a;border-radius:38px;
+  box-shadow:inset 0 0 0 2px #393734,0 22px 50px #0007;
+}
+.marc-hero-v2 .mh-device:last-child {
+  flex-basis:46%;max-width:260px;transform:translateY(38px);
+}
+.marc-hero-v2 .mh-device::before,
+.marc-hero-v2 .mh-device::after {
+  content:"";position:absolute;width:3px;background:#726e68;
+  border-radius:2px;left:-3px;
+}
+.marc-hero-v2 .mh-device::before {top:21%;height:26px}
+.marc-hero-v2 .mh-device::after {top:29%;height:42px}
+.marc-hero-v2 .mh-display {
+  position:relative;overflow:hidden;border-radius:31px;background:#101012;
+}
+.marc-hero-v2 .mh-display img {
+  display:block;width:100%;height:auto;aspect-ratio:946/2048;
+  object-fit:contain;
+}
+.marc-hero-v2 .mh-island {
+  position:absolute;top:1.4%;left:50%;transform:translateX(-50%);
+  width:28%;height:3.7%;border-radius:30px;background:#000;
+}
+.marc-hero-v2 .mh-island::after {
+  content:"";position:absolute;right:12%;top:35%;
+  width:5px;height:5px;border-radius:50%;background:#101a2c;
+}
+@media(min-width:1001px) and (max-height:780px) {
+  .hero.marc-hero-v2 {padding-block:28px 44px}
+  .marc-hero-v2 .mh-device {max-width:235px}
+  .marc-hero-v2 .mh-device:last-child {max-width:211px}
+}
+@media(max-width:1000px) {
+  .hero.marc-hero-v2 {gap:28px}
+  .marc-hero-v2 .mh-visual {gap:12px}
+  .marc-hero-v2 .mh-device {border-radius:30px;padding:5px}
+  .marc-hero-v2 .mh-display {border-radius:24px}
+}
+@media(max-width:800px) {
+  .hero.marc-hero-v2 {
+    grid-template-columns:minmax(0,1fr);min-height:0;
+    padding-block:38px 48px;gap:34px;text-align:center;
+  }
+  .marc-hero-v2 .eyebrow {font-size:9px;margin-bottom:22px}
+  .marc-hero-v2 h1 {font-size:clamp(48px,9vw,72px)}
+  .marc-hero-v2 .lead {max-width:430px;margin-inline:auto}
+  .marc-hero-v2 .mh-benefits {
+    width:fit-content;margin:24px auto 0;text-align:left;gap:10px;
+  }
+  .marc-hero-v2 .mh-visual {max-width:460px;margin:auto}
+}
+@media(max-width:420px) {
+  .marc-hero-v2 .mh-device {border-radius:25px;padding:4px}
+  .marc-hero-v2 .mh-display {border-radius:20px}
+  .marc-hero-v2 .mh-device:last-child {transform:translateY(25px)}
+}
+/* MARC HERO V2 END */
+
+/* MARC hero frame motion */
+@media (hover: hover) and (pointer: fine) {
+  .marc-hero-v2 .mh-device {
+    transition: translate .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .marc-hero-v2 .mh-device:hover {
+    translate: 0 -5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-hero-v2 .mh-device {
+    transition: none;
+  }
+  .marc-hero-v2 .mh-device:hover {
+    translate: none;
+  }
+}
+
+/* MARC hero benefits row */
+.marc-hero-v2 .mh-benefits {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px 18px;
+  width:auto;
+  margin:24px 0 0;
+  font-size:12px;
+}
+.marc-hero-v2 .mh-benefits li {
+  gap:8px;
+  white-space:nowrap;
+}
+.marc-hero-v2 .mh-benefits li::before {
+  width:9px;
+  height:5px;
+}
+@media(max-width:800px) {
+  .marc-hero-v2 .mh-benefits {
+    justify-content:center;
+    margin:24px auto 0;
+  }
+}
+
+/* MARC compact hero copy */
+.marc-hero-v2 .mh-copy .eyebrow {
+  margin-bottom:18px;
+}
+.marc-hero-v2 .mh-copy h1 {
+  margin-bottom:18px;
+  line-height:1.02;
+}
+.marc-hero-v2 .mh-copy .lead {
+  line-height:1.55;
+  margin:0;
+}
+.marc-hero-v2 .mh-copy .mh-download {
+  margin-top:22px;
+}
+.marc-hero-v2 .mh-copy .mh-availability {
+  margin-top:7px;
+}
+.marc-hero-v2 .mh-copy .mh-benefits {
+  margin-top:18px;
+}
+
+/* MARC section navigation START */
+#main-content section[aria-label="App screen explorer"] {
+  min-height:calc(100svh - 100px);
+  padding-top:16px;
+  padding-bottom:48px;
+  box-sizing:border-box;
+}
+.marc-header .marc-nav-links > a[aria-current] {
+  color:#fff;
+  background:#ffffff12;
+  border-radius:18px;
+  box-shadow:none;
+}
+/* MARC section navigation END */
+
+/* MARC Why section polish START */
+#features.marc-story {
+  width:100%;
+  max-width:1000px;
+  margin-inline:auto;
+  padding-block:36px 56px;
+}
+#features .story-heading {
+  text-align:center;
+  margin-bottom:28px;
+}
+#features .story-heading > p {
+  margin:8px 0 0;
+}
+#features .story-featured {
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  align-items:center;
+  gap:clamp(28px,5vw,64px);
+}
+#features .story-copy {
+  width:100%;
+  max-width:470px;
+  min-width:0;
+}
+#features .story-copy .story-label {
+  margin:0 0 14px;
+  font-size:10px;
+  letter-spacing:1.5px;
+}
+#features .story-copy h3 {
+  margin:0 0 20px;
+  font-size:clamp(30px,3.5vw,44px);
+  line-height:1.12;
+  letter-spacing:-1.3px;
+  font-weight:600;
+}
+#features .story-copy > p:not(.story-label) {
+  margin:0;
+  font-size:15px;
+  line-height:1.65;
+  color:#aaaab6;
+}
+#features .story-copy > p:not(.story-label) + p {
+  margin-top:16px;
+}
+#features .story-phone {
+  width:min(100%,240px);
+  justify-self:center;
+  margin:0;
+}
+#features .story-features {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:26px 52px;
+  margin-top:32px;
+}
+#features .story-features article {
+  min-width:0;
+  margin:0;
+}
+#features .story-features h3 {
+  margin:0 0 8px;
+  font-size:19px;
+  font-weight:500;
+  line-height:1.35;
+  letter-spacing:-.35px;
+}
+#features .story-features p {
+  max-width:440px;
+  margin:0;
+  color:#aaaab6;
+  font-size:14px;
+  line-height:1.65;
+}
+@media(max-width:700px) {
+  #features.marc-story {
+    padding-block:28px 40px;
+  }
+  #features .story-heading {
+    margin-bottom:28px;
+  }
+  #features .story-featured {
+    grid-template-columns:minmax(0,1fr);
+    gap:26px;
+  }
+  #features .story-copy {
+    max-width:430px;
+    margin-inline:auto;
+    text-align:center;
+  }
+  #features .story-copy h3 {
+    font-size:32px;
+  }
+  #features .story-phone {
+    width:min(65%,220px);
+  }
+  #features .story-features {
+    grid-template-columns:minmax(0,1fr);
+    max-width:430px;
+    gap:24px;
+    margin:30px auto 0;
+    text-align:left;
+  }
+}
+/* MARC Why section polish END */
+
+/* MARC ownership message START */
+#features .story-heading {
+  margin-bottom:30px;
+}
+#features .story-copy {
+  max-width:500px;
+}
+#features .story-copy h3 {
+  font-size:clamp(36px,4.2vw,54px);
+  line-height:1.06;
+  letter-spacing:-1.6px;
+  margin:0 0 22px;
+}
+#features .story-copy h3 span {
+  color:#9696a2;
+}
+#features .story-copy > p:not(.story-label) {
+  font-size:15px;
+  line-height:1.65;
+}
+#features .story-copy > p:not(.story-label) + p {
+  margin-top:18px;
+}
+#features .story-features {
+  margin-top:34px;
+  gap:28px 48px;
+}
+#features .story-ai-note {
+  margin:26px 0 0;
+  color:#92929e;
+  font-size:11px;
+  line-height:1.6;
+  text-align:center;
+}
+@media(max-width:700px) {
+  #features .story-copy h3 {
+    font-size:40px;
+    letter-spacing:-1.2px;
+    margin-bottom:18px;
+  }
+  #features .story-copy {
+    max-width:440px;
+  }
+  #features .story-features {
+    gap:24px;
+    margin-top:28px;
+  }
+  #features .story-ai-note {
+    margin-top:24px;
+  }
+}
+/* MARC ownership message END */
+
+/* MARC App Store hover START */
+.marc-hero-v2 .mh-store {
+  transition:transform .22s ease, border-color .22s ease,
+             background-color .22s ease;
+}
+@media(hover:hover) and (pointer:fine) {
+  .marc-hero-v2 .mh-store:hover {
+    transform:translateY(-3px);
+    border-color:#fff;
+    background:#141416;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .marc-hero-v2 .mh-store {
+    transition:none;
+  }
+  .marc-hero-v2 .mh-store:hover {
+    transform:none;
+  }
+}
+/* MARC App Store hover END */
+
+/* MARC closing download START */
+#download.marc-download-v2 {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  width:100%;
+  max-width:none;
+  margin:0;
+  padding:68px 16px 76px;
+  text-align:center;
+  background:transparent;
+  border:0;
+}
+#download .md-logo {
+  position:relative;
+  flex:none;
+  width:210px;
+  height:58px;
+  margin:0 0 28px;
+  overflow:hidden;
+}
+#download .md-logo img {
+  display:block;
+  position:absolute;
+  width:210px;
+  height:210px;
+  max-width:none;
+  left:0;
+  top:-80px;
+  object-fit:contain;
+}
+#download #download-title {
+  max-width:800px;
+  margin:0;
+  font-size:clamp(36px,4.5vw,60px);
+  font-weight:600;
+  line-height:1.1;
+  letter-spacing:-.045em;
+}
+#download #download-title span {
+  color:#9696a2;
+}
+#download .md-description {
+  max-width:560px;
+  margin:20px 0 0;
+  color:#aaaab6;
+  font-size:17px;
+  line-height:1.65;
+}
+#download .md-actions {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-top:28px;
+}
+#download .md-store {
+  display:inline-flex;
+  align-items:center;
+  gap:12px;
+  padding:9px 17px;
+  background:#000;
+  color:#fff;
+  border:1px solid #a6a6ad;
+  border-radius:12px;
+  font:inherit;
+  text-align:left;
+  opacity:1;
+  cursor:default;
+  -webkit-text-fill-color:#fff;
+  transition:transform .22s ease,border-color .22s ease,
+             background-color .22s ease;
+}
+#download .md-store svg {
+  width:30px;
+  height:38px;
+  flex:none;
+}
+#download .md-store span {
+  display:grid;
+  gap:1px;
+}
+#download .md-store small {
+  font-size:12px;
+  line-height:1.2;
+  font-weight:400;
+}
+#download .md-store strong {
+  font-size:25px;
+  line-height:1.1;
+  letter-spacing:-.5px;
+  font-weight:500;
+}
+#download .md-availability {
+  margin:10px 0 0;
+  color:#92929e;
+  font-size:12px;
+  line-height:1.6;
+}
+#download .md-source {
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:44px;
+  margin-top:12px;
+  color:#c3c3cc;
+  font-size:14px;
+  transition:color .2s ease;
+}
+#download .md-source:hover {
+  color:#fff;
+}
+@media(hover:hover) and (pointer:fine) {
+  #download .md-store:hover {
+    transform:translateY(-3px);
+    border-color:#fff;
+    background:#141416;
+  }
+}
+@media(max-width:700px) {
+  #download.marc-download-v2 {
+    padding:48px 12px 54px;
+  }
+  #download .md-logo {
+    margin-bottom:24px;
+  }
+  #download .md-description {
+    margin-top:16px;
+    font-size:15px;
+  }
+  #download .md-actions {
+    margin-top:24px;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  #download .md-store,
+  #download .md-source {
+    transition:none;
+  }
+  #download .md-store:hover {
+    transform:none;
+  }
+}
+/* MARC closing download END */
+
+/* MARC compact download spacing */
+#download.marc-download-v2 {
+  min-height:0;
+  height:auto;
+  padding:44px 16px 48px;
+}
+#download .md-logo {
+  margin-bottom:20px;
+}
+#download #download-title {
+  line-height:1.12;
+  text-wrap:balance;
+}
+#download .md-description {
+  max-width:520px;
+  margin-top:14px;
+  font-size:16px;
+  line-height:1.55;
+  text-wrap:balance;
+}
+#download .md-actions {
+  margin-top:22px;
+}
+#download .md-availability {
+  margin-top:8px;
+}
+#download .md-source {
+  margin-top:6px;
+}
+@media(max-width:700px) {
+  #download.marc-download-v2 {
+    padding:36px 12px 40px;
+  }
+  #download .md-logo {
+    margin-bottom:18px;
+  }
+  #download .md-description {
+    font-size:15px;
+  }
+}
+
+
+/* MARC FAQ START */
+#faq.marc-faq {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 32px;
+}
+#faq.marc-faq h2 {
+  margin: 0 0 30px;
+  text-align: center;
+  font-size: clamp(28px, 3.5vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -1.2px;
+}
+#faq .marc-faq-list {
+  border-top: 1px solid #ffffff14;
+}
+#faq details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #ffffff14;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  margin: 0;
+  padding: 20px 0;
+  list-style: none;
+  cursor: pointer;
+  color: #e9e9ed;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+#faq summary::-webkit-details-marker {
+  display: none;
+}
+#faq summary::marker {
+  content: "";
+}
+#faq summary::after {
+  content: "+";
+  flex: 0 0 20px;
+  text-align: center;
+  color: #92929e;
+  font-size: 20px;
+  font-weight: 400;
+}
+#faq details[open] > summary::after {
+  content: "−";
+}
+#faq summary:hover {
+  color: #fff;
+}
+#faq summary:focus-visible {
+  outline: 2px solid #aaaab5;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+#faq details > p {
+  max-width: 700px;
+  margin: 0;
+  padding: 0 36px 22px 0;
+  color: #a8a8b3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+@media (max-width: 700px) {
+  #faq.marc-faq {
+    padding: 36px 0;
+  }
+  #faq.marc-faq h2 {
+    margin-bottom: 24px;
+  }
+  #faq summary {
+    font-size: 14px;
+    min-height: 60px;
+    padding: 18px 0;
+  }
+  #faq details > p {
+    padding-right: 24px;
+  }
+}
+/* MARC FAQ END */
+
+/* MARC FAQ motion START */
+#faq summary {
+  transition: color 180ms ease;
+}
+#faq summary::after,
+#faq details[open] > summary::after {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 20px;
+  background-image:
+    linear-gradient(currentColor, currentColor),
+    linear-gradient(currentColor, currentColor);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 1px, 1px 12px;
+  transition:
+    transform 200ms ease,
+    background-size 200ms ease;
+}
+#faq details[open] > summary::after {
+  background-size: 12px 1px, 1px 0;
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  #faq summary,
+  #faq summary::after {
+    transition: none;
+  }
+}
+/* MARC FAQ motion END */
+
+
+/* MARC footer polish START */
+footer.marc-footer-v2 {
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-top: 1px solid #ffffff12;
+}
+.marc-footer-v2 .footer-content.marc-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.7fr) repeat(3, minmax(130px, 1fr));
+  align-items: start;
+  gap: 44px;
+  padding: 48px 0 40px;
+}
+.marc-footer-v2 .footer-identity {
+  grid-column: auto;
+  min-width: 0;
+}
+.marc-footer-v2 .footer-wordmark {
+  min-height: 32px;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -.7px;
+}
+.marc-footer-v2 .footer-identity > p {
+  max-width: 290px;
+  margin: 14px 0 0;
+  color: #9999a7;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.marc-footer-v2 .footer-identity > .footer-credit {
+  margin-top: 16px;
+  font-size: 12px;
+}
+.marc-footer-v2 .marc-footer-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  height: auto;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+.marc-footer-v2 .marc-footer-column h2 {
+  margin: 4px 0 14px;
+  color: #eeeef2;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.marc-footer-v2 .marc-footer-column a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 0;
+  color: #9999a7;
+  font-size: 13px;
+  line-height: 1.5;
+  transition: color 160ms ease;
+}
+.marc-footer-v2 a:hover {
+  color: #fff;
+}
+.marc-footer-v2 .marc-footer-bottom {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0 22px;
+  border-top: 1px solid #ffffff12;
+  color: #8f8f9c;
+  font-size: 11px;
+}
+.marc-footer-v2 .marc-footer-bottom a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+@media (max-width: 900px) {
+  .marc-footer-v2 .footer-content.marc-footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 30px;
+    padding-top: 36px;
+  }
+  .marc-footer-v2 .footer-identity {
+    grid-column: 1 / -1;
+  }
+  .marc-footer-v2 .footer-identity > p {
+    max-width: 400px;
+  }
+}
+@media (max-width: 480px) {
+  .marc-footer-v2 .footer-content.marc-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 20px;
+    padding-bottom: 28px;
+  }
+  .marc-footer-v2 .marc-footer-bottom {
+    flex-wrap: wrap;
+    gap: 4px 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marc-footer-v2 .marc-footer-column a {
+    transition: none;
+  }
+}
+/* MARC footer polish END */

@@ -1,0 +1,381 @@
+
+/* Shared Privacy and Terms layout. */
+.marc-policy {
+  width: calc(100% - 64px);
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 30px 0 64px;
+}
+.marc-policy .policy-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 38px;
+  font-size: 12px;
+  color: #a5a5b2;
+}
+.marc-policy .policy-top > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.marc-policy .policy-top nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  height: auto;
+  gap: 8px 22px;
+  padding: 0;
+}
+.marc-policy .policy-top nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.marc-policy .policy-top a[aria-current] {
+  color: #f4f4f6;
+  text-decoration: underline;
+  text-underline-offset: 7px;
+  text-decoration-color: #777783;
+}
+.marc-policy .policy-grid {
+  display: grid;
+  grid-template-columns: 235px minmax(0, 1fr);
+  gap: 62px;
+  align-items: start;
+}
+.marc-policy .policy-sidebar {
+  position: sticky;
+  top: 110px;
+  max-height: calc(100dvh - 135px);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.marc-policy .policy-contents {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.marc-policy .policy-contents > summary {
+  display: none;
+}
+.marc-policy .policy-contents nav {
+  display: block;
+  height: auto;
+  padding: 0;
+  border: 0;
+}
+.marc-policy .policy-contents nav > a {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 0;
+  color: #9999a7;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.marc-policy .policy-contents nav > a span {
+  flex: 0 0 20px;
+  font-variant-numeric: tabular-nums;
+  color: #6f6f7d;
+  font-size: 10px;
+}
+.marc-policy .policy-contents nav > a:hover {
+  color: #f4f4f6;
+}
+.marc-policy .policy-article {
+  min-width: 0;
+  max-width: 780px;
+}
+.marc-policy .policy-heading {
+  padding: 0 0 28px;
+  border-bottom: 1px solid #ffffff14;
+}
+.marc-policy .policy-eyebrow {
+  margin: 0 0 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #8f8f9c;
+  font-size: 10px;
+}
+.marc-policy h1 {
+  margin: 0 0 18px;
+  font-size: clamp(38px, 4.5vw, 58px);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -2px;
+  text-wrap: balance;
+}
+.marc-policy .policy-date {
+  margin: 0 0 22px;
+  color: #92929f;
+  font-size: 12px;
+}
+.marc-policy .policy-intro {
+  margin: 0;
+  color: #b6b6c2;
+  font-size: 16px;
+  line-height: 1.85;
+}
+.marc-policy .policy-contact {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: #9999a7;
+}
+.marc-policy .policy-article section {
+  margin: 0;
+  padding: 36px 0 0;
+  border: 0;
+  background: transparent;
+}
+.marc-policy .policy-article section h2 {
+  margin: 0 0 16px;
+  font-size: 23px;
+  font-weight: 550;
+  line-height: 1.4;
+  letter-spacing: -.5px;
+  text-wrap: balance;
+  scroll-margin-top: 22px;
+}
+.marc-policy .policy-number {
+  color: #858592;
+  font-variant-numeric: tabular-nums;
+}
+.marc-policy .policy-article h3 {
+  margin: 24px 0 10px;
+  font-size: 16px;
+  font-weight: 550;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+.marc-policy .policy-article section p,
+.marc-policy .policy-article section li {
+  margin: 0 0 16px;
+  color: #b1b1be;
+  font-size: 15px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.marc-policy .policy-article a {
+  color: #e0e0e8;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  overflow-wrap: anywhere;
+}
+.marc-policy a:hover {
+  color: #fff;
+}
+.marc-policy a:focus-visible,
+.marc-policy summary:focus-visible {
+  outline: 2px solid #b9b9c4;
+  outline-offset: 4px;
+}
+.marc-policy .policy-summary {
+  margin: 28px 0 0;
+  padding: 20px 24px;
+  border: 1px solid #ffffff16;
+  border-radius: 8px;
+  background: #17171b;
+}
+.marc-policy .policy-summary h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+.marc-policy .policy-summary ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.marc-policy .policy-summary li {
+  margin: 0 0 9px;
+  padding-left: 4px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #b1b1be;
+}
+.marc-policy .policy-summary li::marker {
+  color: #858592;
+}
+.marc-policy .policy-summary > p {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #858592;
+}
+.marc-policy .policy-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 18px 0 0;
+}
+.marc-policy .policy-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.marc-policy .policy-end {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 36px;
+  padding-top: 22px;
+  border-top: 1px solid #ffffff14;
+  font-size: 12px;
+  color: #9999a7;
+}
+.marc-policy .policy-end p {
+  margin: 0;
+  font-size: 12px;
+}
+.marc-policy .policy-end > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+@media (min-width: 901px) {
+  .marc-policy .policy-contents:not([open]) > nav {
+    display: block;
+  }
+}
+@media (max-width: 1100px) {
+  .marc-policy .policy-grid {
+    grid-template-columns: 205px minmax(0, 1fr);
+    gap: 38px;
+  }
+}
+@media (max-width: 900px) {
+  .marc-policy {
+    width: calc(100% - 40px);
+    padding: 22px 0 44px;
+  }
+  .marc-policy .policy-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+  .marc-policy .policy-top nav {
+    gap: 20px;
+  }
+  .marc-policy .policy-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+  .marc-policy .policy-sidebar {
+    position: static;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+  .marc-policy .policy-contents {
+    border: 1px solid #ffffff16;
+    border-radius: 8px;
+    padding: 0 16px;
+  }
+  .marc-policy .policy-contents > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 52px;
+    padding: 12px 0;
+    font-size: 13px;
+    list-style: none;
+    cursor: pointer;
+  }
+  .marc-policy .policy-contents > summary::-webkit-details-marker {
+    display: none;
+  }
+  .marc-policy .policy-contents > summary::after {
+    content: "+";
+    color: #92929f;
+  }
+  .marc-policy .policy-contents[open] > summary::after {
+    content: "−";
+  }
+  .marc-policy .policy-contents nav {
+    padding-bottom: 12px;
+  }
+  .marc-policy .policy-article {
+    width: 100%;
+    max-width: none;
+  }
+  .marc-policy h1 {
+    font-size: 40px;
+    letter-spacing: -1.5px;
+  }
+  .marc-policy .policy-intro {
+    font-size: 15px;
+  }
+  .marc-policy .policy-article section {
+    padding-top: 30px;
+  }
+  .marc-policy .policy-article section h2 {
+    font-size: 21px;
+  }
+  .marc-policy .policy-article section p,
+  .marc-policy .policy-article section li {
+    font-size: 14px;
+    line-height: 1.85;
+  }
+  .marc-policy .policy-summary {
+    padding: 18px;
+  }
+}
+@media print {
+  .marc-header,
+  .marc-footer,
+  .marc-policy .policy-top,
+  .marc-policy .policy-sidebar,
+  .marc-policy .policy-end > a {
+    display: none !important;
+  }
+  body {
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+  .marc-policy {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+  .marc-policy .policy-grid {
+    display: block;
+  }
+  .marc-policy .policy-article {
+    max-width: none;
+  }
+  .marc-policy .policy-article p,
+  .marc-policy .policy-article li,
+  .marc-policy .policy-article h1,
+  .marc-policy .policy-article h2,
+  .marc-policy .policy-article h3,
+  .marc-policy .policy-article a,
+  .marc-policy .policy-number {
+    color: #111 !important;
+  }
+  .marc-policy .policy-summary {
+    background: #fff;
+    border-color: #bbb;
+  }
+  .marc-policy .policy-article h2,
+  .marc-policy .policy-article h3 {
+    break-after: avoid;
+  }
+  .marc-policy .policy-links a {
+    min-height: 0;
+  }
+}
