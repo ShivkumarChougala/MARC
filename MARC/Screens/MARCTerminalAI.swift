@@ -6,6 +6,7 @@ struct MARCTerminalAI: View {
     let session: MARCTerminalSession
     var focusChanged: (Bool) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @AppStorage("marc.ai.provider") private var provider = "off"
     @AppStorage("marc.ai.localModel") private var localModel = ""
@@ -19,6 +20,7 @@ struct MARCTerminalAI: View {
     @State private var command = ""
     @State private var commandConnection: UUID?
     @State private var commandConfiguration: [String]?
+    @State private var commandPrompt: String?
     @State private var failure: String?
     @State private var busy = false
     @State private var requestTask: Task<Void, Never>?
@@ -49,16 +51,11 @@ struct MARCTerminalAI: View {
             !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var insertable: Bool {
-        let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
-        return session.ready && !busy && !value.isEmpty &&
+    private var runnable: Bool {
+        session.ready && !busy &&
             commandConnection == session.aiConnectionID &&
-            commandConfiguration == configuration &&
-            !value.unicodeScalars.contains {
-                $0.value < 32 || $0.value == 127 ||
-                (0x80...0x9f).contains($0.value) ||
-                $0.value == 0x2028 || $0.value == 0x2029
-            }
+            commandConfiguration == configuration && commandPrompt == prompt &&
+            MARCAICommandSafety.validated(command) != nil
     }
 
     private var modelLabel: String {
@@ -160,27 +157,31 @@ struct MARCTerminalAI: View {
             )
 
             if !command.isEmpty {
-                HStack(spacing: 8) {
+                HStack(spacing: 0) {
                     ScrollView(.horizontal) {
-                        Text(command)
+                        Text(verbatim: command)
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(p.text)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                             .textSelection(.enabled)
-                            .padding(.vertical, 11)
                             .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
                     }
                     .scrollIndicators(.hidden)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Button(action: runCommand) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(p.accent)
-                            .frame(width: 44, height: 44)
+                        Text("Run")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(runnable ? p.accent : p.muted)
+                            .frame(minWidth: 52, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .disabled(!insertable)
+                    .disabled(!runnable)
                     .accessibilityLabel("Run generated command")
+                    .accessibilityHint("Sends the command and Return to the active terminal.")
 
                     Button { clearSuggestion() } label: {
                         Image(systemName: "xmark")
@@ -192,13 +193,8 @@ struct MARCTerminalAI: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Dismiss generated command")
                 }
+                .frame(minHeight: 44)
                 .background(p.raised, in: RoundedRectangle(cornerRadius: 12))
-
-                if !insertable {
-                    Text("Reconnect the shell, or generate a single-line command.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(p.muted)
-                }
             }
 
             if let failure {
@@ -225,20 +221,24 @@ struct MARCTerminalAI: View {
             approvedAPIEndpoint = nil
             clearSuggestion()
         }
-        .onDisappear { cancelRequest(); focusChanged(false) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { cancelRequest(); clearSuggestion() }
+        }
+        .onDisappear { cancelRequest(); clearSuggestion(); focusChanged(false) }
     }
 
     private func runCommand() {
-        guard insertable else { return }
-        let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
-        promptFocused = false
-        _ = session.view?.resignFirstResponder()
-        session.send(Array((value + "\r").utf8))
+        guard runnable, let value = MARCAICommandSafety.validated(command) else { return }
+        // Consume this suggestion before dispatch, so rapid taps cannot execute twice.
         clearSuggestion()
         prompt = ""
+        promptFocused = false
+        _ = session.view?.becomeFirstResponder()
+        session.send(Array((value + "\r").utf8)) // Run only after the explicit user tap.
     }
 
     private func clearSuggestion() {
+        commandPrompt = nil
         command = ""
         commandConnection = nil
         commandConfiguration = nil
@@ -246,6 +246,7 @@ struct MARCTerminalAI: View {
     }
 
     private func cancelRequest() {
+        clearSuggestion()
         showAPIConsent = false
         pendingAPIConsent = nil
         requestID = UUID()
@@ -368,6 +369,9 @@ struct MARCTerminalAI: View {
                     result = (choices?.first?["message"] as? [String: Any])?["content"] as? String
                 }
 
+                guard !MARCAICommandSafety.hasHiddenFormatting(result ?? "") else {
+                    throw MARCAIError.message("The AI response contains hidden formatting characters. Generate a plain single-line command.")
+                }
                 var cleaned = (result ?? "").trimmingCharacters(
                     in: .whitespacesAndNewlines
                 )
@@ -387,7 +391,13 @@ struct MARCTerminalAI: View {
                         "No command returned. Try a more specific request."
                     )
                 }
-                command = cleaned
+                guard let safeCommand = MARCAICommandSafety.validated(cleaned) else {
+                    throw MARCAIError.message(
+                        "The AI response contains hidden/control characters, multiple lines or too much text. Generate a plain single-line command."
+                    )
+                }
+                command = safeCommand
+                commandPrompt = requestPrompt
                 commandConnection = connection
                 commandConfiguration = chosenConfiguration
             } catch is CancellationError {

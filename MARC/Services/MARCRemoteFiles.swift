@@ -57,7 +57,48 @@ final class MARCRemoteFiles {
     @ObservationIgnored private var lastProgressUpdate: ContinuousClock.Instant?
     @ObservationIgnored private var replacementChoice: CheckedContinuation<Bool, Never>?
 
+    @ObservationIgnored private var watchdog: Task<Void, Never>?
+    @ObservationIgnored private var watchdogID = UUID()
+    @ObservationIgnored private var lastActivity = ContinuousClock.now
+
+    /// A timer outside the transport task can release the UI even when an
+    /// awaited network operation does not cooperate with Task cancellation.
+    private func watchOperation(id: UUID, idleSeconds: Int = 30) -> UUID {
+        // A cancelled queued task from an old connection cannot steal a new watch.
+        guard generation == id, !Task.isCancelled else { return UUID() }
+        watchdog?.cancel()
+        let ticket = UUID()
+        watchdogID = ticket
+        lastActivity = .now
+        let started = ContinuousClock.now
+        watchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                guard let self, self.generation == id, self.watchdogID == ticket else { return }
+                // A person deciding whether to replace a file is not a stalled network.
+                if self.uploadConflict != nil { self.lastActivity = .now; continue }
+                if self.lastActivity.duration(to: .now) >= .seconds(idleSeconds) ||
+                    started.duration(to: .now) >= .seconds(1800) {
+                    self.stop()
+                    self.failure = "Files stopped responding. Reconnect Files to retry. A remote action may have completed; check its result before retrying."
+                    return
+                }
+            }
+        }
+        return ticket
+    }
+
+    private func endWatch(_ ticket: UUID) {
+        guard watchdogID == ticket else { return }
+        watchdog?.cancel()
+        watchdog = nil
+        watchdogID = UUID()
+    }
+
     func stop() {
+        watchdog?.cancel()
+        watchdog = nil
+        watchdogID = UUID()
         if let conflict = uploadConflict { resolveUploadConflict(conflict.id, replace: false) }
         generation = UUID()
         operation?.cancel()
@@ -88,10 +129,9 @@ final class MARCRemoteFiles {
         let oldSSH = ssh
         sftp = nil
         ssh = nil
-        Task {
-            try? await oldSFTP?.close()
-            try? await oldSSH?.close()
-        }
+        // Closing SFTP must not hold up closing the underlying SSH transport.
+        Task { try? await oldSSH?.close() }
+        Task { try? await oldSFTP?.close() }
     }
 
     func prepare(server: ServerProfile) async {
@@ -108,6 +148,8 @@ final class MARCRemoteFiles {
         busy = true
         failure = nil
         notice = nil
+        let watch = watchOperation(id: id)
+        defer { endWatch(watch) }
         var opened: SSHClient?
         var subsystem: SFTPClient?
 
@@ -128,6 +170,7 @@ final class MARCRemoteFiles {
             let connection = try await SSHClient.connect(to: settings)
             opened = connection
             try checkOperation(id)
+            ssh = connection
             try await MARCMacCompatibility.requireMacOS(on: connection)
             try checkOperation(id)
             let client = try await connection.openSFTP()
@@ -147,14 +190,14 @@ final class MARCRemoteFiles {
                     let canonical = try await client.getRealPath(
                         atPath: remembered
                     )
-                    rows = try await listing(canonical, using: client)
+                    rows = try await listing(canonical, using: connection)
                     destination = canonical
                 } catch {
                     try checkOperation(id)
-                    rows = try await listing(initial, using: client)
+                    rows = try await listing(initial, using: connection)
                 }
             } else {
-                rows = try await listing(initial, using: client)
+                rows = try await listing(initial, using: connection)
             }
             try checkOperation(id)
 
@@ -178,37 +221,34 @@ final class MARCRemoteFiles {
     }
 
     private func listing(
-        _ requested: String, using client: SFTPClient
+        _ requested: String, using client: SSHClient
     ) async throws -> [MARCRemoteEntry] {
-        let batches = try await client.listDirectory(atPath: requested)
-        return batches.flatMap(\.components)
-            .filter {
-                $0.filename != "." && $0.filename != ".." &&
-                !$0.filename.contains("/") &&
-                !$0.filename.contains("\0")
+        let reply = try await MARCFileBridge.request(
+            ["action": "listDirectory", "path": requested], using: client
+        )
+        guard let rows = reply.rows, rows.count <= 5000 else {
+            throw MARCAIError.message("Invalid or oversized folder listing.")
+        }
+        return try rows.map { row in
+            guard !row.name.isEmpty, row.name != ".", row.name != "..",
+                  !row.name.contains("/"), !row.name.contains("\0") else {
+                throw MARCAIError.message("The server returned an invalid filename.")
             }
-            .map {
-                let mode = $0.attributes.permissions
-                let directory = mode.map { ($0 & 0xF000) == 0x4000 }
-                    ?? $0.longname.hasPrefix("d")
-                return MARCRemoteEntry(
-                    name: $0.filename,
-                    path: joined(requested, $0.filename),
-                    directory: directory,
-                    size: $0.attributes.size,
-                    modified: $0.attributes.accessModificationTime?.modificationTime,
-                    mode: mode
-                )
-            }
-            .sorted {
-                if $0.directory != $1.directory { return $0.directory }
-                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
-            }
+            return MARCRemoteEntry(
+                name: row.name, path: joined(requested, row.name),
+                directory: (row.mode & 0xF000) == 0x4000, size: row.size,
+                modified: Date(timeIntervalSince1970: row.modified), mode: row.mode
+            )
+        }.sorted {
+            if $0.directory != $1.directory { return $0.directory }
+            return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
     }
 
     private func checkOperation(_ id: UUID) throws {
         try Task.checkCancellation()
         guard generation == id else { throw CancellationError() }
+        lastActivity = .now
     }
 
     private func joined(_ parent: String, _ name: String) -> String {
@@ -216,7 +256,7 @@ final class MARCRemoteFiles {
     }
 
     func browse(_ requested: String) {
-        guard ready, !busy, let client = sftp else { return }
+        guard ready, !busy, let client = sftp, let connection = ssh else { return }
         let id = generation
         busy = true
         activity = "Opening folder"
@@ -224,12 +264,14 @@ final class MARCRemoteFiles {
         notice = nil
 
         operation = Task { @MainActor in
+            let watch = watchOperation(id: id)
+            defer { endWatch(watch) }
             defer { if generation == id { busy = false; operation = nil } }
             do {
                 try checkOperation(id)
                 let canonical = try await client.getRealPath(atPath: requested)
                 try checkOperation(id)
-                let rows = try await listing(canonical, using: client)
+                let rows = try await listing(canonical, using: connection)
                 try Task.checkCancellation()
                 guard generation == id else { return }
                 path = canonical
@@ -250,6 +292,7 @@ final class MARCRemoteFiles {
     private func publishTransferProgress(
         completed: UInt64, total: UInt64
     ) {
+        lastActivity = .now
         let now = ContinuousClock.now
         if let previous = lastProgressUpdate,
            previous.duration(to: now) < .milliseconds(200) {
@@ -269,6 +312,17 @@ final class MARCRemoteFiles {
         cancellingTransfer = true
         operation?.cancel()
         if let conflict = uploadConflict { resolveUploadConflict(conflict.id, replace: false) }
+        // Normal cancellation gets two seconds for handle/stage cleanup. If the
+        // transport is stuck, invalidate it instead of leaving Cancel spinning.
+        watchdog?.cancel()
+        let ticket = UUID()
+        watchdogID = ticket
+        watchdog = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            guard let self, self.watchdogID == ticket, self.cancellingTransfer else { return }
+            self.stop()
+            self.notice = "Transfer cancelled. Reconnect Files. Remote temporary cleanup could not be confirmed."
+        }
     }
 
     func resolveUploadConflict(_ id: UUID, replace: Bool) {
@@ -320,7 +374,8 @@ final class MARCRemoteFiles {
         ready && generation == destination.connection && path == destination.path
     }
 
-    func upload(_ url: URL, to expectedDestination: MARCFileDestination? = nil) {
+    func upload(_ url: URL, to expectedDestination: MARCFileDestination? = nil,
+                temporaryFile: MARCTemporaryFile? = nil) {
         if let expectedDestination, !matchesDestination(expectedDestination) {
             failure = "The upload destination changed. Select the file again."
             return
@@ -342,18 +397,21 @@ final class MARCRemoteFiles {
         notice = nil
 
         operation = Task { @MainActor in
+            let watch = watchOperation(id: id)
+            defer { endWatch(watch) }
             let scoped = url.startAccessingSecurityScopedResource()
             defer {
                 if scoped { url.stopAccessingSecurityScopedResource() }
-                let mediaFolder = url.deletingLastPathComponent()
-                if mediaFolder.lastPathComponent.hasPrefix("MARCPhotoImport-") &&
-                    mediaFolder.deletingLastPathComponent().standardizedFileURL ==
-                    FileManager.default.temporaryDirectory.standardizedFileURL {
-                    try? FileManager.default.removeItem(at: mediaFolder)
-                }
+                // Retain app-owned imports through cancellation and handle cleanup.
+                // User-selected provider files are never deleted by this task.
+                withExtendedLifetime(temporaryFile) {}
                 if generation == id {
                     busy = false
                     transferring = false
+                    cancellingTransfer = false
+                    watchdog?.cancel()
+                    watchdog = nil
+                    watchdogID = UUID()
                     operation = nil
                 }
             }
@@ -385,12 +443,19 @@ final class MARCRemoteFiles {
                 transferTotal = total
                 let input = try MARCTransferIO(forReadingFrom: url)
                 local = input
+                var attributes = SFTPFileAttributes()
+                attributes.permissions = 0o600
                 let file = try await client.openFile(
                     filePath: temporary,
-                    flags: [.write, .create, .forceCreate]
+                    flags: [.write, .create, .forceCreate],
+                    attributes: attributes
                 )
                 remote = file
                 created = true
+                try checkOperation(id)
+                _ = try await MARCFileBridge.request(
+                    ["action": "prepareStage", "path": temporary], using: connection
+                )
                 try checkOperation(id)
                 transferPhase = "Uploading"
                 var offset: UInt64 = 0
@@ -400,6 +465,9 @@ final class MARCRemoteFiles {
                     let data = try await input.readChunk()
                     try checkOperation(id)
                     if data.isEmpty { break }
+                    guard offset <= total, UInt64(data.count) <= total - offset else {
+                        throw MARCAIError.message("The local file grew during upload. Select it again.")
+                    }
                     var buffer = ByteBuffer()
                     buffer.writeBytes(data)
                     try await file.write(buffer, at: offset)
@@ -453,7 +521,7 @@ final class MARCRemoteFiles {
                 completionPath = destination
                 notice = nil
                 do {
-                    let rows = try await listing(folder, using: client)
+                    let rows = try await listing(folder, using: connection)
                     try checkOperation(id)
                     entries = rows
                 } catch {
@@ -488,6 +556,8 @@ final class MARCRemoteFiles {
         notice = nil
 
         operation = Task { @MainActor in
+            let watch = watchOperation(id: id)
+            defer { endWatch(watch) }
             defer {
                 if let archiveDirectory, let archiveConnection {
                     Task {
@@ -500,6 +570,10 @@ final class MARCRemoteFiles {
                 if generation == id {
                     busy = false
                     transferring = false
+                    cancellingTransfer = false
+                    watchdog?.cancel()
+                    watchdog = nil
+                    watchdogID = UUID()
                     operation = nil
                 }
             }
@@ -521,16 +595,12 @@ final class MARCRemoteFiles {
                 }
 
                 try checkOperation(id)
+                try MARCTemporaryFileStore.checkDownload(size: total, forPreview: forPreview)
                 transferTotal = total
                 transferPhase = forPreview ? "Preparing preview" : "Downloading"
                 let artifact = try MARCLocalDownload(name: entry.name, forPreview: forPreview)
                 localDownload = artifact
                 let destination = artifact.url
-                guard FileManager.default.createFile(
-                    atPath: destination.path, contents: nil
-                ) else {
-                    throw MARCAIError.message("Could not create the local download.")
-                }
 
                 let output = try MARCTransferIO(forWritingTo: destination)
                 local = output
@@ -545,9 +615,10 @@ final class MARCRemoteFiles {
                     let length = UInt32(min(UInt64(32768), total - offset))
                     let buffer = try await file.read(from: offset, length: length)
                     try checkOperation(id)
-                    guard buffer.readableBytes > 0 else {
+                    guard buffer.readableBytes > 0, buffer.readableBytes <= Int(length) else {
                         throw MARCAIError.message("The remote file changed during download.")
                     }
+                    try MARCTemporaryFileStore.checkSpace(bytes: UInt64(buffer.readableBytes))
                     try await output.writeChunk(Data(buffer.readableBytesView))
                     offset += UInt64(buffer.readableBytes)
                     if generation == id {
@@ -604,6 +675,8 @@ final class MARCRemoteFiles {
             throw MARCAIError.message("Wait for the current operation, or reconnect Files.")
         }
         let token = generation
+        let watch = watchOperation(id: token, idleSeconds: action == "archive" ? 210 : 30)
+        defer { endWatch(watch) }
         busy = true
         switch action {
         case "archive": activity = "Preparing folder archive"
@@ -634,13 +707,16 @@ final class MARCRemoteFiles {
                 let parent = (entry.path as NSString).deletingLastPathComponent
                 let temporary = joined(parent, ".marc-edit-input-\(UUID().uuidString).part")
                 staged = temporary
+                var attributes = SFTPFileAttributes()
+                attributes.permissions = 0o600
                 let file = try await stagingClient.openFile(
-                    filePath: temporary, flags: [.write, .create, .forceCreate]
+                    filePath: temporary, flags: [.write, .create, .forceCreate],
+                    attributes: attributes
                 )
                 stagedFile = file
                 try checkOperation(token)
                 _ = try await MARCFileBridge.request(
-                    ["action": "permissions", "path": temporary, "mode": 0o600],
+                    ["action": "prepareStage", "path": temporary],
                     using: ssh
                 )
                 var offset = 0
@@ -667,9 +743,9 @@ final class MARCRemoteFiles {
                 }
                 throw CancellationError()
             }
-            if refresh, let sftp {
+            if refresh, sftp != nil {
                 do {
-                    let rows = try await listing(path, using: sftp)
+                    let rows = try await listing(path, using: ssh)
                     guard generation == token else { throw CancellationError() }
                     entries = rows
                 } catch is CancellationError { throw CancellationError() }
@@ -710,6 +786,10 @@ final class MARCRemoteFiles {
                 if generation == token, !handedOff {
                     busy = false
                     transferring = false
+                    cancellingTransfer = false
+                    watchdog?.cancel()
+                    watchdog = nil
+                    watchdogID = UUID()
                     operation = nil
                 }
             }

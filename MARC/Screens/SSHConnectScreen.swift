@@ -43,7 +43,7 @@ struct SSHConnectScreen: View {
                 }
                 Text("Your login is saved in this iPhone’s Keychain for automatic reconnection.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
-                Text("MARC remembers this Mac’s fingerprint automatically and blocks unexpected changes.")
+                Text("Approve this Mac’s fingerprint before your first connection. MARC remembers it and blocks unexpected changes.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
                 Button {
                     startTest()

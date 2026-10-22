@@ -13,6 +13,36 @@ struct LocalDownloadChecks {
     }
 
     static func main() throws {
+        for (size, preview) in [(UInt64(50 * 1024 * 1024 + 1), true),
+                                (UInt64(512 * 1024 * 1024 + 1), false),
+                                (UInt64.max, false)] {
+            do {
+                try MARCTemporaryFileStore.checkDownload(size: size, forPreview: preview)
+                preconditionFailure("Oversized download accepted")
+            } catch {
+                precondition((error as NSError).domain == "MARC.ResourceLimit")
+            }
+        }
+        do {
+            try MARCTemporaryFileStore.checkSpace(bytes: UInt64.max)
+            preconditionFailure("Impossible free-space request accepted")
+        } catch let error as CocoaError {
+            precondition(error.code == .fileWriteOutOfSpace)
+        }
+        // A sparse file verifies rejection without allocating a large payload.
+        let sparseURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        FileManager.default.createFile(atPath: sparseURL.path, contents: nil)
+        defer { try? FileManager.default.removeItem(at: sparseURL) }
+        let sparse = try FileHandle(forWritingTo: sparseURL)
+        try sparse.truncate(atOffset: 512 * 1024 * 1024 + 1)
+        try sparse.close()
+        do {
+            _ = try MARCTemporaryFileStore.shared.copyFile(from: sparseURL)
+            preconditionFailure("Oversized import accepted")
+        } catch {
+            precondition((error as NSError).domain == "MARC.ResourceLimit")
+        }
+        print("PASS: preview/download/import limits, integer overflow and insufficient-storage rejection")
         let connection = Owner()
         let viewer = Owner()
         let other = Owner()

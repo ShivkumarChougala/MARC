@@ -469,8 +469,11 @@ final class MARCTerminalWorkspace {
         }
     }
 
+    static let sessionLimit = 4
+    var canAdd: Bool { slots.count < Self.sessionLimit }
+
     func add() {
-        guard server != nil else { return }
+        guard server != nil, canAdd else { return }
         _ = selected?.session.view?.resignFirstResponder()
         let slot = MARCTerminalSlot(number: nextNumber)
         nextNumber += 1
@@ -540,6 +543,8 @@ struct TerminalScreen: View {
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSessions = false
+    @State private var showingSessionLimit = false
+    @State private var showingPickerSessionLimit = false
     @State private var aiFocused = false
 
     private var connectionID: String {
@@ -674,6 +679,10 @@ struct TerminalScreen: View {
                     .accessibilityLabel("Reconnect current session")
 
                     Button {
+                        guard workspace.canAdd else {
+                            showingSessionLimit = true
+                            return
+                        }
                         workspace.add()
                     } label: {
                         Image(systemName: "plus")
@@ -682,6 +691,7 @@ struct TerminalScreen: View {
                     }
                     .disabled(!monitor.connected)
                     .accessibilityLabel("New terminal session")
+                    .accessibilityHint("Up to four sessions; close a session to open another.")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(p.accent)
@@ -732,6 +742,12 @@ struct TerminalScreen: View {
         .sheet(isPresented: $showingSessions) {
             sessionPicker
         }
+        .alert("Terminal session limit", isPresented: $showingSessionLimit) {
+            Button("Manage sessions") { showingSessions = true }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You can open up to \(MARCTerminalWorkspace.sessionLimit) terminal sessions. Close one to open another.")
+        }
         .alert("Show location in Terminal", isPresented: Binding(
             get: { workspace.pendingDirectoryCommand != nil && workspace.selected?.session.ready == true },
             set: { if !$0 { workspace.pendingDirectoryCommand = nil } }
@@ -753,7 +769,7 @@ struct TerminalScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         return VStack(spacing: 0) {
             HStack {
-                Text("Terminal sessions")
+                Text("Terminal sessions · \(workspace.slots.count)/\(MARCTerminalWorkspace.sessionLimit)")
                     .font(.system(size: 17, weight: .semibold))
                 Spacer()
                 Button("Done") { showingSessions = false }
@@ -804,6 +820,10 @@ struct TerminalScreen: View {
                     }
 
                     Button {
+                        guard workspace.canAdd else {
+                            showingPickerSessionLimit = true
+                            return
+                        }
                         workspace.add()
                         showingSessions = false
                     } label: {
@@ -822,6 +842,12 @@ struct TerminalScreen: View {
         }
         .foregroundStyle(p.text)
         .marcCanvas()
+        .alert("Terminal session limit", isPresented: $showingPickerSessionLimit) {
+            Button("OK") { }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You can open up to \(MARCTerminalWorkspace.sessionLimit) terminal sessions. Close one to open another.")
+        }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

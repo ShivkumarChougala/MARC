@@ -93,7 +93,7 @@ struct SSHClientSettings {
     static func save(_ id: UUID, login: Saved, hostKey: String) throws { saved[id] = login }
 }
 struct MARCHostTrust {
-    func keyForConnection(server: ServerProfile, existingKey: String) async throws -> String { existingKey }
+    func keyForConnection(server: ServerProfile, existingKey: String, allowPrompt: Bool = true) async throws -> String { existingKey }
 }
 enum SSHConnectionTest {
     static func hostKeyValidator(server: ServerProfile, publicHostKey: String) throws -> String { publicHostKey }

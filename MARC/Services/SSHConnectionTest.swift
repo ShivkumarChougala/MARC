@@ -79,7 +79,9 @@ enum MARCMacCompatibility {
 /// One authenticated, read-only request. This deliberately does not retain a session or password.
 enum SSHConnectionTest {
     static func run(server: ServerProfile, login: MARCCredentials.Saved, publicHostKey: String) async throws -> SSHTestResult {
-        let verifiedHostKey = try await MARCHostTrust().keyForConnection(server: server, existingKey: publicHostKey)
+        let verifiedHostKey = try await MARCHostTrust().keyForConnection(
+            server: server, existingKey: publicHostKey, allowPrompt: false
+        )
         try Task.checkCancellation()
         let validator = try hostKeyValidator(server: server, publicHostKey: verifiedHostKey)
         let username = server.username

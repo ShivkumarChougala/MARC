@@ -111,7 +111,9 @@ struct MacSnapshot: Decodable, Sendable {
             if let previous { try? await previous.close() }
             try Task.checkCancellation()
             guard generation == token else { throw CancellationError() }
-            let verifiedHostKey = try await MARCHostTrust().keyForConnection(server: server, existingKey: hostKey)
+            let verifiedHostKey = try await MARCHostTrust().keyForConnection(
+                server: server, existingKey: hostKey, allowPrompt: false
+            )
             try Task.checkCancellation()
             guard generation == token else { throw CancellationError() }
             let validator = try SSHConnectionTest.hostKeyValidator(server: server, publicHostKey: verifiedHostKey)

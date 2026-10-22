@@ -84,7 +84,7 @@ enum FixtureError: Error { case command }
 struct ServerProfile { let username = "fixture"; let host = "fixture.invalid"; let port = 22 }
 enum MARCCredentials { struct Saved {} }
 struct MARCHostTrust {
-    func keyForConnection(server: ServerProfile, existingKey: String) async throws -> String { existingKey }
+    func keyForConnection(server: ServerProfile, existingKey: String, allowPrompt: Bool = true) async throws -> String { existingKey }
 }
 enum MARCLogin {
     static func authentication(_ login: MARCCredentials.Saved, username: String) throws -> String { "fixture" }

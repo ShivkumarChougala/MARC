@@ -62,6 +62,11 @@ struct MARCConnectionIssue {
                     kind: .identity, title: "Mac identity changed",
                     detail: "Connection blocked. Verify the SSH fingerprint directly on your Mac before changing its saved trust in Keychain. MARC will not automatically trust a changed key."
                 )
+            case .approvalRequired:
+                return .init(
+                    kind: .identity, title: "Confirm your Mac first",
+                    detail: trust.localizedDescription
+                )
             case .storage:
                 return .init(
                     kind: .keychain, title: "Keychain unavailable",

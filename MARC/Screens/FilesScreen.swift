@@ -26,6 +26,7 @@ struct FilesScreen: View {
     @State private var export: MARCLocalDownload?
     @State private var preview: MARCLocalDownload?
     @State private var showTransferProgress = false
+    @State private var reconnectAttempt = UUID()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
@@ -125,6 +126,12 @@ struct FilesScreen: View {
                                 .font(.system(size: 12))
                                 .foregroundStyle(p.muted)
                                 .padding(30)
+                            if !files.ready && monitor.connected {
+                                Button("Reconnect Files") { reconnectAttempt = UUID() }
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(p.accent)
+                                    .frame(minHeight: 44)
+                            }
                         }
                     }
                     .id("marc-files-start")
@@ -217,7 +224,7 @@ struct FilesScreen: View {
             photoPreparationID = UUID()
             preparingPhoto = false
         }
-        .task(id: connectionID) {
+        .task(id: "\(connectionID)-\(reconnectAttempt.uuidString)") {
             guard scenePhase != .background, monitor.connected,
                   let server = monitor.server else { return }
             await files.prepare(server: server)
@@ -234,7 +241,6 @@ struct FilesScreen: View {
             let preparation = UUID()
             photoPreparationID = preparation
             preparingPhoto = true
-            var imported: URL?
 
             defer { if photoPreparationID == preparation { preparingPhoto = false } }
 
@@ -246,7 +252,6 @@ struct FilesScreen: View {
                         "Could not prepare this photo or video."
                     )
                 }
-                imported = media.url
                 try Task.checkCancellation()
 
                 guard scenePhase != .background,
@@ -257,14 +262,8 @@ struct FilesScreen: View {
                     )
                 }
 
-                files.upload(media.url, to: destination)
-                imported = nil
+                files.upload(media.url, to: destination, temporaryFile: media.file)
             } catch {
-                if let imported {
-                    try? FileManager.default.removeItem(
-                        at: imported.deletingLastPathComponent()
-                    )
-                }
                 if !Task.isCancelled, photoPreparationID == preparation,
                    files.matchesDestination(destination) {
                     files.failure = error.localizedDescription
@@ -304,6 +303,9 @@ struct FilesScreen: View {
         )) {
             if files.ready && !files.busy && !files.path.isEmpty {
                 Button("Reload Folder") { files.browse(files.path) }
+            }
+            if !files.ready && !files.busy && monitor.connected {
+                Button("Reconnect Files") { reconnectAttempt = UUID() }
             }
             Button("OK", role: .cancel) { files.failure = nil }
         } message: { Text(files.failure ?? "") }
@@ -626,33 +628,13 @@ private struct MARCFilesShareSheet: UIViewControllerRepresentable {
 }
 
 private struct MARCPhotoImport: Transferable, Sendable {
-    let url: URL
+    let file: MARCTemporaryFile
+    var url: URL { file.url }
 
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(importedContentType: .data) { received in
-            let folder = FileManager.default.temporaryDirectory
-                .appendingPathComponent(
-                    "MARCPhotoImport-\(UUID().uuidString)",
-                    isDirectory: true
-                )
-            try FileManager.default.createDirectory(
-                at: folder, withIntermediateDirectories: true
-            )
-
-            do {
-                let name = received.file.lastPathComponent
-                guard !name.isEmpty, name != ".", name != ".." else {
-                    throw MARCAIError.message("Invalid media filename.")
-                }
-                let destination = folder.appendingPathComponent(name)
-                try FileManager.default.copyItem(
-                    at: received.file, to: destination
-                )
-                return MARCPhotoImport(url: destination)
-            } catch {
-                try? FileManager.default.removeItem(at: folder)
-                throw error
-            }
+            let file = try MARCTemporaryFileStore.shared.copyFile(from: received.file)
+            return MARCPhotoImport(file: file)
         }
     }
 }

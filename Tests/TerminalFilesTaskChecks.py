@@ -118,14 +118,21 @@ struct FixtureFlags: OptionSet {
 }
 struct FixtureTimes { var modificationTime = Date(timeIntervalSince1970: 100) }
 struct FixtureAttributes {
-    var size: UInt64?
+    var size: UInt64? = nil
     var permissions: UInt32? = 0o100644
     var accessModificationTime: FixtureTimes? = FixtureTimes()
+    // Match Citadel 0.12.1: permissions is mutable, not an initializer argument.
+    init(size: UInt64? = nil, accessModificationTime: FixtureTimes? = FixtureTimes()) {
+        self.size = size
+        self.accessModificationTime = accessModificationTime
+    }
 }
+typealias SFTPFileAttributes = FixtureAttributes
 struct FixtureEntry { let filename: String; let longname: String; let attributes: FixtureAttributes }
 struct FixtureBatch { let components: [FixtureEntry] }
 @MainActor final class SFTPClient {
     var data: [String: Data] = [:]
+    var preparedStages = Set<String>()
     var opens = 0
     var failRefreshAfterRename = false
     private var refreshFails = false
@@ -141,9 +148,10 @@ struct FixtureBatch { let components: [FixtureEntry] }
     func getAttributes(at path: String) async throws -> FixtureAttributes {
         FixtureAttributes(size: UInt64(data[path]?.count ?? 0))
     }
-    func openFile(filePath: String, flags: FixtureFlags) async throws -> SFTPFile {
+    func openFile(filePath: String, flags: FixtureFlags, attributes: FixtureAttributes = .init()) async throws -> SFTPFile {
         opens += 1
-        if flags.contains(.create) { data[filePath] = Data() }
+        if flags.contains(.create) { precondition(attributes.permissions == 0o600) }
+        if flags.contains(.create) { data[filePath] = Data(); preparedStages.remove(filePath) }
         return SFTPFile(client: self, path: filePath)
     }
     func rename(at path: String, to destination: String) async throws {
@@ -159,6 +167,9 @@ struct FixtureBatch { let components: [FixtureEntry] }
     let path: String
     init(client: SFTPClient, path: String) { self.client = client; self.path = path }
     func write(_ buffer: ByteBuffer, at offset: UInt64) async throws {
+        if path.contains(".marc-upload-") || path.contains(".marc-edit-input-") {
+            precondition(client.preparedStages.contains(path), "Stage must be secured before any content write")
+        }
         var value = client.data[path] ?? Data()
         value.append(contentsOf: buffer.readableBytesView)
         client.data[path] = value
@@ -185,6 +196,16 @@ struct FixtureBatch { let components: [FixtureEntry] }
         if let hook { await hook(action) }
         let sftp = SSHClient.sftp
         func fingerprint(_ data: Data) -> [String] { [String(data.count), data.base64EncodedString()] }
+        if action == "listDirectory" {
+            _ = try await sftp.listDirectory(atPath: request["path"] as! String)
+            return MARCFileReply(error: nil, info: nil, text: nil, archive: nil,
+                archiveDirectory: nil, rows: [])
+        }
+        if action == "prepareStage" {
+            let path = request["path"] as! String
+            precondition(sftp.data[path]?.isEmpty == true)
+            sftp.preparedStages.insert(path)
+        }
         if action == "uploadTarget" {
             let data = sftp.data[request["path"] as! String]
             return MARCFileReply(error: nil, info: nil, text: nil, archive: nil,
@@ -221,7 +242,9 @@ enum MARCConnectionIssue {
     static func message(_ error: Error, login: MARCCredentials.Saved?) -> String { error.localizedDescription }
 }
 extension MARCTerminalSession { func resizeIdleFixture() -> Bool { resizing == nil } }
-extension MARCRemoteFiles { func operationFixture() -> Task<Void, Never>? { operation } }
+extension MARCRemoteFiles {
+    func expireWatchFixture() { lastActivity = ContinuousClock.now - .seconds(40) }
+    func operationFixture() -> Task<Void, Never>? { operation } }
 '''
 checks = r'''
 @main struct TaskChecks {
@@ -281,6 +304,16 @@ checks = r'''
         first.session.controlArmed = true; first.session.altArmed = true
         workspace.pause()
         precondition(!first.session.ready && !first.session.controlArmed && !first.session.altArmed)
+
+        for _ in 0..<10 { workspace.add() }
+        precondition(workspace.slots.count == 4 && !workspace.canAdd)
+        let removed = workspace.slots.last!
+        workspace.close(removed)
+        precondition(workspace.canAdd)
+        workspace.add()
+        precondition(workspace.slots.count == 4)
+        workspace.pause()
+        print("PASS: session cap enforced inside add; closing restores capacity")
 
         let files = MARCRemoteFiles()
         let cancelledFiles = Task { await files.prepare(server: a) }
@@ -385,6 +418,25 @@ checks = r'''
         if case .success = await edit.result { preconditionFailure("Cancelled edit must fail") }
         precondition(!MARCFileBridge.actions.contains("saveText"), "A cancelled staged edit must not commit")
         precondition(!sftp.data.keys.contains { $0.contains(".marc-edit-input-") })
+
+        let privateURL = directory.appendingPathComponent("private-stage.txt")
+        try Data("secret fixture".utf8).write(to: privateURL)
+        var privateWrites = 0
+        sftp.writeHook = { privateWrites += 1 }
+        MARCFileBridge.failingAction = "prepareStage"
+        files.upload(privateURL)
+        await files.operationFixture()?.value
+        precondition(privateWrites == 0 && files.failure?.contains("Upload failed") == true)
+        precondition(sftp.data["/fixture/private-stage.txt"] == nil)
+        precondition(!sftp.data.keys.contains { $0.contains(".marc-upload-") })
+        do {
+            _ = try await files.perform("saveText", entry: file, extras: ["data": Data("private edit".utf8).base64EncodedString()])
+            preconditionFailure("Private-stage failure must block edits")
+        } catch {}
+        precondition(privateWrites == 0 && !sftp.data.keys.contains { $0.contains(".marc-edit-input-") })
+        MARCFileBridge.failingAction = nil
+        sftp.writeHook = nil
+        print("PASS: stage permissions required before writes; permission failures block upload/edit and clean staging")
 
         let replaceURL = directory.appendingPathComponent("replace.txt")
         let replacementBytes = Data("replacement content".utf8)
@@ -557,6 +609,71 @@ checks = r'''
         print("PASS: upload Replace/Cancel, stale confirmation, changed destination and replacement staging cleanup")
         print("PASS: Terminal/Files task races (queued cancellation, slot switching, resize coalescing, archive ownership, staged edits and committed uploads)")
         print("PASS: completed download replacement, preview purpose and displayed-file lifetime")
+
+        await files.prepare(server: b)
+        let importStore = MARCTemporaryFileStore(root: directory.appendingPathComponent("imports"))
+        var ownedImport: MARCTemporaryFile? = try importStore.makeFile(name: "owned-media.bin")
+        let rejectedImportURL = ownedImport!.url
+        files.upload(rejectedImportURL, to: oldDestination, temporaryFile: ownedImport)
+        ownedImport = nil
+        precondition(!FileManager.default.fileExists(atPath: rejectedImportURL.path),
+                     "Rejected picker destination releases app-created media")
+
+        ownedImport = try importStore.makeFile(name: "owned-media.bin")
+        let completedImportURL = ownedImport!.url
+        try Data(repeating: 9, count: 70000).write(to: completedImportURL)
+        files.upload(completedImportURL, temporaryFile: ownedImport)
+        ownedImport = nil
+        precondition(FileManager.default.fileExists(atPath: completedImportURL.path),
+                     "Queued task owns the import before its first turn")
+        await files.operationFixture()?.value
+        precondition(sftp.data["/fixture/owned-media.bin"]?.count == 70000)
+        precondition(!FileManager.default.fileExists(atPath: completedImportURL.path),
+                     "Completed upload releases its import")
+
+        ownedImport = try importStore.makeFile(name: "cancelled-media.bin")
+        let cancelledImportURL = ownedImport!.url
+        try Data(repeating: 8, count: 70000).write(to: cancelledImportURL)
+        let importGate = Gate()
+        sftp.writeHook = { await importGate.wait() }
+        files.upload(cancelledImportURL, temporaryFile: ownedImport)
+        ownedImport = nil
+        let cancelledImportTask = files.operationFixture()
+        await waitFor { importGate.entered }
+        precondition(FileManager.default.fileExists(atPath: cancelledImportURL.path))
+        files.cancelTransfer()
+        sftp.writeHook = nil; importGate.open()
+        await cancelledImportTask?.value
+        precondition(!FileManager.default.fileExists(atPath: cancelledImportURL.path),
+                     "Cancellation closes handles and releases the imported media")
+        precondition(FileManager.default.fileExists(atPath: upload.path),
+                     "User-selected source files are never deleted")
+        await files.prepare(server: b)
+        let stalled = Gate()
+        sftp.readHook = { await stalled.wait() }
+        files.download(file)
+        let stalledTask = files.operationFixture()
+        await waitFor { stalled.entered }
+        files.expireWatchFixture()
+        try await Task.sleep(for: .milliseconds(1200))
+        precondition(!files.busy && !files.ready && files.downloaded == nil)
+        precondition(files.failure?.contains("Reconnect") == true)
+        await files.prepare(server: b)
+        sftp.readHook = nil; stalled.open()
+        await stalledTask?.value
+        precondition(files.ready && files.downloaded == nil, "Stale completion must not publish after reconnect")
+        let cancelledStall = Gate()
+        sftp.readHook = { await cancelledStall.wait() }
+        files.download(file)
+        let cancelledStallTask = files.operationFixture()
+        await waitFor { cancelledStall.entered }
+        files.cancelTransfer()
+        try await Task.sleep(for: .milliseconds(2200))
+        precondition(!files.busy && !files.ready && files.notice?.contains("cleanup could not be confirmed") == true)
+        sftp.readHook = nil; cancelledStall.open()
+        await cancelledStallTask?.value
+        print("PASS: stalled-read timeout and cancellation release UI, require reconnect and reject stale results")
+        print("PASS: import leases survive queued work and release on rejection, completion and mid-upload cancellation")
     }
 }
 '''

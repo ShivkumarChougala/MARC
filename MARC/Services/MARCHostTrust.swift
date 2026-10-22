@@ -13,10 +13,12 @@ struct HostTrustRequest: Identifiable {
 
 enum HostTrustError: LocalizedError {
     case changed
+    case approvalRequired
     case storage(OSStatus)
     nonisolated var errorDescription: String? {
         switch self {
         case .changed: return "This Mac’s SSH host key has changed. Connection blocked. Verify the change directly on the Mac before changing trust settings."
+        case .approvalRequired: return "Confirm this Mac’s fingerprint in connection settings before reconnecting."
         case .storage(let status): return "Could not access trusted host keys in Keychain (\(status))."
         }
     }
@@ -102,13 +104,35 @@ enum MARCHostTrustStore {
     }
 }
 
+// Task cancellation can arrive off the main actor. Record it immediately so a
+// queued approval cannot accept an already-cancelled connection request.
+private final class HostTrustCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
+        cancelled = true
+    }
+}
+
 @MainActor @Observable
 final class MARCHostTrust {
     private(set) var request: HostTrustRequest?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var continuation: CheckedContinuation<String, Error>?
+    @ObservationIgnored private var cancellation: HostTrustCancellation?
 
-    func keyForConnection(server: ServerProfile, existingKey: String = "") async throws -> String {
+    func keyForConnection(server: ServerProfile, existingKey: String = "", allowPrompt: Bool = true) async throws -> String {
+        // Superseding a request must also resume its suspended caller.
+        cancel()
         let token = UUID()
         generation = token
         try Task.checkCancellation()
@@ -126,31 +150,59 @@ final class MARCHostTrust {
             return existing
         }
 
+        // Transport-only callers have no sheet owner. Never suspend an
+        // automatic reconnect behind a prompt that cannot be presented.
+        guard allowPrompt else { throw HostTrustError.approvalRequired }
         let key = try await SSHHostKeyProbe.fetch(server: server)
         try Task.checkCancellation()
         guard generation == token else { throw CancellationError() }
-        _ = try HostKeyIdentity.fingerprint(publicKey: key)
+        let fingerprint = try HostKeyIdentity.fingerprint(publicKey: key)
+        let cancelled = HostTrustCancellation()
 
-        // Trust on first use. The authenticated handshake must match this pin.
-        try MARCHostTrustStore.remember(
-            host: server.host, port: server.port, publicKey: key
-        )
-        return key
+        // The probe never authenticates. Suspend here until the visible trust
+        // sheet is approved; only then may the caller start authentication.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { pending in
+                guard generation == token, !Task.isCancelled, !cancelled.isCancelled else {
+                    pending.resume(throwing: CancellationError())
+                    return
+                }
+                cancellation = cancelled
+                continuation = pending
+                request = HostTrustRequest(
+                    host: server.host, port: server.port,
+                    publicKey: key, fingerprint: fingerprint
+                )
+            }
+        } onCancel: {
+            cancelled.cancel()
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == token else { return }
+                self.cancel()
+            }
+        }
     }
 
-    func approve() {
-        guard let request else { return }
+    func approve(requestID: UUID) {
+        guard let request, request.id == requestID else { return }
+        guard cancellation?.isCancelled != true else { cancel(); return }
         do {
             try MARCHostTrustStore.remember(host: request.host, port: request.port, publicKey: request.publicKey)
             finish(.success(request.publicKey))
         } catch { finish(.failure(error)) }
     }
 
-    func cancel() { generation = UUID(); finish(.failure(CancellationError())) }
+    func cancel(requestID: UUID? = nil) {
+        if let requestID, request?.id != requestID { return }
+        cancellation?.cancel()
+        generation = UUID()
+        finish(.failure(CancellationError()))
+    }
 
     private func finish(_ result: Result<String, Error>) {
         let pending = continuation
         continuation = nil
+        cancellation = nil
         request = nil
         pending?.resume(with: result)
     }

@@ -52,7 +52,9 @@ enum FixtureError: Error { case expected }
     }
 }
 @MainActor final class FixtureView {
+    var focusCount = 0
     @discardableResult func resignFirstResponder() -> Bool { true }
+    @discardableResult func becomeFirstResponder() -> Bool { focusCount += 1; return true }
 }
 @MainActor final class MARCTerminalSession {
     var ready = true
@@ -64,6 +66,8 @@ enum FixtureError: Error { case expected }
     var sent: [[UInt8]] = []
     func send(_ bytes: [UInt8]) { sent.append(bytes) }
 '''
+command_safety = (root / 'MARC/Services/MARCAICommandSafety.swift').read_text()
+
 harness = r'''
 @MainActor final class AIHarness {
     let session = MARCTerminalSession()
@@ -78,6 +82,7 @@ harness = r'''
     var command = ""
     var commandConnection: UUID?
     var commandConfiguration: [String]?
+    var commandPrompt: String?
     var failure: String?
     var busy = false
     var requestTask: Task<Void, Never>?
@@ -90,8 +95,15 @@ harness = r'''
     func start() { generate() }
     func cancel() { cancelRequest() }
     func run() { runCommand() }
+    func dismissSuggestion() { clearSuggestion() }
+    func seed(_ text: String) {
+        command = text
+        commandPrompt = prompt
+        commandConnection = session.aiConnectionID
+        commandConfiguration = configuration
+    }
     func approve() { approveAPIRequest() }
-    var canRun: Bool { insertable }
+    var canRun: Bool { runnable }
 '''
 monitor_support = r'''
 @MainActor final class SSHMonitor {
@@ -158,7 +170,55 @@ checks = r'''
         precondition(history.command == "pwd")
         precondition(history.canRun && history.session.sent.isEmpty)
         history.run(); history.run()
-        precondition(history.session.sent == [Array("pwd\r".utf8)])
+        precondition(history.session.sent == [Array("pwd\r".utf8)],
+                     "One explicit tap sends the command followed by exactly one Return")
+        precondition(history.session.view?.focusCount == 1, "Run focuses the terminal once")
+
+        for transition in ["connection", "configuration", "key", "keyRevision",
+                           "prompt", "disconnect", "dismiss", "cancelRequest", "busy"] {
+            let stale = AIHarness()
+            stale.provider = "api"
+            stale.seed("pwd")
+            switch transition {
+            case "connection": stale.session.token = UUID()
+            case "configuration": stale.apiModel = "different-model"
+            case "key": stale.selectedAPIKey = UUID().uuidString
+            case "keyRevision": stale.apiKeysRevision = UUID().uuidString
+            case "prompt": stale.prompt = "different request"
+            case "disconnect": stale.session.ready = false
+            case "dismiss": stale.dismissSuggestion()
+            case "cancelRequest": stale.cancel()
+            default: stale.busy = true
+            }
+            stale.run(); stale.run()
+            precondition(stale.session.sent.isEmpty,
+                         "Stale, dismissed or unavailable suggestions must not send")
+            precondition(stale.session.view?.focusCount == 0, "Blocked Run must not steal focus")
+        }
+        let dismissed = AIHarness()
+        dismissed.seed("pwd"); dismissed.dismissSuggestion(); dismissed.run()
+        precondition(dismissed.session.sent.isEmpty)
+
+        for invalid in ["pwd\nwhoami", "pwd\r", "p\u{202e}wd", "p\u{200b}wd", "\u{feff}pwd"] {
+            let blocked = AIHarness()
+            blocked.seed(invalid); blocked.run()
+            precondition(blocked.session.sent.isEmpty)
+        }
+        let hiddenResponse = AIHarness()
+        SSHClient.hook = { #"{"message":{"content":"p\u202ewd"}}"# }
+        hiddenResponse.start(); await hiddenResponse.requestTask?.value
+        precondition(hiddenResponse.command.isEmpty && hiddenResponse.failure != nil,
+                     "Hidden model text must not be displayed as a command")
+        let unicodeInsertion = AIHarness()
+        unicodeInsertion.seed("cat 'ನಮಸ್ಕಾರ.txt'")
+        unicodeInsertion.run(); unicodeInsertion.run()
+        precondition(unicodeInsertion.session.sent == [Array("cat 'ನಮಸ್ಕಾರ.txt'\r".utf8)])
+        for payload in history.session.sent + unicodeInsertion.session.sent {
+            precondition(payload.last == 13 && payload.filter { $0 == 13 }.count == 1,
+                         "Run adds exactly one intentional Return")
+            precondition(!payload.contains(10), "Run must not add newlines")
+        }
+        print("PASS: explicit AI Run, duplicate taps, stale suggestions, hidden-response rejection and Unicode bytes followed by one Return")
 
         let staleRun = AIHarness()
         SSHClient.hook = { #"{"message":{"content":"pwd"}}"# }
@@ -242,14 +302,14 @@ checks = r'''
         cancelledDiscovery.cancel()
         if case .success = await cancelledDiscovery.result { preconditionFailure("Cancelled discovery dispatched") }
         precondition(SSHClient.calls == beforeCancelled)
-        print("PASS: AI queued cancellation, duplicate starts, stale responses, settings and explicit Run checks")
+        print("PASS: AI queued cancellation, duplicate starts, stale responses, settings and explicit one-tap Run")
         print("PASS: AI model discovery ignores previous connections and queued cancellation")
     }
 }
 '''
 
 def fixture_source():
-    return (support + '\n}\n' + error_and_history + response_reader + api_provider + local_ai +
+    return (support + '\n}\n' + command_safety + error_and_history + response_reader + api_provider + local_ai +
             harness + properties + methods + '\n}\n' + monitor_support + models + checks)
 
 def main():

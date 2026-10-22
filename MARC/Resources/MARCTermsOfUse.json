@@ -1,0 +1,125 @@
+{
+  "title": "Terms of Use",
+  "effectiveDate": "22 October 2026",
+  "introduction": "I’m Shivkumar Chougala, the developer of MARC. These terms cover use of the app and website, including connections to your Mac, commands and file actions, optional services, and the relationship to MARC’s open-source license.",
+  "contactEmail": "contact@getmarc.app",
+  "publishedURL": "https://getmarc.app/terms",
+  "sections": [
+    {
+      "id": "about",
+      "title": "About these terms",
+      "paragraphs": [
+        "I’m Shivkumar Chougala, the developer of MARC. These terms explain how to use the app and website responsibly. MARC lets you connect an iPhone to a Mac over SSH to monitor activity, work with files, run commands and use supported controls.",
+        "These terms do not replace the MIT License for the source code or take away rights that cannot be excluded under applicable law. If you obtain MARC through Apple’s App Store, Apple’s applicable store terms and the applicable app license also apply."
+      ],
+      "links": [
+        {
+          "title": "Apple’s Standard EULA",
+          "url": "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+        }
+      ]
+    },
+    {
+      "id": "permission",
+      "title": "Authorized use",
+      "paragraphs": [
+        "Only connect to devices and accounts that you own or have permission to access. Use MARC in accordance with applicable laws, your organization’s rules and the terms of any services you connect to.",
+        "Do not use MARC to gain unauthorized access, steal credentials, interfere with someone else’s systems or expose private information. You are responsible for the accounts and permissions you use."
+      ],
+      "links": []
+    },
+    {
+      "id": "setup",
+      "title": "Devices, setup, and connections",
+      "paragraphs": [
+        "You need a compatible iPhone, a supported Mac with Remote Login enabled, and a network route between them. MARC currently supports iOS 18 or later. Access beyond your local network requires separate secure networking; MARC does not provide a hosted relay.",
+        "Some controls need helper tools, macOS permissions or compatible hardware. External displays and audio devices may not expose adjustable brightness or volume. I cannot promise that every control works on every device or macOS version.",
+        "Keep your login details and devices secure. Check SSH host-key fingerprints when prompted, and investigate an unexpected key change before trusting it."
+      ],
+      "links": []
+    },
+    {
+      "id": "actions",
+      "title": "Commands, files, and process actions",
+      "paragraphs": [
+        "Terminal commands execute on your Mac using your connected account. File uploads, replacements, moves, permission changes and deletions can change or remove real data. Terminating a process can stop work or close an app.",
+        "Check the target and confirmation before taking an action. Keep backups of important files. A canceled request or interrupted connection cannot always undo an operation that the Mac has already completed."
+      ],
+      "links": []
+    },
+    {
+      "id": "ai",
+      "title": "Optional AI and third-party services",
+      "paragraphs": [
+        "AI is optional. Local mode uses Ollama on your selected Mac; API mode uses the endpoint and key you configure. Provider access, availability, quotas, charges and data handling are controlled by that provider and your account.",
+        "AI can suggest incorrect, unsuitable or destructive commands. Review each suggestion before tapping Run, and use Run only at an empty shell prompt after exiting any running program and clearing partially typed input. Tapping Run sends the command followed by Return to the active terminal using your connected account. MARC cannot detect the shell’s state or guarantee a command’s safety or correctness.",
+        "Do not send information you are not authorized to share. Third-party services have their own terms. The Privacy Policy explains what MARC sends and how to stop future AI requests."
+      ],
+      "links": [
+        {
+          "title": "Read the Privacy Policy",
+          "url": "https://getmarc.app/privacy.html"
+        }
+      ]
+    },
+    {
+      "id": "license",
+      "title": "Open-source licensing",
+      "paragraphs": [
+        "MARC’s source code is open source under the MIT License, copyright © 2026 Shivkumar Chougala. You may use, copy, modify and distribute it under that license, including its notice requirements.",
+        "Third-party libraries, tools and services have their own licenses or terms. Keep the relevant notices when distributing a build. These website terms do not withdraw permissions already granted under the MIT License."
+      ],
+      "links": [
+        {
+          "title": "Read the MIT License",
+          "url": "https://getmarc.app/license.html"
+        },
+        {
+          "title": "Review the source on GitHub",
+          "url": "https://github.com/ShivkumarChougala/MARC"
+        }
+      ]
+    },
+    {
+      "id": "availability",
+      "title": "Availability, releases, and support",
+      "paragraphs": [
+        "MARC is an independently developed project. Features may change as I improve it, and I cannot promise uninterrupted connections, error-free readings, support response times or compatibility with every setup.",
+        "The website’s download section shows the current release status. Source availability is separate from App Store availability. This website does not sell an AI plan or start a recurring MARC subscription. Optional sponsorship supports development and does not purchase app features."
+      ],
+      "links": [
+        {
+          "title": "Get help",
+          "url": "https://getmarc.app/docs.html"
+        }
+      ]
+    },
+    {
+      "id": "warranty",
+      "title": "Warranties, responsibility, and your rights",
+      "paragraphs": [
+        "To the extent permitted by law, the MIT-licensed software is provided “as is”, without warranty, and its warranty and liability provisions apply. In practice, review sensitive actions and keep backups rather than relying on MARC as your only safeguard.",
+        "Nothing in these terms excludes liability or takes away a consumer right that the law does not allow to be excluded. Apple’s and other service providers’ own responsibilities remain governed by their applicable terms and the law."
+      ],
+      "links": []
+    },
+    {
+      "id": "changes",
+      "title": "Updates and contact",
+      "paragraphs": [
+        "I may update these terms as MARC changes. The effective date above identifies this version. Changes do not retrospectively remove rights granted under the MIT License or mandatory law.",
+        "For questions about these terms, contact contact@getmarc.app. For bugs and ideas, use the repository links below. Do not include passwords, private keys or API keys in reports."
+      ],
+      "links": [
+        {
+          "title": "Contact the developer",
+          "url": "mailto:contact@getmarc.app?subject=MARC%20terms"
+        },
+        {
+          "title": "Report an issue",
+          "url": "https://github.com/ShivkumarChougala/MARC/issues/new?title=Bug%20report"
+        }
+      ]
+    }
+  ]
+}

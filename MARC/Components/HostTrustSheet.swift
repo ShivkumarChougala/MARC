@@ -33,7 +33,7 @@ private struct HostTrustSheet: View {
                 Text("Confirm your Mac").font(.system(size: 20, weight: .semibold))
                 Text("\(request.host):\(request.port)")
                     .font(.system(size: 13)).textSelection(.enabled)
-                Text("Choose how to trust this Mac before your password is sent.")
+                Text("Choose how to trust this Mac before MARC authenticates your connection.")
                     .font(.system(size: 12)).foregroundStyle(p.muted)
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -113,7 +113,12 @@ private struct HostTrustPresentation: ViewModifier {
             set: { if !$0 { trust.cancel() } }
         )) {
             if let request = trust.request {
-                HostTrustSheet(request: request, approve: trust.approve, cancel: trust.cancel)
+                HostTrustSheet(
+                    request: request,
+                    approve: { trust.approve(requestID: request.id) },
+                    cancel: { trust.cancel(requestID: request.id) }
+                )
+                .id(request.id)
             }
         }
     }

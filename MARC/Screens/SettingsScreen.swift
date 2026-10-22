@@ -234,7 +234,7 @@ struct SettingsScreen: View {
                         MARCSettingsSupportRow(title: "What’s inside MARC", icon: "square.grid.2x2", external: false)
                     }.buttonStyle(.plain).disabled(guidedTour?.active == true)
                     MARCSettingsDivider()
-                    Link(destination: URL(string: "https://marc.thechougala.in/help.html#contact")!) {
+                    Link(destination: URL(string: "https://getmarc.app/support.html")!) {
                         MARCSettingsSupportRow(title: "Help & feedback", icon: "bubble.left")
                     }.buttonStyle(.plain)
                 }
@@ -243,7 +243,7 @@ struct SettingsScreen: View {
                     MARCSettingsSupportRow(title: "Rate MARC", icon: "star", detail: "Coming soon", enabled: false)
                         .accessibilityLabel("Rate MARC. Available after the App Store launch.")
                     MARCSettingsDivider()
-                    ShareLink(item: URL(string: "https://marc.thechougala.in/")!,
+                    ShareLink(item: URL(string: "https://getmarc.app/")!,
                               subject: Text("MARC — your Mac, within reach"),
                               message: Text("Check out MARC, an open-source iPhone app for monitoring and controlling your Mac over SSH.")) {
                         MARCSettingsSupportRow(title: "Share MARC", icon: "square.and.arrow.up", external: false)
@@ -253,18 +253,28 @@ struct SettingsScreen: View {
                         MARCSettingsSupportRow(title: "Star on GitHub", icon: "chevron.left.forwardslash.chevron.right")
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    Link(destination: URL(string: "https://marc.thechougala.in/support.html")!) {
+                    Link(destination: URL(string: "https://getmarc.app/support.html")!) {
                         MARCSettingsSupportRow(title: "Support MARC", icon: "heart")
                     }.buttonStyle(.plain)
                 }
         case .legal:
                 MARCSettingsGroup(title: "Legal") {
-                    Link(destination: URL(string: "https://marc.thechougala.in/privacy.html")!) {
-                        MARCSettingsSupportRow(title: "Privacy Policy", icon: "doc.text")
+                    NavigationLink {
+                        MARCLegalScreen(.privacy)
+                    } label: {
+                        MARCSettingsSupportRow(title: "Privacy Policy", icon: "doc.text", external: false)
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    Link(destination: URL(string: "https://marc.thechougala.in/terms.html")!) {
-                        MARCSettingsSupportRow(title: "Terms of Use", icon: "doc.text")
+                    NavigationLink {
+                        MARCLegalScreen(.terms)
+                    } label: {
+                        MARCSettingsSupportRow(title: "Terms of Use", icon: "doc.text", external: false)
+                    }.buttonStyle(.plain)
+                    MARCSettingsDivider()
+                    NavigationLink {
+                        MARCOpenSourceScreen()
+                    } label: {
+                        MARCSettingsSupportRow(title: "Open-source licenses", icon: "chevron.left.forwardslash.chevron.right", external: false)
                     }.buttonStyle(.plain)
                 }
         }

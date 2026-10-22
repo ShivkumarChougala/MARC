@@ -22,12 +22,20 @@ struct MARCFileInfo: Decodable, Sendable {
     var octal: String { String(mode & 0o7777, radix: 8) }
 }
 
+struct MARCDirectoryRow: Decodable, Sendable {
+    let name: String
+    let size: UInt64
+    let modified: Double
+    let mode: UInt32
+}
+
 struct MARCFileReply: Decodable, Sendable {
     let error: String?
     let info: MARCFileInfo?
     let text: String?
     let archive: String?
     let archiveDirectory: String?
+    var rows: [MARCDirectoryRow]? = nil
     var uploadFingerprint: [String]? = nil
 }
 
@@ -43,7 +51,30 @@ enum MARCFileBridge {
 
     // All paths/text are JSON data, never shell or Python source interpolation.
     static let python = #"""
-import os, sys, json, base64, stat, pwd, grp, tempfile, shutil, tarfile, ctypes, signal
+import os, sys, json, base64, stat, pwd, grp, tempfile, shutil, tarfile, ctypes, signal, errno
+
+# Fixed budgets, never raised by data supplied by the client.
+DIRECTORY_ENTRIES = 5000
+DIRECTORY_BYTES = 2 * 1024 * 1024
+ARCHIVE_ENTRIES = 10000
+ARCHIVE_INPUT_BYTES = 1024 * 1024 * 1024
+ARCHIVE_OUTPUT_BYTES = 512 * 1024 * 1024
+STORAGE_RESERVE = 256 * 1024 * 1024
+
+class BudgetWriter:
+    def __init__(self, file):
+        self.file = file
+        self.written = 0
+    def write(self, data):
+        if len(data) > ARCHIVE_OUTPUT_BYTES - self.written:
+            raise ValueError('Folder archive exceeds the 512 MiB output limit.')
+        if shutil.disk_usage(os.path.dirname(self.file.name)).free < len(data) + STORAGE_RESERVE:
+            raise ValueError('Not enough free space on the Mac to prepare this folder.')
+        result = self.file.write(data)
+        self.written += result
+        return result
+    def tell(self): return self.written
+    def flush(self): return self.file.flush()
 
 def fingerprint(s):
     return [str(s.st_dev), str(s.st_ino), str(s.st_size), str(s.st_mtime_ns), str(s.st_ctime_ns)]
@@ -130,6 +161,112 @@ def no_replace_rename(source, destination):
         if error == 18: raise ValueError('Choose a destination on the same filesystem.')
         raise OSError(error, os.strerror(error))
 
+def private_stage(fd):
+    s = os.fstat(fd)
+    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_uid != os.geteuid():
+        raise ValueError('The temporary file is not privately owned. Nothing was uploaded.')
+    os.fchmod(fd, 0o600)
+    if sys.platform == 'darwin':
+        # POSIX mode bits alone do not remove inherited macOS ACL grants.
+        lib = ctypes.CDLL(None, use_errno=True)
+        lib.acl_init.argtypes = [ctypes.c_int]
+        lib.acl_init.restype = ctypes.c_void_p
+        lib.acl_set_fd.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        lib.acl_set_fd.restype = ctypes.c_int
+        lib.acl_free.argtypes = [ctypes.c_void_p]
+        lib.acl_free.restype = ctypes.c_int
+        acl = lib.acl_init(0)
+        if not acl: raise OSError(ctypes.get_errno(), 'Could not prepare private upload permissions.')
+        try:
+            if lib.acl_set_fd(fd, acl):
+                raise OSError(ctypes.get_errno(), 'Could not remove inherited temporary-file access.')
+        finally:
+            lib.acl_free(acl)
+    elif sys.platform.startswith('linux') and 'system.posix_acl_access' in os.listxattr(fd):
+        os.removexattr(fd, 'system.posix_acl_access')
+    if stat.S_IMODE(os.fstat(fd).st_mode) != 0o600:
+        raise ValueError('Could not confirm private temporary-file permissions.')
+
+def quarantine_parts(value):
+    flags, separator, provenance = value.partition(b';')
+    if not separator or not 1 <= len(flags) <= 8 or any(c not in b'0123456789abcdefABCDEF' for c in flags):
+        raise ValueError('Unrecognized quarantine metadata. Original file kept.')
+    return int(flags, 16), provenance
+
+def merge_quarantine(original, copied):
+    # Retain every source AND destination flag, without interpreting undocumented
+    # flag meanings. Preserve the source timestamp/agent/event data exactly.
+    flags, provenance = quarantine_parts(original)
+    copied_flags = quarantine_parts(copied)[0] if copied is not None else 0
+    return format(flags | copied_flags, '04x').encode('ascii') + b';' + provenance
+
+def read_quarantine(lib, fd):
+    name = b'com.apple.quarantine'
+    lib.fgetxattr.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p,
+                             ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+    lib.fgetxattr.restype = ctypes.c_ssize_t
+    size = lib.fgetxattr(fd, name, None, 0, 0, 0)
+    if size < 0:
+        error = ctypes.get_errno()
+        if error == getattr(errno, 'ENOATTR', 93): return None
+        raise OSError(error, 'Could not read quarantine metadata. Original file kept.')
+    if not 0 < size <= 16384:
+        raise ValueError('Unrecognized quarantine metadata size. Original file kept.')
+    buffer = ctypes.create_string_buffer(size)
+    actual = lib.fgetxattr(fd, name, buffer, size, 0, 0)
+    if actual != size:
+        raise OSError('Quarantine metadata changed during copying. Original file kept.')
+    return buffer.raw[:actual]
+
+def restore_quarantine(lib, fd, original):
+    if original is None:
+        # Keep any quarantine added by the OS; never remove it for an
+        # originally unquarantined destination.
+        return
+    copied = read_quarantine(lib, fd)
+    merged = merge_quarantine(original, copied)
+    lib.fsetxattr.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p,
+                             ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+    lib.fsetxattr.restype = ctypes.c_int
+    data = ctypes.create_string_buffer(merged)
+    if lib.fsetxattr(fd, b'com.apple.quarantine', data, len(merged), 0, 0):
+        raise OSError(ctypes.get_errno(), 'Could not preserve quarantine provenance. Original file kept.')
+    actual = read_quarantine(lib, fd)
+    if actual is None:
+        raise ValueError('Quarantine metadata was not retained. Original file kept.')
+    actual_flags, actual_provenance = quarantine_parts(actual)
+    required_flags, required_provenance = quarantine_parts(merged)
+    if actual_flags & required_flags != required_flags or actual_provenance != required_provenance:
+        raise ValueError('Could not verify quarantine provenance and flags. Original file kept.')
+
+def preserve_metadata(source_fd, destination_fd):
+    original = os.fstat(source_fd)
+    staged = os.fstat(destination_fd)
+    if (staged.st_uid, staged.st_gid) != (original.st_uid, original.st_gid):
+        os.fchown(destination_fd, original.st_uid, original.st_gid)
+    os.fchmod(destination_fd, stat.S_IMODE(original.st_mode))
+    if sys.platform == 'darwin':
+        # Public macOS copyfile API: ACL + extended attributes (including resource
+        # forks/quarantine). Do not copy DATA or overwrite the new content/times.
+        lib = ctypes.CDLL(None, use_errno=True)
+        quarantine = read_quarantine(lib, source_fd)
+        destination_quarantine = read_quarantine(lib, destination_fd)
+        if quarantine is None:
+            quarantine = destination_quarantine
+        elif destination_quarantine is not None:
+            quarantine = merge_quarantine(quarantine, destination_quarantine)
+        lib.fcopyfile.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+        lib.fcopyfile.restype = ctypes.c_int
+        if lib.fcopyfile(source_fd, destination_fd, None, (1 << 0) | (1 << 2)):
+            raise OSError(ctypes.get_errno(), 'Could not preserve the original file metadata. Original kept.')
+        # fcopyfile may synthesize a new quarantine timestamp/agent. Restore
+        # source provenance using public descriptor APIs, retaining added flags.
+        restore_quarantine(lib, destination_fd, quarantine)
+    else:
+        # Portable fixture path; production connections require macOS.
+        for name in os.listxattr(source_fd):
+            os.setxattr(destination_fd, name, os.getxattr(source_fd, name))
+
 def execute(request):
     action = request.get('action')
     path = valid_path(request.get('path'))
@@ -140,7 +277,41 @@ def execute(request):
             raise ValueError('Invalid temporary archive location.')
         shutil.rmtree(path)
         return {}
+    if action == 'listDirectory':
+        rows = []
+        budget = 0
+        def expired_listing(signum, frame):
+            raise TimeoutError('Folder listing timed out. Choose another folder.')
+        previous = signal.signal(signal.SIGALRM, expired_listing)
+        signal.alarm(20)
+        try:
+            with os.scandir(path) as items:
+                for item in items:
+                    if len(rows) >= DIRECTORY_ENTRIES:
+                        raise ValueError('Folder exceeds the 5,000 entry limit. Choose a smaller subfolder.')
+                    s = item.stat(follow_symlinks=False)
+                    row = dict(name=item.name, size=max(0, s.st_size), modified=s.st_mtime, mode=s.st_mode)
+                    budget += len(json.dumps(row).encode('utf-8')) + 2
+                    if budget > DIRECTORY_BYTES:
+                        raise ValueError('Folder listing exceeds the 2 MiB metadata limit.')
+                    rows.append(row)
+            return dict(rows=rows)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
     if action == 'info': return dict(info=info(path))
+    if action == 'prepareStage':
+        name = os.path.basename(path)
+        if not (name.startswith('.marc-upload-') or name.startswith('.marc-edit-input-')) or not name.endswith('.part'):
+            raise ValueError('Invalid temporary upload location.')
+        fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as file:
+            if os.fstat(file.fileno()).st_size != 0:
+                raise ValueError('The temporary upload file is not empty.')
+            private_stage(file.fileno())
+            if fingerprint(os.lstat(path)) != fingerprint(os.fstat(file.fileno())):
+                raise ValueError('The temporary upload file changed.')
+        return {}
     if action == 'uploadTarget':
         try: s = os.lstat(path)
         except FileNotFoundError: return {}
@@ -163,11 +334,15 @@ def execute(request):
         fd = os.open(staged, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, 'rb') as file:
             stage = os.fstat(file.fileno())
-            if not stat.S_ISREG(stage.st_mode) or stage.st_size != size:
+            if not stat.S_ISREG(stage.st_mode) or stage.st_size != size or stage.st_nlink != 1 or stage.st_uid != os.geteuid():
                 raise ValueError('Upload verification failed. The original file was not replaced.')
-            if (stage.st_uid, stage.st_gid) != (s.st_uid, s.st_gid):
-                os.fchown(file.fileno(), s.st_uid, s.st_gid)
-            os.fchmod(file.fileno(), stat.S_IMODE(s.st_mode))
+            original_fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(original_fd, 'rb') as original:
+                if fingerprint(os.fstat(original.fileno())) != expected:
+                    raise ValueError('The destination changed. Original kept.')
+                preserve_metadata(original.fileno(), file.fileno())
+                if fingerprint(os.fstat(original.fileno())) != expected:
+                    raise ValueError('The original metadata changed during upload. Original kept.')
             os.fsync(file.fileno())
             if fingerprint(os.lstat(staged)) != fingerprint(os.fstat(file.fileno())):
                 raise ValueError('The staged upload changed. Try again.')
@@ -208,16 +383,17 @@ def execute(request):
         fd, temporary = tempfile.mkstemp(prefix='.marc-edit-', dir=os.path.dirname(path))
         try:
             with os.fdopen(fd, 'wb') as file:
+                private_stage(file.fileno())
                 file.write(data)
                 file.flush()
+                original_fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(original_fd, 'rb') as original:
+                    if fingerprint(os.fstat(original.fileno())) != expected:
+                        raise ValueError('The remote file changed during save. Original kept.')
+                    preserve_metadata(original.fileno(), file.fileno())
+                    if fingerprint(os.fstat(original.fileno())) != expected:
+                        raise ValueError('The remote metadata changed during save. Original kept.')
                 os.fsync(file.fileno())
-            tmp = os.stat(temporary)
-            if (tmp.st_uid, tmp.st_gid) != (s.st_uid, s.st_gid):
-                os.chown(temporary, s.st_uid, s.st_gid)
-            os.chmod(temporary, stat.S_IMODE(s.st_mode))
-            if hasattr(os, 'listxattr'):
-                for name in os.listxattr(path, follow_symlinks=False):
-                    os.setxattr(temporary, name, os.getxattr(path, name, follow_symlinks=False), follow_symlinks=False)
             if fingerprint(os.lstat(path)) != expected:
                 raise ValueError('The remote file changed during save. Reopen it before saving.')
             os.replace(temporary, path)
@@ -258,12 +434,33 @@ def execute(request):
         previous_handler = signal.signal(signal.SIGALRM, expired)
         signal.alarm(180)
         try:
+            entries = 0
+            input_bytes = 0
             def supported(item):
+                nonlocal entries, input_bytes
+                entries += 1
+                input_bytes += item.size
+                if entries > ARCHIVE_ENTRIES or input_bytes > ARCHIVE_INPUT_BYTES:
+                    raise ValueError('Folder exceeds the 10,000 item or 1 GiB input limit.')
                 if not (item.isfile() or item.isdir() or item.issym() or item.islnk()):
                     raise ValueError('This folder contains a device, socket or other unsupported item.')
                 return item
-            with tarfile.open(archive, 'w:gz', dereference=False) as output:
-                output.add(path, arcname=os.path.basename(path), filter=supported)
+            if shutil.disk_usage(folder).free < STORAGE_RESERVE:
+                raise ValueError('Not enough free space on the Mac to prepare this folder.')
+            with open(archive, 'xb') as raw:
+                os.fchmod(raw.fileno(), 0o600)
+                with tarfile.open(fileobj=BudgetWriter(raw), mode='w|gz', dereference=False) as output:
+                    # tarfile.add(recursive=True) sorts an unbounded os.listdir.
+                    # Walk incrementally instead; bound both breadth and depth.
+                    def add_tree(current, name, depth=0):
+                        if depth > 64:
+                            raise ValueError('Folder exceeds the 64 level archive depth limit.')
+                        output.add(current, arcname=name, recursive=False, filter=supported)
+                        if stat.S_ISDIR(os.lstat(current).st_mode):
+                            with os.scandir(current) as children:
+                                for child in children:
+                                    add_tree(child.path, name + '/' + child.name, depth + 1)
+                    add_tree(path, os.path.basename(path))
             return dict(archive=archive, archiveDirectory=os.path.realpath(folder))
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)

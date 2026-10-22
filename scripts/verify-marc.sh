@@ -2,6 +2,7 @@
 set -euo pipefail
 marc_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$marc_root"
+python3 Tests/ResourceLimitChecks.py
 python3 scripts/verify-source-hygiene.py
 if ! command -v xcodebuild >/dev/null 2>&1; then
     echo "Xcode is required. Run this script on your Mac." >&2
@@ -13,6 +14,8 @@ mkdir -p "$marc_build"
 echo "Build output and log: $marc_build"
 xcodebuild -version
 python3 scripts/verify-privacy.py
+python3 scripts/verify-licenses.py
+python3 Tests/HostTrustChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/NearbyMacIndex.swift \
     MARC/Models/ServerProfile.swift \
@@ -28,6 +31,10 @@ python3 Tests/MacCompatibilityChecks.py
 python3 Tests/ConnectionLifecycleChecks.py
 python3 Tests/TerminalFilesTaskChecks.py
 python3 Tests/TerminalScrollChecks.py
+xcrun swiftc -swift-version 5 -default-isolation MainActor -parse-as-library \
+    MARC/Services/MARCAICommandSafety.swift Tests/AICommandSafetyChecks.swift \
+    -o "$marc_build/ai-command-safety-checks"
+"$marc_build/ai-command-safety-checks"
 python3 Tests/AIRequestChecks.py
 python3 Tests/APIKeyStoreChecks.py
 python3 Tests/APIProviderChecks.py
@@ -61,7 +68,13 @@ xcrun swiftc -swift-version 5 \
     Tests/LocalDownloadChecks.swift \
     -o "$marc_build/local-download-checks"
 "$marc_build/local-download-checks"
+xcrun swiftc -swift-version 5 -default-isolation MainActor -parse-as-library \
+    MARC/Services/MARCLocalDownload.swift \
+    Tests/TemporaryFileChecks.swift \
+    -o "$marc_build/temporary-file-checks"
+"$marc_build/temporary-file-checks"
 python3 Tests/FileActionChecks.py
+python3 Tests/UploadSecurityChecks.py
 xcrun swiftc -swift-version 5 \
     MARC/Services/MARCFileFormatting.swift \
     Tests/FileUIHelpersChecks.swift \
@@ -82,6 +95,8 @@ xcodebuild \
 xcrun swift scripts/verify-plist.swift \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app/Info.plist"
 python3 scripts/verify-privacy.py \
+    "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
+python3 scripts/verify-licenses.py \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
 python3 scripts/verify-source-hygiene.py \
     "$marc_build/Build/Products/Debug-iphonesimulator/MARC.app"
