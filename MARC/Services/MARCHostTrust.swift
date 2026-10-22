@@ -106,7 +106,7 @@ enum MARCHostTrustStore {
 
 // Task cancellation can arrive off the main actor. Record it immediately so a
 // queued approval cannot accept an already-cancelled connection request.
-private final class HostTrustCancellation: @unchecked Sendable {
+nonisolated private final class HostTrustCancellation: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
 

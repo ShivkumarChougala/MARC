@@ -37,7 +37,7 @@ if not compiler:
     raise SystemExit('NOT RUN: Swift is required for trust-flow runtime checks. Run on your Mac.')
 
 request_type = source[source.index('struct HostTrustRequest:'):source.index('enum HostTrustError:')]
-flow = source[source.index('private final class HostTrustCancellation:'):]
+flow = source[source.index('nonisolated private final class HostTrustCancellation:'):]
 flow = flow.replace('@MainActor @Observable', '@MainActor').replace('@ObservationIgnored ', '')
 profile = (root / 'MARC/Models/ServerProfile.swift').read_text()
 
@@ -201,5 +201,5 @@ with tempfile.TemporaryDirectory(prefix='marc-host-trust-checks-') as directory:
     fixture = path / 'HostTrustChecks.swift'
     fixture.write_text(profile + '\n' + request_type + support + flow + checks)
     executable = path / 'host-trust-checks'
-    subprocess.run([compiler, '-swift-version', '5', '-parse-as-library', str(fixture), '-o', str(executable)], check=True)
+    subprocess.run([compiler, '-swift-version', '5', '-default-isolation', 'MainActor', '-strict-concurrency=complete', '-warnings-as-errors', '-parse-as-library', str(fixture), '-o', str(executable)], check=True)
     subprocess.run([str(executable)], check=True, timeout=30)
