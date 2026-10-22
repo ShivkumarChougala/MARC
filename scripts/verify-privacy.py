@@ -11,6 +11,7 @@ with source.open("rb") as stream:
 expected = {
     "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1"],
     "NSPrivacyAccessedAPICategorySystemBootTime": ["35F9.1"],
+    "NSPrivacyAccessedAPICategoryDiskSpace": ["E174.1"],
 }
 actual = {entry["NSPrivacyAccessedAPIType"]: entry["NSPrivacyAccessedAPITypeReasons"]
           for entry in manifest["NSPrivacyAccessedAPITypes"]}

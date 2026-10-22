@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Transfer privacy declaration
+
+- Declare disk-space access used to check available storage before and during
+  local transfers.
+- Require the declaration in privacy verification and verify that the built
+  app includes the current manifest.
+
 ### Cryptography dependency update
 
 - Update Swift Crypto to 5.0.3, including upstream RSA public-key parsing and
