@@ -1,10 +1,8 @@
 <p align="center">
-  <img src="MARC/Assets.xcassets/AppIcon.appiconset/MARC%20logo%20with%20cowboy%20hacker%20silhouette.png" alt="MARC" width="140">
+  <img src="docs/assets/marc-readme-logo.png" alt="MARC" width="200">
 </p>
 
 <h1 align="center">MARC</h1>
-
-<hr>
 
 <p align="center">
   <strong>Your Mac. Within reach.</strong><br>
@@ -16,9 +14,7 @@
   <img src="https://img.shields.io/badge/Language-Swift-F05138?style=flat&amp;logo=swift&amp;logoColor=white" alt="Swift">
   <img src="https://img.shields.io/badge/UI-SwiftUI-5856D6?style=flat" alt="SwiftUI">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-78A641?style=flat" alt="MIT License"></a>
-</p>
-
-<p align="center">
+<br>
   <a href="https://github.com/ShivkumarChougala/MARC/stargazers"><img src="https://img.shields.io/github/stars/ShivkumarChougala/MARC?style=flat&amp;logo=github&amp;label=Stars&amp;color=D4A72C" alt="GitHub stars"></a>
   <a href="https://getmarc.app"><img src="https://img.shields.io/badge/Website-getmarc.app-555555?style=flat" alt="MARC website"></a>
   <a href="https://getmarc.app/docs"><img src="https://img.shields.io/badge/Docs-Read-007AFF?style=flat" alt="Read documentation"></a>
