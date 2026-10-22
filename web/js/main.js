@@ -13,7 +13,7 @@ async function selectScreen(index,focus=false){
  document.getElementById('screen-label').textContent=screen.label;
  document.getElementById('screen-title').textContent=screen.title;
  document.getElementById('screen-description').textContent=screen.description;
- picture.classList.remove('switching');picture.src=screen.src;picture.alt='MARC '+screen.label+' app screenshot';
+ picture.classList.remove('switching');picture.removeAttribute('srcset');picture.removeAttribute('sizes');picture.src=screen.src;picture.alt='MARC '+screen.label+' app screenshot';
  requestAnimationFrame(()=>{if(request===screenRequest)picture.classList.add('switching')});panel.setAttribute('aria-busy','false');
 }
 
@@ -50,7 +50,7 @@ document.querySelectorAll('[data-jump]').forEach(link=>link.addEventListener('cl
 
   trigger.addEventListener('click', () => {
     const enlarged = dialog.querySelector('img');
-    enlarged.src = image.currentSrc || image.src;
+    enlarged.src = image.src;
     enlarged.alt = image.alt;
     dialog.querySelector('.lightbox-toolbar span').textContent =
       document.getElementById('screen-label')?.textContent || 'App screenshot';
