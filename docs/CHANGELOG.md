@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### SSH parser hardening and terminal feedback
+
+- Reject oversized ECDSA signature integers before copying signature data.
+  Use reviewed local Citadel and SSH snapshots with matching source provenance
+  and open-source notices.
+- Add malformed-signature and valid-signature regression coverage for all three
+  supported ECDSA curves.
+- Keep host-trust cancellation independent of main-actor scheduling and verify
+  trust-flow behaviour with the app's actor-isolation settings.
+- Show a dismissible alert when the terminal clipboard contains no text.
+
 ### 2026-10-22 — Security and resilience improvements
 
 Changes included in [e180c78](https://github.com/ShivkumarChougala/MARC/commit/e180c78786783da3aa3eea7d427a20408fdde4f7).
