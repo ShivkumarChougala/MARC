@@ -545,6 +545,7 @@ struct TerminalScreen: View {
     @State private var showingSessions = false
     @State private var showingSessionLimit = false
     @State private var showingPickerSessionLimit = false
+    @State private var showingEmptyClipboard = false
     @State private var aiFocused = false
 
     private var connectionID: String {
@@ -608,12 +609,15 @@ struct TerminalScreen: View {
                         guard let session = workspace.selected?.session,
                               session.ready else { return }
                         guard let copied = UIPasteboard.general.string else {
-                            session.failure = "The clipboard has no text."
+                            showingEmptyClipboard = true
                             return
                         }
 
                         let value = copied.trimmingCharacters(in: .newlines)
-                        guard !value.isEmpty else { return }
+                        guard !value.isEmpty else {
+                            showingEmptyClipboard = true
+                            return
+                        }
                         guard !value.unicodeScalars.contains(where: {
                             $0.value < 32 || $0.value == 127 ||
                             (0x80...0x9f).contains($0.value) ||
@@ -747,6 +751,11 @@ struct TerminalScreen: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("You can open up to \(MARCTerminalWorkspace.sessionLimit) terminal sessions. Close one to open another.")
+        }
+        .alert("No text to paste", isPresented: $showingEmptyClipboard) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Copy a command, then tap Paste again.")
         }
         .alert("Show location in Terminal", isPresented: Binding(
             get: { workspace.pendingDirectoryCommand != nil && workspace.selected?.session.ready == true },
