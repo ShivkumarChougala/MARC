@@ -100,7 +100,7 @@
 			mainGroup = 0C0B3D72307BDDB4000BAACB;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				0C0B3D89307BEBF0000BAACB /* XCRemoteSwiftPackageReference "Citadel" */,
+				0C0B3D89307BEBF0000BAACB /* XCLocalSwiftPackageReference "Vendor/Citadel" */,
 				0C0B3DD4307C1EA7000BAACB /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -340,15 +340,14 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		0C0B3D89307BEBF0000BAACB /* XCRemoteSwiftPackageReference "Citadel" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/orlandos-nl/Citadel";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.12.1;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		0C0B3D89307BEBF0000BAACB /* XCLocalSwiftPackageReference "Vendor/Citadel" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/Citadel;
 		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
 		0C0B3DD4307C1EA7000BAACB /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
@@ -362,7 +361,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		0C0B3D8A307BEBF0000BAACB /* Citadel */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 0C0B3D89307BEBF0000BAACB /* XCRemoteSwiftPackageReference "Citadel" */;
+			package = 0C0B3D89307BEBF0000BAACB /* XCLocalSwiftPackageReference "Vendor/Citadel" */;
 			productName = Citadel;
 		};
 		0C0B3DD5307C1EA7000BAACB /* SwiftTerm */ = {

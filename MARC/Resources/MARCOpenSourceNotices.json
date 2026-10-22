@@ -1,6 +1,6 @@
 {
   "title": "Open-source licenses",
-  "introduction": "MARC includes the following open-source packages. This inventory includes all resolved packages; some are build tools, tests or platform-specific components and may not be linked into the iPhone app. Third-party code retains its own license.",
+  "introduction": "MARC includes the following open-source packages. This inventory includes all resolved packages; some are build tools, tests or platform-specific components and may not be linked into the iPhone app. Third-party code retains its own license. MARC uses local source snapshots of Citadel and swift-nio-ssh; the SSH snapshot includes an ECDSA parsing security backport. The other 12 packages retain their reviewed remote revisions. Local modification records are included below.",
   "marcLicense": "MIT License\n\nCopyright (c) 2026 Shivkumar Chougala\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
   "acknowledgement": "This product includes software developed by Niels Provos.",
   "packages": [
@@ -154,7 +154,7 @@
     {
       "id": "citadel",
       "name": "Citadel",
-      "version": "0.12.1",
+      "version": "0.12.1 + MARC local integration",
       "revision": "ae8562f895de06ccb86fdb1cbb65fd99c8976e12",
       "repository": "https://github.com/orlandos-nl/Citadel",
       "documents": [
@@ -193,8 +193,17 @@
           "sourceURL": "https://github.com/orlandos-nl/Citadel/blob/ae8562f895de06ccb86fdb1cbb65fd99c8976e12/Sources/CitadelServerExample/EchoShell/BasicCommands.swift",
           "sha256": "a1f1fa4697304ea860cefd71bdf398eb1a7073770f09af7746f77b5e795cee8b",
           "text": "//===----------------------------------------------------------------------===//\n//\n// This source file is part of the Citadel open source and the ClamShell project\n//\n// Copyright (c) 2023 Gregor Feigel and the Citadel project authors\n// Licensed under MIT License\n//\n// See LICENSE.txt for license information\n//\n// SPDX-License-Identifier: MIT\n//\n//===----------------------------------------------------------------------===//\n"
+        },
+        {
+          "path": "MARC local modifications",
+          "sourceURL": "Vendor/Citadel/MARC_MODIFICATIONS.md",
+          "text": "# MARC local integration\n\nBase: orlandos-nl/Citadel 0.12.1, revision\n`ae8562f895de06ccb86fdb1cbb65fd99c8976e12`.\n\nRuntime source is preserved from that revision. Package.swift selects the sibling\nlocal swift-nio-ssh security backport and fixes its remaining remote dependencies\nto the existing reviewed versions. The example executable and its ColorizeSwift\nrequirement are omitted from the local manifest; library and test targets remain.\nThis does not remove application features. Upstream sources for examples remain\navailable in this snapshot, but the example is not a package product here.\n\nOriginal copyright notices, embedded notices and MIT LICENSE are retained.\n\nSource and documentation line-end whitespace is normalized for repository\nhygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;\nmodified files have separate current hashes. License wording is preserved.\n",
+          "sha256": "f7a996f5cc17863214d17d41b425a1506e2d6d541d81c76d1d46898106d693bb",
+          "localNotice": true
         }
-      ]
+      ],
+      "sourceKind": "vendored",
+      "localPath": "Vendor/Citadel"
     },
     {
       "id": "h",
@@ -2119,7 +2128,7 @@
     {
       "id": "swift-nio-ssh",
       "name": "swift-nio-ssh",
-      "version": "0.3.7",
+      "version": "0.3.7 + MARC security backport 1",
       "revision": "d88989f3d3bb1dfb2a38ce4af598afbf7fc3095c",
       "repository": "https://github.com/Wellz26/swift-nio-ssh.git",
       "documents": [
@@ -2218,8 +2227,17 @@
           "sourceURL": "https://github.com/Wellz26/swift-nio-ssh/blob/d88989f3d3bb1dfb2a38ce4af598afbf7fc3095c/Sources/NIOSSHPerformanceTester/BenchmarkLinearThroughput.swift",
           "sha256": "5bfe96ec1f499da2d9b586cc3045444c7d5c857460f5adf1ef59e58a7838c8b2",
           "text": "//===----------------------------------------------------------------------===//\n//\n// This source file is part of the SwiftNIO open source project\n//\n// Copyright (c) 2021 Apple Inc. and the SwiftNIO project authors\n// Licensed under Apache License v2.0\n//\n// See LICENSE.txt for license information\n// See CONTRIBUTORS.txt for the list of SwiftNIO project authors\n//\n// SPDX-License-Identifier: Apache-2.0\n//\n//===----------------------------------------------------------------------===//\n"
+        },
+        {
+          "path": "MARC local modifications",
+          "sourceURL": "Vendor/swift-nio-ssh/MARC_MODIFICATIONS.md",
+          "text": "# MARC SSH security backport 1\n\nBase: Wellz26/swift-nio-ssh 0.3.7, revision\n`d88989f3d3bb1dfb2a38ce4af598afbf7fc3095c`.\n\nBackport: Apple swift-nio-ssh commit\n`31cdc3c3391a10460dedf1170530cf651d2ca496` for\nCVE-2026-43798 / GHSA-998x-vgvp-xwpc.\n\nNIOSSHSignature.swift rejects ECDSA integer magnitudes wider than the selected\ncurve before calculating offsets or copying bytes. The helper initializer throws\nand its caller propagates the error. Tests cover oversized components, all three\ncurve widths, leading-zero padding, truncated input and valid signed round trips.\n\nPackage.swift retains library and test targets, omits example/performance tools\nand the documentation-plugin dependency, and fixes remote dependencies to existing\nreviewed versions. Original upstream sources and tests remain in the snapshot.\nOriginal copyright/license headers and Apache-2.0 LICENSE.txt are retained.\n\nThis is a modified local snapshot, not a new upstream 0.3.7 release. Its presence\ndoes not establish that the native regression tests or a MARC build have passed.\n\nSource and documentation line-end whitespace is normalized for repository\nhygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;\nmodified files have separate current hashes. License wording is preserved.\n",
+          "sha256": "c3ebd816ef36580a01fe22ccbd9ae8551873f5d1e876e7899176220b59fa3c47",
+          "localNotice": true
         }
-      ]
+      ],
+      "sourceKind": "vendored",
+      "localPath": "Vendor/swift-nio-ssh"
     },
     {
       "id": "swift-png",

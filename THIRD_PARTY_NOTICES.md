@@ -1,10 +1,10 @@
 # Third-party notices
 
-MARC includes the following open-source packages. This inventory includes all resolved packages; some are build tools, tests or platform-specific components and may not be linked into the iPhone app. Third-party code retains its own license.
+MARC includes the following open-source packages. This inventory includes all resolved packages; some are build tools, tests or platform-specific components and may not be linked into the iPhone app. Third-party code retains its own license. MARC uses local source snapshots of Citadel and swift-nio-ssh; the SSH snapshot includes an ECDSA parsing security backport. The other 12 packages retain their reviewed remote revisions. Local modification records are included below.
 
 This product includes software developed by Niels Provos.
 
-These texts were retrieved from the exact revisions in `Package.resolved`. Embedded source notices are retained below along with root licenses and NOTICE files. Source comment wording is preserved; trailing whitespace is normalized in this Markdown copy. Bundled source notices remain verbatim.
+Remote notice texts identify their exact resolved revisions. Local snapshots identify their upstream base revisions and MARC modifications in `Vendor/DEPENDENCIES.json`. Embedded source notices are retained below along with root licenses and NOTICE files. Source comment wording is preserved; trailing whitespace is normalized in this Markdown copy. Bundled source notices remain verbatim.
 
 ## BigInt 5.7.0
 
@@ -391,7 +391,7 @@ Source: https://github.com/attaswift/BigInt/blob/e07e00fa1fd435143a2dcf8b7eec9a7
 //
 ```
 
-## Citadel 0.12.1
+## Citadel 0.12.1 + MARC local integration
 
 Repository: https://github.com/orlandos-nl/Citadel
 
@@ -562,6 +562,30 @@ Source: https://github.com/orlandos-nl/Citadel/blob/ae8562f895de06ccb86fdb1cbb65
 // SPDX-License-Identifier: MIT
 //
 //===----------------------------------------------------------------------===//
+```
+
+### MARC local modifications
+
+Source: Vendor/Citadel/MARC_MODIFICATIONS.md
+
+```text
+# MARC local integration
+
+Base: orlandos-nl/Citadel 0.12.1, revision
+`ae8562f895de06ccb86fdb1cbb65fd99c8976e12`.
+
+Runtime source is preserved from that revision. Package.swift selects the sibling
+local swift-nio-ssh security backport and fixes its remaining remote dependencies
+to the existing reviewed versions. The example executable and its ColorizeSwift
+requirement are omitted from the local manifest; library and test targets remain.
+This does not remove application features. Upstream sources for examples remain
+available in this snapshot, but the example is not a package product here.
+
+Original copyright notices, embedded notices and MIT LICENSE are retained.
+
+Source and documentation line-end whitespace is normalized for repository
+hygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;
+modified files have separate current hashes. License wording is preserved.
 ```
 
 ## h 1.0.1
@@ -10510,7 +10534,7 @@ Source: https://github.com/apple/swift-nio/blob/6db9d9abd92ad7399b8a564cafbb87d3
 /// and instead stores the ``Element`` inline.
 ```
 
-## swift-nio-ssh 0.3.7
+## swift-nio-ssh 0.3.7 + MARC security backport 1
 
 Repository: https://github.com/Wellz26/swift-nio-ssh.git
 
@@ -11089,6 +11113,38 @@ Source: https://github.com/Wellz26/swift-nio-ssh/blob/d88989f3d3bb1dfb2a38ce4af5
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+```
+
+### MARC local modifications
+
+Source: Vendor/swift-nio-ssh/MARC_MODIFICATIONS.md
+
+```text
+# MARC SSH security backport 1
+
+Base: Wellz26/swift-nio-ssh 0.3.7, revision
+`d88989f3d3bb1dfb2a38ce4af598afbf7fc3095c`.
+
+Backport: Apple swift-nio-ssh commit
+`31cdc3c3391a10460dedf1170530cf651d2ca496` for
+CVE-2026-43798 / GHSA-998x-vgvp-xwpc.
+
+NIOSSHSignature.swift rejects ECDSA integer magnitudes wider than the selected
+curve before calculating offsets or copying bytes. The helper initializer throws
+and its caller propagates the error. Tests cover oversized components, all three
+curve widths, leading-zero padding, truncated input and valid signed round trips.
+
+Package.swift retains library and test targets, omits example/performance tools
+and the documentation-plugin dependency, and fixes remote dependencies to existing
+reviewed versions. Original upstream sources and tests remain in the snapshot.
+Original copyright/license headers and Apache-2.0 LICENSE.txt are retained.
+
+This is a modified local snapshot, not a new upstream 0.3.7 release. Its presence
+does not establish that the native regression tests or a MARC build have passed.
+
+Source and documentation line-end whitespace is normalized for repository
+hygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;
+modified files have separate current hashes. License wording is preserved.
 ```
 
 ## swift-png 4.5.1

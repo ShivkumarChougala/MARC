@@ -2,6 +2,7 @@
 set -euo pipefail
 marc_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$marc_root"
+python3 scripts/verify-ssh-backport.py
 python3 Tests/ResourceLimitChecks.py
 python3 scripts/verify-source-hygiene.py
 if ! command -v xcodebuild >/dev/null 2>&1; then

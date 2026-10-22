@@ -1,5 +1,5 @@
 {
-  "originHash" : "2d62dd05531ef0b27c83025a656ece752a7c4da0676bd526638bb05428b98aa1",
+  "originHash" : "de2f047a9fae36d6e97e8bc7d03dea618206da4001f19588521e1fc7c71446b2",
   "pins" : [
     {
       "identity" : "bigint",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
         "version" : "5.7.0"
-      }
-    },
-    {
-      "identity" : "citadel",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/orlandos-nl/Citadel",
-      "state" : {
-        "revision" : "ae8562f895de06ccb86fdb1cbb65fd99c8976e12",
-        "version" : "0.12.1"
       }
     },
     {
@@ -89,15 +80,6 @@
       "state" : {
         "revision" : "6db9d9abd92ad7399b8a564cafbb87d3507245fa",
         "version" : "2.104.0"
-      }
-    },
-    {
-      "identity" : "swift-nio-ssh",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Wellz26/swift-nio-ssh.git",
-      "state" : {
-        "revision" : "d88989f3d3bb1dfb2a38ce4af598afbf7fc3095c",
-        "version" : "0.3.7"
       }
     },
     {
