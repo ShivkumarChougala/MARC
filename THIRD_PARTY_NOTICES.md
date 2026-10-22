@@ -586,6 +586,10 @@ Original copyright notices, embedded notices and MIT LICENSE are retained.
 Source and documentation line-end whitespace is normalized for repository
 hygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;
 modified files have separate current hashes. License wording is preserved.
+
+Swift Crypto is pinned to 5.0.3 to include the upstream RSA key-parsing and
+VOPRF input-length fixes. This dependency change is additional to the upstream
+base snapshot; the SSH ECDSA parser backport remains in place.
 ```
 
 ## h 1.0.1
@@ -5170,15 +5174,15 @@ Source: https://github.com/apple/swift-collections/blob/3b69cedbaa49957e97c092ae
 /// type, which manages storage for the header and its trailing elements.
 ```
 
-## swift-crypto 3.15.1
+## swift-crypto 5.0.3
 
 Repository: https://github.com/apple/swift-crypto.git
 
-Revision: `95ba0316a9b733e92bb6b071255ff46263bbe7dc`
+Revision: `c2cbadd7263439d8015189668f96ff5b5be565ce`
 
 ### LICENSE.txt
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/LICENSE.txt
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/LICENSE.txt
 
 ```text
 
@@ -5387,7 +5391,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### NOTICE.txt
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/NOTICE.txt
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/NOTICE.txt
 
 ```text
                             The SwiftCrypto Project
@@ -5434,9 +5438,50 @@ This product contains a derivation of various files from SwiftNIO.
     * https://github.com/apple/swift-nio
 ```
 
+### Benchmarks/Benchmarks/Benchmarks.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Benchmarks/Benchmarks/Benchmarks.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2025 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Package.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Package.swift
+
+```text
+// swift-tools-version:6.2
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2019-2023 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
 ### Sources/CCryptoBoringSSL/crypto/aes/aes.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/aes/aes.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/aes/aes.cc
 
 ```text
 // Copyright 2025 The BoringSSL Authors
@@ -5456,7 +5501,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/a_bitstr.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/a_bitstr.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/a_bitstr.cc
 
 ```text
 // Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5476,7 +5521,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/a_mbstr.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/a_mbstr.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/a_mbstr.cc
 
 ```text
 // Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5496,7 +5541,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/a_strex.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/a_strex.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/a_strex.cc
 
 ```text
 // Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5516,7 +5561,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/internal.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/internal.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/internal.h
 
 ```text
 // Copyright 2005-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5536,7 +5581,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc
 
 ```text
 // Copyright 2022 The BoringSSL Authors
@@ -5552,17 +5597,13 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// Time conversion to/from POSIX time_t and struct tm, with no support
-// for time zones other than UTC
 ```
 
 ### Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/asn1/posix_time.cc
 
 ```text
-
 // Inspired by algorithms presented in
 // https://howardhinnant.github.io/date_algorithms.html
 // (Public Domain)
@@ -5570,7 +5611,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/bcm_support.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/bcm_support.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/bcm_support.h
 
 ```text
 // Copyright 2024 The BoringSSL Authors
@@ -5590,7 +5631,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/bio/socket_helper.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/bio/socket_helper.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/bio/socket_helper.cc
 
 ```text
 // Copyright 2014 The BoringSSL Authors
@@ -5610,7 +5651,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/blake2/blake2.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/blake2/blake2.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/blake2/blake2.cc
 
 ```text
 // Copyright 2021 The BoringSSL Authors
@@ -5630,7 +5671,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/bn/bn_asn1.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/bn/bn_asn1.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/bn/bn_asn1.cc
 
 ```text
 // Copyright 2015 The BoringSSL Authors
@@ -5650,7 +5691,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/bytestring/asn1_compat.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/bytestring/asn1_compat.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/bytestring/asn1_compat.cc
 
 ```text
 // Copyright 2016 The BoringSSL Authors
@@ -5670,7 +5711,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/bytestring/unicode.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/bytestring/unicode.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/bytestring/unicode.cc
 
 ```text
 // Copyright 2018 The BoringSSL Authors
@@ -5690,29 +5731,15 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/chacha/chacha.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/chacha/chacha.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/chacha/chacha.cc
 
 ```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // Adapted from the public domain, estream code by D. Bernstein.
 ```
 
 ### Sources/CCryptoBoringSSL/crypto/cipher/e_aesctrhmac.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cipher/e_aesctrhmac.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/cipher/e_aesctrhmac.cc
 
 ```text
 // Copyright 2017 The BoringSSL Authors
@@ -5732,7 +5759,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/cipher/tls_cbc.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cipher/tls_cbc.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/cipher/tls_cbc.cc
 
 ```text
 // Copyright 2012-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5752,7 +5779,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/cpu_aarch64_openbsd.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_openbsd.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_openbsd.cc
 
 ```text
 // Copyright (c) 2022, Robert Nagy <robert.nagy@gmail.com>
@@ -5772,7 +5799,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/cpu_aarch64_sysreg.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_sysreg.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_sysreg.cc
 
 ```text
 // Copyright 2023 The BoringSSL Authors
@@ -5792,7 +5819,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/cpu_aarch64_win.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_win.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/cpu_aarch64_win.cc
 
 ```text
 // Copyright 2018 The BoringSSL Authors
@@ -5811,12 +5838,23 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/cpu_arm_freebsd.cc:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/curve25519/asm/x25519-asm-arm.S:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/cpu_arm_freebsd.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/curve25519/asm/x25519-asm-arm.S
 
 ```text
-// Copyright 2022 The BoringSSL Authors
+/* This file is taken from crypto_scalarmult/curve25519/neon2/scalarmult.s in
+ * SUPERCOP 20141124 (http://bench.cr.yp.to/supercop.html). That code is public
+ * domain licensed but the standard Apache 2.0 license is included above to keep
+ * licensing simple. */
+```
+
+### Sources/CCryptoBoringSSL/crypto/curve25519/curve25519.cc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/curve25519/curve25519.cc
+
+```text
+// Copyright 2020 The BoringSSL Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -5833,23 +5871,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/curve25519/curve25519.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/curve25519/curve25519.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/curve25519/curve25519.cc
 
 ```text
-// Copyright 2020 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // Some of this code is taken from the ref10 version of Ed25519 in SUPERCOP
 // 20141124 (http://bench.cr.yp.to/supercop.html). That code is released as
 // public domain. Other parts have been replaced to call into code generated by
@@ -5858,52 +5882,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // The field functions are shared by Ed25519 and X25519 where possible.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/curve25519/curve25519_tables.h:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/curve25519/curve25519_tables.h
-
-```text
-// Copyright 2020 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This file is generated from
-//    ./make_curve25519_tables.py > curve25519_tables.h
-```
-
-### Sources/CCryptoBoringSSL/crypto/curve25519/internal.h:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/curve25519/internal.h
-
-```text
-// Copyright 2020 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-```
-
 ### Sources/CCryptoBoringSSL/crypto/dh/params.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/dh/params.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/dh/params.cc
 
 ```text
 // Copyright 2011-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5923,7 +5904,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/ec/ec_asn1.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/ec/ec_asn1.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/ec/ec_asn1.cc
 
 ```text
 // Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5943,7 +5924,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/ec/ec_derive.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/ec/ec_derive.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/ec/ec_derive.cc
 
 ```text
 // Copyright 2019 The BoringSSL Authors
@@ -5963,7 +5944,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/ecdh/ecdh.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/ecdh/ecdh.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/ecdh/ecdh.cc
 
 ```text
 // Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -5982,31 +5963,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/err/err.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/err/err.cc
-
-```text
-// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Ensure we can't call OPENSSL_malloc circularly.
-```
-
 ### Sources/CCryptoBoringSSL/crypto/evp/evp_ctx.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/evp/evp_ctx.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/evp/evp_ctx.cc
 
 ```text
 // Copyright 2006-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6026,7 +5985,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/evp/p_dh.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/evp/p_dh.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/evp/p_dh.cc
 
 ```text
 // Copyright 2006-2019 The OpenSSL Project Authors. All Rights Reserved.
@@ -6046,7 +6005,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/evp/p_dh_asn1.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/evp/p_dh_asn1.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/evp/p_dh_asn1.cc
 
 ```text
 // Copyright 2006-2021 The OpenSSL Project Authors. All Rights Reserved.
@@ -6066,7 +6025,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/evp/scrypt.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/evp/scrypt.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/evp/scrypt.cc
 
 ```text
 // Copyright 2015-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6084,9 +6043,106 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/cbc.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/cbc.cc.inc
+
+```text
+// Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/gcm.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/gcm.cc.inc
+
+```text
+// Copyright 2010-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/asm/x86_64-gcc.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/asm/x86_64-gcc.cc.inc
+
+```text
+/* x86_64 BIGNUM accelerator version 0.1, December 2002.
+ *
+ * Implemented by Andy Polyakov <appro@fy.chalmers.se> for the OpenSSL
+ * project.
+ *
+ * Rights for redistribution and usage in source and binary forms are
+ * granted according to the License. Warranty of any kind is disclaimed.
+ *
+ * Q. Version 0.1? It doesn't sound like Andy, he used to assign real
+ *    versions, like 1.0...
+ * A. Well, that's because this code is basically a quick-n-dirty
+ *    proof-of-concept hack. As you can see it's implemented with
+ *    inline assembler, which means that you're bound to GCC and that
+ *    there might be enough room for further improvement.
+ *
+ * Q. Why inline assembler?
+ * A. x86_64 features own ABI which I'm not familiar with. This is
+ *    why I decided to let the compiler take care of subroutine
+ *    prologue/epilogue as well as register allocation. For reference.
+ *    Win64 implements different ABI for AMD64, different from Linux.
+ *
+ * Q. How much faster does it get?
+ * A. 'apps/openssl speed rsa dsa' output with no-asm:
+ *
+ *	                  sign    verify    sign/s verify/s
+ *	rsa  512 bits   0.0006s   0.0001s   1683.8  18456.2
+ *	rsa 1024 bits   0.0028s   0.0002s    356.0   6407.0
+ *	rsa 2048 bits   0.0172s   0.0005s     58.0   1957.8
+ *	rsa 4096 bits   0.1155s   0.0018s      8.7    555.6
+ *	                  sign    verify    sign/s verify/s
+ *	dsa  512 bits   0.0005s   0.0006s   2100.8   1768.3
+ *	dsa 1024 bits   0.0014s   0.0018s    692.3    559.2
+ *	dsa 2048 bits   0.0049s   0.0061s    204.7    165.0
+ *
+ *    'apps/openssl speed rsa dsa' output with this module:
+ *
+ *	                  sign    verify    sign/s verify/s
+ *	rsa  512 bits   0.0004s   0.0000s   2767.1  33297.9
+ *	rsa 1024 bits   0.0012s   0.0001s    867.4  14674.7
+ *	rsa 2048 bits   0.0061s   0.0002s    164.0   5270.0
+ *	rsa 4096 bits   0.0384s   0.0006s     26.1   1650.8
+ *	                  sign    verify    sign/s verify/s
+ *	dsa  512 bits   0.0002s   0.0003s   4442.2   3786.3
+ *	dsa 1024 bits   0.0005s   0.0007s   1835.1   1497.4
+ *	dsa 2048 bits   0.0016s   0.0020s    620.4    504.6
+ *
+ *    For the reference. IA-32 assembler implementation performs
+ *    very much like 64-bit code compiled with no-asm on the same
+ *    machine.
+ */
+```
+
 ### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/internal.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/internal.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/internal.h
 
 ```text
 // Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6105,9 +6161,29 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/rsaz_exp.h:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/montgomery_inv.cc.inc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/rsaz_exp.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/montgomery_inv.cc.inc
+
+```text
+// Copyright 2016 Brian Smith.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/rsaz_exp.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/rsaz_exp.cc.inc
 
 ```text
 // Copyright 2013-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6130,12 +6206,12 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // (2) University of Haifa, Israel
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/builtin_curves.h:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/cipher/e_aes.cc.inc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/builtin_curves.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/cipher/e_aes.cc.inc
 
 ```text
-// Copyright 2023 The BoringSSL Authors
+// Copyright 2001-2016 The OpenSSL Project Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -6148,15 +6224,11 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// This file is generated by make_tables.go.
-
-// P-224
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/internal.h:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/ec.cc.inc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/internal.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/ec.cc.inc
 
 ```text
 // Copyright 2001-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6175,9 +6247,41 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/oct.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/oct.cc.inc
+
+```text
+// Copyright 2011-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p224-64.cc.inc:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p224-64.cc.inc
+
+```text
+// A 64-bit implementation of the NIST P-224 elliptic curve point multiplication
+//
+// Inspired by Daniel J. Bernstein's public domain nistp224 implementation
+// and Adam Langley's public domain 64-bit C implementation of curve25519.
+```
+
 ### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz-table.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz-table.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz-table.h
 
 ```text
 // Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6194,25 +6298,11 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// This is the precomputed constant time access table for the code in
-// p256-nistz.c, for the default generator. The table consists of 37
-// subtables, each subtable contains 64 affine points. The affine points are
-// encoded as eight uint64's, four for the x coordinate and four for the y.
-// Both values are in little-endian order. There are 37 tables because a
-// signed, 6-bit wNAF form of the scalar is used and ceil(256/(6 + 1)) = 37.
-// Within each table there are 64 values because the 6-bit wNAF value can take
-// 64 values, ignoring the sign bit, which is implemented by performing a
-// negation of the affine point when required. We would like to align it to 2MB
-// in order to increase the chances of using a large page but that appears to
-// lead to invalid ELF files being produced.
-
-// This file is generated by make_tables.go.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz.h:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz.cc.inc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256-nistz.cc.inc
 
 ```text
 // Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6239,12 +6329,12 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //                          256 Bit Primes"
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256_table.h:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/fipsmodule/entropy/sha512.cc.inc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256_table.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/entropy/sha512.cc.inc
 
 ```text
-// Copyright 2020 The BoringSSL Authors
+// Copyright 2004-2016 The OpenSSL Project Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -6257,50 +6347,11 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// This file is generated by make_tables.go.
-
-// Base point pre computation
-// --------------------------
-//
-// Two different sorts of precomputed tables are used in the following code.
-// Each contain various points on the curve, where each point is three field
-// elements (x, y, z).
-//
-// For the base point table, z is usually 1 (0 for the point at infinity).
-// This table has 2 * 16 elements, starting with the following:
-// index | bits    | point
-// ------+---------+------------------------------
-//     0 | 0 0 0 0 | 0G
-//     1 | 0 0 0 1 | 1G
-//     2 | 0 0 1 0 | 2^64G
-//     3 | 0 0 1 1 | (2^64 + 1)G
-//     4 | 0 1 0 0 | 2^128G
-//     5 | 0 1 0 1 | (2^128 + 1)G
-//     6 | 0 1 1 0 | (2^128 + 2^64)G
-//     7 | 0 1 1 1 | (2^128 + 2^64 + 1)G
-//     8 | 1 0 0 0 | 2^192G
-//     9 | 1 0 0 1 | (2^192 + 1)G
-//    10 | 1 0 1 0 | (2^192 + 2^64)G
-//    11 | 1 0 1 1 | (2^192 + 2^64 + 1)G
-//    12 | 1 1 0 0 | (2^192 + 2^128)G
-//    13 | 1 1 0 1 | (2^192 + 2^128 + 1)G
-//    14 | 1 1 1 0 | (2^192 + 2^128 + 2^64)G
-//    15 | 1 1 1 1 | (2^192 + 2^128 + 2^64 + 1)G
-// followed by a copy of this with each element multiplied by 2^32.
-//
-// The reason for this is so that we can clock bits into four different
-// locations when doing simple scalar multiplies against the base point,
-// and then another four locations using the second 16 elements.
-//
-// Tables for other points have table[i] = iG for i in 0 .. 16.
-
-// fiat_p256_g_pre_comp is the table of precomputed base points
 ```
 
 ### Sources/CCryptoBoringSSL/crypto/fipsmodule/service_indicator/internal.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/service_indicator/internal.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/fipsmodule/service_indicator/internal.h
 
 ```text
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -6320,7 +6371,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/CCryptoBoringSSL/crypto/hrss/asm/poly_rq_mul.S:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/hrss/asm/poly_rq_mul.S
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/hrss/asm/poly_rq_mul.S
 
 ```text
 // Copyright (c) 2017, the HRSS authors.
@@ -6338,124 +6389,27 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/obj/obj_dat.h:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/obj/obj_dat.h
-
-```text
-// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This file is generated by crypto/obj/objects.go.
-```
-
-### Sources/CCryptoBoringSSL/crypto/pem/pem_x509.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/pem/pem_x509.cc
-
-```text
-// Copyright 2001-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-```
-
-### Sources/CCryptoBoringSSL/crypto/poly1305/poly1305.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/poly1305/poly1305.cc
-
-```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This implementation of poly1305 is by Andrew Moon
-// (https://github.com/floodyberry/poly1305-donna) and released as public
-// domain.
-```
-
 ### Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_arm.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_arm.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_arm.cc
 
 ```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 // This implementation was taken from the public domain, neon2 version in
 // SUPERCOP by D. J. Bernstein and Peter Schwabe.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_vec.cc:embedded-notice
+### Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_arm_asm.S:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_vec.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/poly1305/poly1305_arm_asm.S
 
 ```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This implementation of poly1305 is by Andrew Moon
-// (https://github.com/floodyberry/poly1305-donna) and released as public
-// domain. It implements SIMD vectorization based on the algorithm described in
-// http://cr.yp.to/papers.html#neoncrypto. Unrolled to 2 powers, i.e. 64 byte
-// block size
+# This implementation was taken from the public domain, neon2 version in
+# SUPERCOP by D. J. Bernstein and Peter Schwabe.
 ```
 
 ### Sources/CCryptoBoringSSL/crypto/rsa/rsa_print.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/rsa/rsa_print.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/rsa/rsa_print.cc
 
 ```text
 // Copyright 2006-2017 The OpenSSL Project Authors. All Rights Reserved.
@@ -6473,31 +6427,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/thread_pthread.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/thread_pthread.cc
-
-```text
-// Copyright 2015 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Ensure we can't call OPENSSL_malloc circularly.
-```
-
 ### Sources/CCryptoBoringSSL/crypto/x509/internal.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/x509/internal.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/x509/internal.h
 
 ```text
 // Copyright 2013-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6515,31 +6447,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/x509/v3_conf.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/x509/v3_conf.cc
-
-```text
-// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// extension creation utilities
-```
-
 ### Sources/CCryptoBoringSSL/crypto/x509/v3_ncons.cc:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/x509/v3_ncons.cc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/crypto/x509/v3_ncons.cc
 
 ```text
 // Copyright 2003-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6557,51 +6467,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/x509/v3_prn.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/x509/v3_prn.cc
-
-```text
-// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// X509 v3 extension utilities
-```
-
-### Sources/CCryptoBoringSSL/crypto/x509/x509_vpm.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/x509/x509_vpm.cc
-
-```text
-// Copyright 2004-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-```
-
 ### Sources/CCryptoBoringSSL/gen/bcm/sha256-armv8-apple.S:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/gen/bcm/sha256-armv8-apple.S
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/gen/bcm/sha256-armv8-apple.S
 
 ```text
 // Copyright 2014-2020 The OpenSSL Project Authors. All Rights Reserved.
@@ -6617,62 +6485,11 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// ====================================================================
-// Written by Andy Polyakov <appro@openssl.org> for the OpenSSL
-// project.
-// ====================================================================
-//
-// SHA256/512 for ARMv8.
-//
-// Performance in cycles per processed byte and improvement coefficient
-// over code generated with "default" compiler:
-//
-//		SHA256-hw	SHA256(*)	SHA512
-// Apple A7	1.97		10.5 (+33%)	6.73 (-1%(**))
-// Cortex-A53	2.38		15.5 (+115%)	10.0 (+150%(***))
-// Cortex-A57	2.31		11.6 (+86%)	7.51 (+260%(***))
-// Denver	2.01		10.5 (+26%)	6.70 (+8%)
-// X-Gene			20.0 (+100%)	12.8 (+300%(***))
-// Mongoose	2.36		13.0 (+50%)	8.36 (+33%)
-// Kryo		1.92		17.4 (+30%)	11.2 (+8%)
-//
-// (*)	Software SHA256 results are of lesser relevance, presented
-//	mostly for informational purposes.
-// (**)	The result is a trade-off: it's possible to improve it by
-//	10% (or by 1 cycle per round), but at the cost of 20% loss
-//	on Cortex-A53 (or by 4 cycles per round).
-// (***)	Super-impressive coefficients over gcc-generated code are
-//	indication of some compiler "pathology", most notably code
-//	generated with -mgeneral-regs-only is significantly faster
-//	and the gap is only 40-90%.
-```
-
-### Sources/CCryptoBoringSSL/gen/crypto/err_data.cc:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/gen/crypto/err_data.cc
-
-```text
-// Copyright 2015 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This file was generated by go run ./util/pregenerate.
 ```
 
 ### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL.h
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -6690,55 +6507,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_boringssl_prefix_symbols.h:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_boringssl_prefix_symbols.h
-
-```text
-// Copyright 2018 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// BORINGSSL_ADD_PREFIX pastes two identifiers into one. It performs one
-// iteration of macro expansion on its arguments before pasting.
-```
-
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_cpu.h:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_cpu.h
-
-```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// This header is provided for compatibility with older revisions of BoringSSL.
-// TODO(davidben): Remove this header.
-```
-
 ### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_ec.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_ec.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_ec.h
 
 ```text
 // Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
@@ -6757,104 +6528,213 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_is_boringssl.h:embedded-notice
+### Sources/CXKCP/FIPS202-opt64/KeccakHash.c:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_is_boringssl.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/KeccakHash.c
 
 ```text
-// Copyright 2017 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
 
-// This header is provided in order to catch include path errors in consuming
-// BoringSSL.
+Keccak, designed by Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.
+
+Implementation by the designers, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+*/
 ```
 
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_lhash.h:embedded-notice
+### Sources/CXKCP/FIPS202-opt64/KeccakP-1600-64.macros:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_lhash.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/KeccakP-1600-64.macros
 
 ```text
-// Copyright 2025 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
 
-// This header is provided in order to make compiling against code that expects
-// OpenSSL easier.
+The Keccak-p permutations, designed by Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.
+
+Implementation by Gilles Van Assche and Ronny Van Keer, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+*/
 ```
 
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_opensslconf.h:embedded-notice
+### Sources/CXKCP/FIPS202-opt64/KeccakP-1600-SnP.h:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_opensslconf.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/KeccakP-1600-SnP.h
 
 ```text
-// Copyright 2014 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
 
-// This header is provided in order to make compiling against code that expects
-// OpenSSL easier.
+The Keccak-p permutations, designed by Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.
+
+Implementation by Gilles Van Assche and Ronny Van Keer, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+
+---
+
+Please refer to SnP-documentation.h for more details.
+*/
 ```
 
-### Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_service_indicator.h:embedded-notice
+### Sources/CXKCP/FIPS202-opt64/KeccakP-1600-opt64.c:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/include/CCryptoBoringSSL_service_indicator.h
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/KeccakP-1600-opt64.c
 
 ```text
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
 
-// This empty header is provided in order to make compiling against older code
-// easier. Some bindings libraries depended on every header that was present in
-// an older version of library.
-//
-// TODO(davidben): Remove this header from downstream code and remove the file.
+The Keccak-p permutations, designed by Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.
+
+Implementation by Gilles Van Assche and Ronny Van Keer, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+
+---
+
+This file implements Keccak-p[1600] in a SnP-compatible way.
+Please refer to SnP-documentation.h for more details.
+
+This implementation comes with KeccakP-1600-SnP.h in the same folder.
+Please refer to LowLevel.build for the exact list of other files it must be combined with.
+*/
+```
+
+### Sources/CXKCP/FIPS202-opt64/SimpleFIPS202.c:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/SimpleFIPS202.c
+
+```text
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
+
+Keccak, designed by Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.
+
+Implementation by Gilles Van Assche, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+*/
+```
+
+### Sources/CXKCP/FIPS202-opt64/SnP-Relaned.h:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/SnP-Relaned.h
+
+```text
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
+
+Implementation by Gilles Van Assche and Ronny Van Keer, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+
+---
+
+This file contains macros that help implement a permutation in a SnP-compatible way.
+It converts an implementation that implement state input/output functions
+in a lane-oriented fashion (i.e., using SnP_AddLanes() and SnP_AddBytesInLane,
+and similarly for Overwite, Extract and ExtractAndAdd) to the byte-oriented SnP.
+Please refer to SnP-documentation.h for more details.
+*/
+```
+
+### Sources/CXKCP/FIPS202-opt64/align.h:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/align.h
+
+```text
+/*
+The eXtended Keccak Code Package (XKCP)
+https://github.com/XKCP/XKCP
+
+Implementation by Gilles Van Assche and Ronny Van Keer, hereby denoted as "the implementer".
+
+For more information, feedback or questions, please refer to the Keccak Team website:
+https://keccak.team/
+
+To the extent possible under law, the implementer has waived all copyright
+and related or neighboring rights to the source code in this file.
+http://creativecommons.org/publicdomain/zero/1.0/
+*/
+```
+
+### Sources/CXKCP/FIPS202-opt64/brg_endian.h:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CXKCP/FIPS202-opt64/brg_endian.h
+
+```text
+/*
+ ---------------------------------------------------------------------------
+ Copyright (c) 1998-2008, Brian Gladman, Worcester, UK. All rights reserved.
+
+ LICENSE TERMS
+
+ The redistribution and use of this software (with or without changes)
+ is allowed without the payment of fees or royalties provided that:
+
+  1. source code distributions include the above copyright notice, this
+     list of conditions and the following disclaimer;
+
+  2. binary distributions include the above copyright notice, this list
+     of conditions and the following disclaimer in their documentation;
+
+  3. the name of the copyright holder is not used to endorse products
+     built using this software without specific written permission.
+
+ DISCLAIMER
+
+ This software is provided 'as is' with no explicit or implied warranties
+ in respect of its properties, including, but not limited to, correctness
+ and/or fitness for purpose.
+ ---------------------------------------------------------------------------
+ Issue Date: 20/12/2007
+ Changes for ARM 9/9/2010
+*/
 ```
 
 ### Sources/Crypto/AEADs/AES/GCM/AES-GCM.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/Crypto/AEADs/AES/GCM/AES-GCM.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/AEADs/AES/GCM/AES-GCM.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -6874,7 +6754,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/Crypto/CryptoError_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/Crypto/CryptoError_boring.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/CryptoError_boring.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -6892,16 +6772,16 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/Crypto/Key Wrapping/AESWrap.swift:embedded-notice
+### Sources/Crypto/KEM/BoringSSL/MLKEM_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/Crypto/Key Wrapping/AESWrap.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/KEM/BoringSSL/MLKEM_boring.swift
 
 ```text
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftCrypto open source project
 //
-// Copyright (c) 2019-2021 Apple Inc. and the SwiftCrypto project authors
+// Copyright (c) 2024-2025 Apple Inc. and the SwiftCrypto project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -6914,7 +6794,7 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 
 ### Sources/Crypto/Key Wrapping/BoringSSL/AESWrap_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/Crypto/Key Wrapping/BoringSSL/AESWrap_boring.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/Key Wrapping/BoringSSL/AESWrap_boring.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -6932,49 +6812,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/CryptoBoringWrapper/AEAD/BoringSSLAEAD.swift:embedded-notice
+### Sources/Crypto/Signatures/BoringSSL/MLDSA_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CryptoBoringWrapper/AEAD/BoringSSLAEAD.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2019-2022 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-```
-
-### Sources/_CryptoExtras/AES/AES_CBC.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/AES/AES_CBC.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2023 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-```
-
-### Sources/_CryptoExtras/AES/AES_CFB.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/AES/AES_CFB.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/Signatures/BoringSSL/MLDSA_boring.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -6992,9 +6832,109 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/_CryptoExtras/AES/AES_GCM_SIV.swift:embedded-notice
+### Sources/Crypto/Util/BoringSSL/InlineArray+withBytes_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/AES/AES_GCM_SIV.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/Util/BoringSSL/InlineArray+withBytes_boring.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2026 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Sources/Crypto/Util/BoringSSL/_CryptoModuleAnchor.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/Crypto/Util/BoringSSL/_CryptoModuleAnchor.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2024-2026 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Sources/CryptoBoringWrapper/AEAD/BoringSSLAEAD.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoBoringWrapper/AEAD/BoringSSLAEAD.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2019-2022 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Sources/CryptoBoringWrapper/CryptoKitErrors_boring.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoBoringWrapper/CryptoKitErrors_boring.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2019-2021 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Sources/CryptoExtras/AES/AES_CBC.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoExtras/AES/AES_CBC.swift
+
+```text
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftCrypto open source project
+//
+// Copyright (c) 2023 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+```
+
+### Sources/CryptoExtras/AES/AES_GCM_SIV.swift:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoExtras/AES/AES_GCM_SIV.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -7012,51 +6952,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/_CryptoExtras/AES/BoringSSL/AES_GCM_SIV_boring.swift:embedded-notice
+### Sources/CryptoExtras/Key Derivation/PBKDF2/BoringSSL/PBKDF2_boring.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/AES/BoringSSL/AES_GCM_SIV_boring.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2022 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-
-// This is a copy ChaChaPoly_boring just with a different set aes algos
-```
-
-### Sources/_CryptoExtras/AES/CMAC.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/AES/CMAC.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2025 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-```
-
-### Sources/_CryptoExtras/Key Derivation/PBKDF2/BoringSSL/PBKDF2_boring.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/Key Derivation/PBKDF2/BoringSSL/PBKDF2_boring.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoExtras/Key Derivation/PBKDF2/BoringSSL/PBKDF2_boring.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -7074,53 +6972,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/_CryptoExtras/RSA/RSA_boring.swift:embedded-notice
+### Sources/CryptoExtras/Util/ThreadSpecific/ThreadOps.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/RSA/RSA_boring.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2021 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-
-// NOTE: This file is unconditionally compiled because RSABSSA is implemented using BoringSSL on all platforms.
-```
-
-### Sources/_CryptoExtras/Util/DigestType.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/Util/DigestType.swift
-
-```text
-//===----------------------------------------------------------------------===//
-//
-// This source file is part of the SwiftCrypto open source project
-//
-// Copyright (c) 2019-2021 Apple Inc. and the SwiftCrypto project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
-//
-// SPDX-License-Identifier: Apache-2.0
-//
-//===----------------------------------------------------------------------===//
-
-// NOTE: This file is unconditionally compiled because RSABSSA is implemented using BoringSSL on all platforms.
-```
-
-### Sources/_CryptoExtras/Util/ThreadSpecific/ThreadOps.swift:embedded-notice
-
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/Util/ThreadSpecific/ThreadOps.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoExtras/Util/ThreadSpecific/ThreadOps.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -7151,9 +7005,9 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/_CryptoExtras/Util/ThreadSpecific/ThreadPosix.swift:embedded-notice
+### Sources/CryptoExtras/Util/ThreadSpecific/ThreadPosix.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/Util/ThreadSpecific/ThreadPosix.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Sources/CryptoExtras/Util/ThreadSpecific/ThreadPosix.swift
 
 ```text
 //===----------------------------------------------------------------------===//
@@ -7184,16 +7038,16 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 //===----------------------------------------------------------------------===//
 ```
 
-### Sources/_CryptoExtras/Util/ThreadSpecific/ThreadSpecific.swift:embedded-notice
+### Tests/CryptoExtrasTests/TestRSAEncryption.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/_CryptoExtras/Util/ThreadSpecific/ThreadSpecific.swift
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Tests/CryptoExtrasTests/TestRSAEncryption.swift
 
 ```text
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftCrypto open source project
 //
-// Copyright (c) 2019-2025 Apple Inc. and the SwiftCrypto project authors
+// Copyright (c) YEARS Apple Inc. and the SwiftCrypto project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -7202,172 +7056,91 @@ Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-
-// Derived from swift-nio's ThreadSpecificVariable type.
-
-/// A ``ThreadSpecificVariable`` is a variable that can be read and set like a normal variable except that it holds
-/// different variables per thread.
-///
-/// ``ThreadSpecificVariable`` is thread-safe so it can be used with multiple threads at the same time but the value
-/// returned by ``currentValue`` is defined per thread.
-///
-/// - Note: Though ``ThreadSpecificVariable`` is thread-safe, it is not `Sendable` unless `Value` is `Sendable`.
-///     If ``ThreadSpecificVariable`` were unconditionally `Sendable`, it could be used to "smuggle"
-///     non-`Sendable` state out of an actor or other isolation domain without triggering warnings. If you
-///     are attempting to use ``ThreadSpecificVariable`` with non-`Sendable` data, consider using a dynamic
-///     enforcement tool like `NIOLoopBoundBox` to police the access.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/cbc.cc.inc:embedded-notice
+### Tests/CryptoExtrasTests/Utils/RFCVector.swift:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/cbc.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/Tests/CryptoExtrasTests/Utils/RFCVector.swift
 
 ```text
-// Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
+//===----------------------------------------------------------------------===//
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// This source file is part of the SwiftCrypto open source project
 //
-//     https://www.apache.org/licenses/LICENSE-2.0
+// Copyright (c) 2019-2024 Apple Inc. and the SwiftCrypto project authors
+// Licensed under Apache License v2.0
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftCrypto project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/gcm.cc.inc:embedded-notice
+### scripts/patch-1-inttypes.patch:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/aes/gcm.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/patch-1-inttypes.patch
 
 ```text
-// Copyright 2010-2016 The OpenSSL Project Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+ // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/montgomery_inv.cc.inc:embedded-notice
+### scripts/patch-2-more-inttypes.patch:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/bn/montgomery_inv.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/patch-2-more-inttypes.patch
 
 ```text
-// Copyright 2016 Brian Smith.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/oct.cc.inc:embedded-notice
+### scripts/vendor-boringssl.sh:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/oct.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/vendor-boringssl.sh
 
 ```text
-// Copyright 2011-2016 The OpenSSL Project Authors. All Rights Reserved.
-// Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+# This was substantially adapted from grpc-swift's vendor-boringssl.sh script.
+# The license for the original work is reproduced below. See NOTICES.txt for
+# more.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p224-64.cc.inc:embedded-notice
+### scripts/vendor-boringssl.sh:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p224-64.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/vendor-boringssl.sh
 
 ```text
-// Copyright 2015 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// A 64-bit implementation of the NIST P-224 elliptic curve point multiplication
-//
-// Inspired by Daniel J. Bernstein's public domain nistp224 implementation
-// and Adam Langley's public domain 64-bit C implementation of curve25519.
+# Copyright 2016, gRPC Authors All rights reserved.
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256.cc.inc:embedded-notice
+### scripts/vendor-boringssl.sh:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/ec/p256.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/vendor-boringssl.sh
 
 ```text
-// Copyright 2020 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// An implementation of the NIST P-256 elliptic curve point multiplication.
-// 256-bit Montgomery form for 64 and 32-bit. Field operations are generated by
-// Fiat, which lives in //third_party/fiat.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 ```
 
-### Sources/CCryptoBoringSSL/crypto/fipsmodule/entropy/jitter.cc.inc:embedded-notice
+### scripts/vendor-boringssl.sh:embedded-notice
 
-Source: https://github.com/apple/swift-crypto/blob/95ba0316a9b733e92bb6b071255ff46263bbe7dc/Sources/CCryptoBoringSSL/crypto/fipsmodule/entropy/jitter.cc.inc
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/vendor-boringssl.sh
 
 ```text
-// Copyright 2025 The BoringSSL Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+```
 
-// BoringCrypto Jitter Entropy version 20250725.
+### scripts/vendor-boringssl.sh:embedded-notice
+
+Source: https://github.com/apple/swift-crypto/blob/c2cbadd7263439d8015189668f96ff5b5be565ce/scripts/vendor-boringssl.sh
+
+```text
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ```
 
 ## swift-log 1.16.1
@@ -11145,6 +10918,10 @@ does not establish that the native regression tests or a MARC build have passed.
 Source and documentation line-end whitespace is normalized for repository
 hygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;
 modified files have separate current hashes. License wording is preserved.
+
+Swift Crypto is pinned to 5.0.3 to include the upstream RSA key-parsing and
+VOPRF input-length fixes. This dependency change is additional to the upstream
+base snapshot; the SSH ECDSA parser backport remains in place.
 ```
 
 ## swift-png 4.5.1

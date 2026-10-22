@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Cryptography dependency update
+
+- Update Swift Crypto to 5.0.3, including upstream RSA public-key parsing and
+  VOPRF input-length fixes.
+- Add regression coverage for malformed RSA keys, valid signatures and VOPRF
+  input boundaries alongside the existing SSH signature tests.
+- Refresh dependency provenance and offline notices, including XKCP notices.
+
 ### SSH parser hardening and terminal feedback
 
 - Reject oversized ECDSA signature integers before copying signature data.

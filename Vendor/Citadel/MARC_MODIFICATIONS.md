@@ -15,3 +15,7 @@ Original copyright notices, embedded notices and MIT LICENSE are retained.
 Source and documentation line-end whitespace is normalized for repository
 hygiene. Original upstream file hashes remain recorded in DEPENDENCIES.json;
 modified files have separate current hashes. License wording is preserved.
+
+Swift Crypto is pinned to 5.0.3 to include the upstream RSA key-parsing and
+VOPRF input-length fixes. This dependency change is additional to the upstream
+base snapshot; the SSH ECDSA parser backport remains in place.

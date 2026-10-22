@@ -46,7 +46,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", exact: "2.104.0"),
-        .package(url: "https://github.com/apple/swift-crypto.git", exact: "3.15.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "5.0.3"),
         .package(url: "https://github.com/apple/swift-atomics.git", exact: "1.3.1"),
         // Constrain NIO's transitive dependency to the reviewed app version.
         .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.2"),
@@ -69,6 +69,7 @@ let package = Package(
         .testTarget(
             name: "NIOSSHTests",
             dependencies: [
+                .product(name: "CryptoExtras", package: "swift-crypto"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 "NIOSSH",
                 .product(name: "NIOCore", package: "swift-nio"),

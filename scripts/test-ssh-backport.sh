@@ -16,7 +16,19 @@ xcrun swift test \
   --configuration release \
   --disable-automatic-resolution \
   --sanitize address \
-  --filter MARCECDSASignatureTests \
+  --filter 'MARC(ECDSASignature|CryptoDependency)Tests' \
   2>&1 | tee "$marc_build/ssh-backport-tests.log"
+# A successful command must actually execute both reviewed XCTest classes.
+python3 - "$marc_build/ssh-backport-tests.log" <<'MARC_TEST_COUNT'
+from pathlib import Path
+import re
+import sys
+log = Path(sys.argv[1]).read_text()
+if not re.search(r'Executed 10 tests, with 0 failures \(0 unexpected\)', log):
+    raise SystemExit('STOP: expected ten SSH/Crypto regression tests with zero failures; inspect the native log')
+if 'ERROR: AddressSanitizer:' in log:
+    raise SystemExit('STOP: AddressSanitizer reported an error')
+print('PASS: ten SSH/Crypto native regression tests executed with zero failures')
+MARC_TEST_COUNT
 # Confirm that testing did not resolve to a different graph or alter reviewed source.
 python3 scripts/verify-ssh-backport.py

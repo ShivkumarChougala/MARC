@@ -20,7 +20,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", exact: "2.104.0"),
         .package(url: "https://github.com/apple/swift-log.git", exact: "1.16.1"),
         .package(url: "https://github.com/attaswift/BigInt.git", exact: "5.7.0"),
-        .package(url: "https://github.com/apple/swift-crypto.git", exact: "3.15.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "5.0.3"),
     ],
     targets: [
         .target(name: "CCitadelBcrypt"),

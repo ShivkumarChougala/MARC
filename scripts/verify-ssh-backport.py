@@ -92,7 +92,7 @@ def verify(root=ROOT):
 if __name__ == '__main__':
     try:
         verify()
-        print('PASS: local SSH/Citadel snapshot integrity, upstream provenance, project routing and 12 unchanged remote pins')
+        print('PASS: local SSH/Citadel snapshot integrity, upstream provenance, project routing and 12 reviewed remote pins')
         print('Native malformed-signature regression tests, Mac build and device verification are separate requirements.')
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise SystemExit('SSH backport verification failed: ' + str(error))

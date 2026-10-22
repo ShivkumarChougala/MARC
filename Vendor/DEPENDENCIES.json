@@ -12,8 +12,8 @@
       "displayVersion": "0.12.1 + MARC local integration",
       "files": {
         "LICENSE": "580a39b7c09cba3cd18a5b1e0d4376e9d1ac200d241bda87e95ed74917bc3b31",
-        "MARC_MODIFICATIONS.md": "f7a996f5cc17863214d17d41b425a1506e2d6d541d81c76d1d46898106d693bb",
-        "Package.swift": "4893e6a90f8e21ff102e89b245b23dc34ac823a8a6e829e171a4ee918b2ecac7",
+        "MARC_MODIFICATIONS.md": "3c839051eb9392f56e7dd55b6eea4ff867966d185c03e64c545cfa2a2f50b558",
+        "Package.swift": "a3452b56e43d6b04ac538f49908e848f4029f8eaf271b6772fe23d646fa44803",
         "README.md": "2720448383e19fa5c7c63917d4cd063330fbf10dc550c9209d38bf03fe096de2",
         "Sources/CCitadelBcrypt/bcrypt-kdf.c": "0386b1343a93f263076d83716cab8592166518e2b820c2245fabbf60c63ac1cf",
         "Sources/CCitadelBcrypt/bcrypt-kdf.h": "38812b1edb8ba8abda14a920bb327ea2607191ec66c0591f45f177cf0249a7b6",
@@ -189,8 +189,8 @@
       "displayVersion": "0.3.7 + MARC security backport 1",
       "files": {
         "LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-        "MARC_MODIFICATIONS.md": "c3ebd816ef36580a01fe22ccbd9ae8551873f5d1e876e7899176220b59fa3c47",
-        "Package.swift": "551710657abc403a9cd105200c3b9de62dc826544c722c6da786d38a3875c81b",
+        "MARC_MODIFICATIONS.md": "4e1e3dc2b672c209ce62157cdc028388af2c8bdc7af3c86f354140205963626f",
+        "Package.swift": "6ac955ee10a0bc3cb8319b2fe6efe1f8744e2917cb436610e0c6879c6726b18c",
         "README.md": "29d5288b1ad84ae9456e77a90665dcc3327f8d1d790f636b5dc926d1a6abdf8e",
         "Sources/NIOSSH/ByteBuffer+SSH.swift": "5bc2bdb5c399d94e89267c799eb5ef7c000074c183e5d20f4bc119f28c0037a8",
         "Sources/NIOSSH/CSPRNG/CSPRNG.swift": "2d63c9317aaa96da075b577ca7f9755a96beaa85221148d6e79f704cfdfe781c",
@@ -297,7 +297,8 @@
         "Tests/NIOSSHTests/SSHPacketParserTests.swift": "ca44f1f8fd5d960ff256271d9626f6ef4ae7ef80d9a538a1882a7c36de5dcb2e",
         "Tests/NIOSSHTests/UserAuthenticationStateMachineTests.swift": "dd1195401c8d708a256d2165a0c3e028a8844f9798655aa9ece83756a85c9fa9",
         "Tests/NIOSSHTests/Utilities.swift": "de4ffab714ecee1fad5e0d974ebc90f2f340a5db4feb297146b5e55096f5e1c9",
-        "Tests/NIOSSHTests/UtilitiesTests.swift": "cf908dd35c89e59d0ecb5627bfade2a9dc67b04419fb792ce4933c60339dcff5"
+        "Tests/NIOSSHTests/UtilitiesTests.swift": "cf908dd35c89e59d0ecb5627bfade2a9dc67b04419fb792ce4933c60339dcff5",
+        "Tests/NIOSSHTests/MARCCryptoDependencyTests.swift": "a26ef5c6b7986d1a0019860faad023a4fea911e4c612f9175157a8dd7602dece"
       },
       "upstreamFiles": {
         "LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -435,7 +436,8 @@
         "Tests/NIOSSHTests/EndToEndTests.swift": "modified",
         "Tests/NIOSSHTests/SSHConfigurationCertificateTests.swift": "modified",
         "Tests/NIOSSHTests/SSHConnectionStateMachineTests.swift": "modified",
-        "Tests/NIOSSHTests/SSHKeyExchangeCertificateTests.swift": "modified"
+        "Tests/NIOSSHTests/SSHKeyExchangeCertificateTests.swift": "modified",
+        "Tests/NIOSSHTests/MARCCryptoDependencyTests.swift": "added"
       }
     }
   ],
@@ -499,8 +501,8 @@
       "kind": "remoteSourceControl",
       "location": "https://github.com/apple/swift-crypto.git",
       "state": {
-        "revision": "95ba0316a9b733e92bb6b071255ff46263bbe7dc",
-        "version": "3.15.1"
+        "revision": "c2cbadd7263439d8015189668f96ff5b5be565ce",
+        "version": "5.0.3"
       }
     },
     {
