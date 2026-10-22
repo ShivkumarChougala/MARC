@@ -3,7 +3,8 @@
 Base: orlandos-nl/Citadel 0.12.1, revision
 `ae8562f895de06ccb86fdb1cbb65fd99c8976e12`.
 
-Runtime source is preserved from that revision. Package.swift selects the sibling
+Runtime source starts from that revision, with the MARC parser changes described
+below. Package.swift selects the sibling
 local swift-nio-ssh security backport and fixes its remaining remote dependencies
 to the existing reviewed versions. The example executable and its ColorizeSwift
 requirement are omitted from the local manifest; library and test targets remain.
@@ -19,3 +20,12 @@ modified files have separate current hashes. License wording is preserved.
 Swift Crypto is pinned to 5.0.3 to include the upstream RSA key-parsing and
 VOPRF input-length fixes. This dependency change is additional to the upstream
 base snapshot; the SSH ECDSA parser backport remains in place.
+
+OpenSSH private-key parsing now rejects mismatched cipher/KDF combinations,
+empty or misaligned private payloads, trailing envelope/public-key bytes and
+malformed bcrypt options. AES key and IV lengths are checked before native
+crypto calls, and context-allocation failure throws. Every padding byte is
+validated, including the final byte and a full block emitted by the encoder.
+The existing bcrypt work-factor ceiling remains unchanged. MARCOpenSSHKeyTests
+adds malformed-input and valid-key regressions, including disposable encrypted
+AES-128/AES-256 fixtures and signing checks.

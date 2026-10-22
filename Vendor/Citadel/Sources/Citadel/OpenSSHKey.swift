@@ -144,11 +144,18 @@ extension ByteBuffer {
         key: [UInt8],
         iv: [UInt8]
     ) throws {
-        guard self.readableBytes % 16 == 0 else {
+        // Validate lengths before passing array storage to native AES routines.
+        guard key.count == Int(CCryptoBoringSSL_EVP_CIPHER_key_length(cipher)),
+              iv.count == Int(CCryptoBoringSSL_EVP_CIPHER_iv_length(cipher)) else {
+            throw OpenSSH.KeyError.cryptoError
+        }
+        guard self.readableBytes > 0, self.readableBytes % 16 == 0 else {
             throw InvalidOpenSSHKey.invalidPadding
         }
 
-        let context = CCryptoBoringSSL_EVP_CIPHER_CTX_new()
+        guard let context = CCryptoBoringSSL_EVP_CIPHER_CTX_new() else {
+            throw OpenSSH.KeyError.cryptoError
+        }
         defer { CCryptoBoringSSL_EVP_CIPHER_CTX_free(context) }
 
         guard CCryptoBoringSSL_EVP_CipherInit(
@@ -255,7 +262,7 @@ enum OpenSSH {
             case .none:
                 return try perform([], [])
             case .bcrypt(var salt, let iterations):
-                guard let decryptionKey = decryptionKey else {
+                guard let decryptionKey = decryptionKey, !decryptionKey.isEmpty else {
                     throw KeyError.missingDecryptionKey
                 }
 
@@ -335,6 +342,15 @@ extension OpenSSH.PrivateKey {
         let kdf = try OpenSSH.KDF(consuming: &buffer)
         self.kdf = kdf
 
+        // An encrypted payload must have derived key/IV material; an unencrypted
+        // payload must not carry a KDF. Reject mismatches before native crypto.
+        switch (cipher, kdf) {
+        case (.none, .none), (.aes128ctr, .bcrypt), (.aes256ctr, .bcrypt):
+            break
+        default:
+            throw InvalidOpenSSHKey.invalidLayout
+        }
+
         guard
             let numberOfKeys = buffer.readInteger(as: UInt32.self),
             numberOfKeys == 1 // # of keys always one
@@ -354,9 +370,17 @@ extension OpenSSH.PrivateKey {
         }
 
         self.publicKey = try SSHKey.PublicKey.read(consuming: &publicKeyBuffer)
+        guard publicKeyBuffer.readableBytes == 0 else {
+            throw InvalidOpenSSHKey.invalidLayout
+        }
 
         guard var privateKeyBuffer = buffer.readSSHBuffer() else {
             throw InvalidOpenSSHKey.missingPrivateKeyBuffer
+        }
+        guard buffer.readableBytes == 0,
+              privateKeyBuffer.readableBytes > 0,
+              privateKeyBuffer.readableBytes % cipher.blockSize == 0 else {
+            throw InvalidOpenSSHKey.invalidLayout
         }
 
         try kdf.withKeyAndIV(
@@ -392,7 +416,7 @@ extension OpenSSH.PrivateKey {
         let paddingLength = privateKeyBuffer.readableBytes
 
         guard
-            paddingLength < cipher.blockSize,
+            paddingLength <= cipher.blockSize,
             let padding = privateKeyBuffer.readBytes(length: paddingLength)
         else {
             throw InvalidOpenSSHKey.invalidPadding
@@ -402,8 +426,8 @@ extension OpenSSH.PrivateKey {
             return
         }
 
-        for i in 1..<paddingLength {
-            guard padding[i - 1] == UInt8(i) else {
+        for (index, byte) in padding.enumerated() {
+            guard byte == UInt8(index + 1) else {
                 throw InvalidOpenSSHKey.invalidPadding
             }
         }
@@ -443,7 +467,9 @@ extension OpenSSH.KDF {
             guard
                 let salt = options.readSSHBuffer(),
                 let rounds: UInt32 = options.readInteger(),
-                rounds < 32
+                salt.readableBytes > 0,
+                rounds > 0, rounds < 32,
+                options.readableBytes == 0
             else {
                 throw InvalidOpenSSHKey.invalidOrUnsupportedBCryptConfig
             }

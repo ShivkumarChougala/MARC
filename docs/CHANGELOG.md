@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### SSH private-key import hardening
+
+- Validate cipher and key-derivation combinations, AES key/IV lengths and
+  private-key framing before decryption.
+- Check every padding byte and accept full-block padding emitted by the encoder.
+- Add malformed-input and valid encrypted-key regressions; update local source
+  provenance and matching offline notices.
+
 ### Transfer privacy declaration
 
 - Declare disk-space access used to check available storage before and during
