@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Troubleshooting — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Troubleshoot MARC discovery, SSH authentication, connection timeouts, monitoring, file operations, and host-key changes.">
 <link rel="canonical" href="https://getmarc.app/docs/troubleshooting">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Troubleshoot MARC discovery, SSH authentication, connection timeouts, monitoring, file operations, and host-key changes.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -62,7 +60,6 @@
     <h1 id="troubleshooting">Troubleshooting</h1>
     <p class="intro">Start with the connection, then check the feature that is failing.</p>
     <div class="article-body"><section aria-labelledby="discovery"><h2 id="discovery">Nearby cannot find my Mac</h2><p>Keep both devices on the same reachable network. Check iPhone Local Network permission and Remote Login on the Mac. Guest Wi-Fi may isolate devices. Try adding the Mac’s current address manually.</p></section><section aria-labelledby="authentication"><h2 id="authentication">Password or key rejected</h2><p>Use the short username and Mac account password, rather than an Apple Account email. Check that Remote Login allows that account. For SSH keys, check the selected key and the Mac’s authorized public key.</p></section><section aria-labelledby="connection"><h2 id="connection">Connection times out</h2><p>Check that the Mac is awake, its address is current, and the SSH port is reachable. Firewalls and isolated networks can block access.</p></section><section aria-labelledby="readings"><h2 id="readings">Monitoring or file actions fail</h2><p>Check Python from an SSH session, replacing the placeholders with your account and Mac address:</p><div class="code"><div class="code-head"><span>From another computer</span><button type="button" class="copy" hidden>Copy</button></div><pre><code>ssh username@mac-address &#x27;python3 --version&#x27;</code></pre></div><p>Check the account’s permissions for the affected path or operation.</p></section><section aria-labelledby="remote"><h2 id="remote">Access away from home</h2><p>MARC has no built-in internet relay. Your iPhone needs a secure network route to the Mac, such as a VPN you configure separately.</p></section><section aria-labelledby="contact"><h2 id="contact">Report an issue</h2><p>Include the MARC build, iOS/macOS versions, expected behavior, actual behavior, and reproduction steps. Remove passwords, private keys, API keys, and sensitive details from screenshots and logs.</p><p><a href="https://github.com/ShivkumarChougala/MARC/issues/new">Report a public issue ↗</a> · <a href="mailto:contact@getmarc.app">Email support ↗</a></p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-diagnose"><h2 id="more-diagnose">Work out which part is failing</h2>
 <ol>
 <li><strong>No Mac found:</strong> check discovery, Local Network permission, and network isolation.</li>
@@ -81,7 +78,6 @@
 <p>If there is an error message, include its wording. Say whether the failure happens on the same network, through a VPN, or only with one feature.</p>
 <p>Email <a href="mailto:contact@getmarc.app">contact@getmarc.app</a> for support. GitHub issues are public, so remove sensitive details before posting.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/settings.html"><small>Previous</small>← Settings</a><a href="/docs/security.html"><small>Next</small>Security &amp; privacy →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

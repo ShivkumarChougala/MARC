@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import hashlib
 import shutil
 import tempfile
 
@@ -35,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix="marc-build-") as temporary:
     staged = Path(temporary) / "dist"
     staged.mkdir()
 
-    for name in ["assets", "components", "css", "js", "docs"]:
+    for name in ["assets", "css", "js", "docs"]:
         source = ROOT / name
         if source.is_dir():
             shutil.copytree(source, staged / name)
@@ -48,11 +49,34 @@ with tempfile.TemporaryDirectory(prefix="marc-build-") as temporary:
         if source.is_file():
             shutil.copy2(source, staged / name)
 
+    # Fingerprint delivered bytes so a CSS/JS update cannot reuse a stale URL.
+    fingerprints = {}
+    resource = re.compile(
+        r"(?<=[\"'(\s])(/?(?:assets|css|js)/[\w./-]+)(?:\?v=[^\s\"'<>),]+)?"
+    )
+
+    def version_resources(text):
+        def replace(match):
+            path = match.group(1)
+            version = fingerprints.get(path.lstrip("/"))
+            return path + "?v=" + version if version else match.group(0)
+        return resource.sub(replace, text)
+
+    for asset in sorted((staged / "assets").rglob("*")):
+        if asset.is_file():
+            fingerprints[asset.relative_to(staged).as_posix()] = hashlib.sha256(asset.read_bytes()).hexdigest()[:12]
+    for directory in ["css", "js"]:
+        for asset in sorted((staged / directory).glob("*")):
+            if not asset.is_file():
+                continue
+            asset.write_text(version_resources(asset.read_text(encoding="utf-8")), encoding="utf-8")
+            fingerprints[asset.relative_to(staged).as_posix()] = hashlib.sha256(asset.read_bytes()).hexdigest()[:12]
+
     pages = list(staged.glob("*.html"))
     pages += list((staged / "docs").rglob("*.html"))
 
     for page in pages:
-        html = render(page.read_text(encoding="utf-8"))
+        html = version_resources(render(page.read_text(encoding="utf-8")))
         if re.search(r'<[^>]+\bdata-component\s*=', html, re.I):
             raise SystemExit("Unresolved component in " + page.name)
         page.write_text(html, encoding="utf-8")

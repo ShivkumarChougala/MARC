@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Control Center — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Use MARC Control Center for supported Mac audio, display, wireless, media, and application controls from your iPhone.">
 <link rel="canonical" href="https://getmarc.app/docs/controls">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Use MARC Control Center for supported Mac audio, display, wireless, media, and application controls from your iPhone.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -73,7 +71,6 @@ macOS permissions, a signed-in desktop session, or an optional helper.</p>
 sliders, also check whether the connected device supports adjustment.</p>
 </div>
 </details></section><section aria-labelledby="display-audio"><h2 id="display-audio">Display and audio</h2><p>Adjust supported volume and brightness controls. Some external displays do not support software brightness changes; some HDMI and display audio outputs have fixed volume.</p></section><section aria-labelledby="helpers"><h2 id="helpers">Media and optional helpers</h2><p>For browser media, open MARC’s media setup panel and follow its detected instructions. If an install command is offered, copy it to MARC’s Terminal, review it, run it, then check setup again.</p><p>Bluetooth switching may require <code>blueutil</code>. Monitoring, Terminal, and file browsing do not require the optional media helper.</p></section><section aria-labelledby="launch"><h2 id="launch">Quick Launch</h2><p>Quick Launch operates in the signed-in Mac user’s session. Available applications and behavior depend on that Mac’s setup.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-control-feedback"><h2 id="more-control-feedback">Check the result of a control</h2>
 <p>Start with a small change, such as adjusting volume slightly. Check the feedback in MARC and the result on the Mac before repeating the action.</p>
 <p>Some controls depend on the signed-in desktop session. A Mac that accepts SSH can still have a control unavailable because of its current session, hardware, or permissions.</p>
@@ -86,7 +83,6 @@ sliders, also check whether the connected device supports adjustment.</p>
 <p>Check the selected output or display. An external monitor may not expose software brightness control, and an HDMI audio output may have fixed volume.</p>
 <p>In those cases, the limitation belongs to the device or output path. Reconnecting SSH will not necessarily add support.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/ai.html"><small>Previous</small>← Local &amp; API AI</a><a href="/docs/settings.html"><small>Next</small>Settings →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

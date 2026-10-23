@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Connect Your Mac — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Set up MARC on your iPhone and connect to your Mac over SSH. Learn about Remote Login, Python, authentication, and host-key verification.">
 <link rel="canonical" href="https://getmarc.app/docs">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Set up MARC on your iPhone and connect to your Mac over SSH. Learn about Remote Login, Python, authentication, and host-key verification.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -75,7 +73,6 @@ that account’s permissions.</p>
 python3 --version</code></pre></div><p>If Python 3 is missing, install it on your Mac. It must also be available when that account connects over SSH.</p></section><section aria-labelledby="add-mac"><h2 id="add-mac">3. Add your Mac</h2><p>Allow Local Network access on iPhone when prompted. In MARC, scan Nearby Macs and select your Mac, or add its current address manually. The usual SSH port is <code>22</code>; enter your configured port if different.</p><p>Use your Mac account password or a saved SSH key.</p></section><section aria-labelledby="verify"><h2 id="verify">4. Verify and connect</h2><p>Compare the SSH host-key fingerprint before trusting the connection. In your Mac’s Terminal, list its public host-key fingerprints:</p><div class="code"><div class="code-head"><span>Mac Terminal</span><button type="button" class="copy" hidden>Copy</button></div><pre><code>for key in /etc/ssh/ssh_host_*_key.pub; do
     ssh-keygen -lf &quot;$key&quot; -E sha256
 done</code></pre></div><p>Match both the fingerprint and key type shown in MARC. If a fingerprint changes unexpectedly, investigate before accepting it.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-connection-fields"><h2 id="more-connection-fields">What to enter when adding a Mac</h2>
 <ul>
 <li><strong>Name:</strong> a label you will recognize, such as “MacBook Air”.</li>
@@ -94,7 +91,6 @@ done</code></pre></div><p>Match both the fingerprint and key type shown in MARC.
 <p>Open Status and wait for readings to appear. Then try browsing your home folder in Files. These checks help confirm that both the SSH connection and the tools MARC uses are working.</p>
 <p>If something fails, note which part failed. A rejected password, an unreachable Mac, and missing Python are different problems, even if they happen during setup.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/introduction.html"><small>Previous</small>← Introduction</a><a href="/docs/ssh-keys.html"><small>Next</small>SSH keys →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

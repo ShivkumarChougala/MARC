@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Files — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Browse and manage Mac files with MARC. Learn about previews, text editing, uploads, downloads, permissions, and file operations.">
 <link rel="canonical" href="https://getmarc.app/docs/files">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Browse and manage Mac files with MARC. Learn about previews, text editing, uploads, downloads, permissions, and file operations.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -78,7 +76,6 @@ in another app.</li>
 change the original file on your Mac.</p>
 </div>
 </details></section><section aria-labelledby="permissions"><h2 id="permissions">Permissions and destructive actions</h2><p>File operations use your SSH account’s access rights. Test permission changes, deletion, and replacement with disposable files first. Check the selected path before confirming.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-edit-text"><h2 id="more-edit-text">Previewing and editing are different</h2>
 <p><strong>Preview</strong> lets you inspect a file. It does not automatically save changes back to the Mac.</p>
 <p>For supported files, the actions panel offers <strong>View and edit</strong>. The current build supports UTF-8 text files up to 1 MB. Open the editor, make your changes, and choose <strong>Save</strong> to write them back to the Mac.</p>
@@ -98,7 +95,6 @@ change the original file on your Mac.</p>
 <p>Deletion permanently removes the selected item. Deleting a folder also removes its contents. Do not assume the item will be available in the Mac’s Trash afterward.</p>
 <p>Before replacing or deleting anything important, check the full path and keep a separate backup.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/processes.html"><small>Previous</small>← Processes</a><a href="/docs/terminal.html"><small>Next</small>Terminal →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

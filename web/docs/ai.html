@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Local &amp; API AI — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Configure optional AI assistance in MARC using local Ollama models or an API provider. Understand permissions, requests, and command review.">
 <link rel="canonical" href="https://getmarc.app/docs/ai">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Configure optional AI assistance in MARC using local Ollama models or an API provider. Understand permissions, requests, and command review.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -68,7 +66,6 @@
 <p>Monitoring, Files, Terminal, and supported controls work without
 an AI model or API key. Set up AI whenever you want suggestions.</p>
 </aside></section><section aria-labelledby="local"><h2 id="local">Local AI with Ollama</h2><p>Install and run Ollama on your Mac and install a model suitable for its available memory. In Terminal &amp; AI, select <strong>Local</strong>, refresh installed models, and choose a model.</p><p>MARC uses Ollama on the connected Mac through SSH. The model choice is remembered separately for each Mac.</p></section><section aria-labelledby="api"><h2 id="api">API mode</h2><p>Add a named key in <strong>Settings → Keychain → API Keys</strong>. In Terminal &amp; AI, select API, choose the saved key, and select a supported model. Review the configured endpoint.</p><p>Model loading and prompt transmission have separate consent prompts. Availability, quotas, and charges depend on your provider account.</p></section><section aria-labelledby="privacy"><h2 id="privacy">What you send</h2><p>API requests send your prompt, selected model, and command-generation instructions to the configured provider, along with the API key when configured. Terminal output and files are not automatically attached. Review the provider’s privacy and retention terms.</p><p>See the <a href="/privacy.html#ai">AI privacy details</a>.</p></section><section aria-labelledby="review"><h2 id="review">Review before running</h2><p>Read generated commands and understand their effect before choosing Run. A suggestion may be incorrect or unsuitable for your Mac.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-choose-mode"><h2 id="more-choose-mode">Which mode should you choose?</h2>
 <p>Choose <strong>Off</strong> if you do not need suggestions. Choose <strong>Local</strong> if you want to use an Ollama model on your Mac. Choose <strong>API</strong> if you prefer a supported external provider.</p>
 <p>Local models use your Mac’s memory and processing power. Start with a model that fits the machine, especially if other apps are already using a lot of RAM. A larger model is not always a better fit.</p>
@@ -86,7 +83,6 @@ an AI model or API key. Set up AI whenever you want suggestions.</p>
 <p>Explain what you want to do and review the result. If a command is unfamiliar, ask for an explanation before running it.</p>
 <p>An AI response can use the wrong path, assume a tool is installed, or suggest an operation that changes more than you intended. You remain in control of whether the command runs.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/terminal.html"><small>Previous</small>← Terminal</a><a href="/docs/controls.html"><small>Next</small>Control Center →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

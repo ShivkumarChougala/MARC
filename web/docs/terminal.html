@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Terminal — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Use MARC SSH terminal sessions on iPhone. Learn about multiple sessions, keyboard shortcuts, command input, and reviewing AI suggestions.">
 <link rel="canonical" href="https://getmarc.app/docs/terminal">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Use MARC SSH terminal sessions on iPhone. Learn about multiple sessions, keyboard shortcuts, command input, and reviewing AI suggestions.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -63,7 +61,6 @@
     <p class="intro">Run commands on your Mac and keep separate SSH sessions for different tasks.</p>
     <div class="article-body"><section aria-labelledby="session"><h2 id="session">Start a session</h2><p>Connect to your Mac and open Terminal. Commands run on the Mac as your SSH account, with that account’s permissions.</p><div class="code"><div class="code-head"><span>A simple check</span><button type="button" class="copy" hidden>Copy</button></div><pre><code>pwd
 whoami</code></pre></div></section><section aria-labelledby="multiple"><h2 id="multiple">Use multiple sessions</h2><p>Create another session using Terminal’s session controls. Each session gives you a separate shell for another task. Do not assume a command continues after a connection is lost.</p></section><section aria-labelledby="shortcuts"><h2 id="shortcuts">History and shortcuts</h2><p>Use terminal history to revisit commands and the available keyboard shortcuts for terminal input. Review a recalled command before submitting it.</p></section><section aria-labelledby="ai"><h2 id="ai">Optional AI assistance</h2><p>AI suggestions are optional and do not run automatically. Read the suggested command before choosing Run. See <a href="/docs/ai.html">Local &amp; API AI</a> for setup.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-terminal-basics"><h2 id="more-terminal-basics">Know where a command runs</h2>
 <p>This is a shell on your Mac, not on your iPhone. <code>pwd</code> shows the current folder and <code>whoami</code> shows the account running the session.</p>
 <p>Each session has its own shell state. Changing folders in one session does not change the current folder in another.</p>
@@ -77,7 +74,6 @@ whoami</code></pre></div></section><section aria-labelledby="multiple"><h2 id="m
 <p>When MARC offers <strong>Insert at prompt</strong> for a folder command, make sure the shell is at an empty prompt. The action inserts the command without running it.</p>
 <p>AI suggestions need the same review. Check paths, flags, and any command that changes or deletes data.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/files.html"><small>Previous</small>← Files</a><a href="/docs/ai.html"><small>Next</small>Local &amp; API AI →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Monitoring — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Understand Mac CPU, memory, storage, battery, network, and performance readings in MARC, including monitoring requirements and refresh behavior.">
 <link rel="canonical" href="https://getmarc.app/docs/monitoring">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Understand Mac CPU, memory, storage, battery, network, and performance readings in MARC, including monitoring requirements and refresh behavior.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -62,7 +60,6 @@
     <h1 id="monitoring">Monitoring</h1>
     <p class="intro">Understand your Mac’s activity without opening a terminal.</p>
     <div class="article-body"><section aria-labelledby="status"><h2 id="status">Status</h2><p>Start with Status for CPU, memory, battery, storage, and alerts. Availability depends on the Mac and the readings it exposes.</p></section><section aria-labelledby="system"><h2 id="system">System</h2><p>Use System for per-core CPU activity, uptime, load, memory, swap, network, storage, and user information.</p></section><section aria-labelledby="statistics"><h2 id="statistics">Statistics and history</h2><p>Statistics shows activity over time. MARC stores history on the connected Mac under the SSH account:</p><div class="code"><div class="code-head"><span>History location</span><button type="button" class="copy" hidden>Copy</button></div><pre><code>~/.local/share/marc/history.sqlite</code></pre></div><p>Removing a Mac profile from iPhone does not delete this remote history or the Mac’s files.</p></section><section aria-labelledby="missing"><h2 id="missing">Missing or stale readings</h2><p>Check that the connection is active and Python 3 is available to the SSH account. Keep the Mac awake. A missing reading can reflect a permissions or collection problem rather than zero usage.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-understand-readings"><h2 id="more-understand-readings">Reading the numbers</h2>
 <ul>
 <li><strong>CPU:</strong> how busy the processor is. A short spike during an app launch or build is normal; sustained activity is more useful to investigate.</li>
@@ -81,7 +78,6 @@
 <p>History helps you compare activity over time, but it is not a promise that every moment was recorded. Connection interruptions and collection problems can leave gaps.</p>
 <p>The history belongs to the SSH account on that Mac. Connecting to another Mac or another account can show a different history.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/ssh-keys.html"><small>Previous</small>← SSH keys</a><a href="/docs/processes.html"><small>Next</small>Processes →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

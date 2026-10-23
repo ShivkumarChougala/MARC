@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>Processes — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Find and inspect running Mac processes in MARC. Learn how search, sorting, resource readings, and process termination work.">
 <link rel="canonical" href="https://getmarc.app/docs/processes">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Find and inspect running Mac processes in MARC. Learn how search, sorting, resource readings, and process termination work.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -62,7 +60,6 @@
     <h1 id="processes">Processes</h1>
     <p class="intro">Find running processes and inspect what is using your Mac’s resources.</p>
     <div class="article-body"><section aria-labelledby="browse"><h2 id="browse">Find a process</h2><p>Open Processes. Search for a process and use the available sorting options to compare activity.</p></section><section aria-labelledby="terminate"><h2 id="terminate">Terminate a process</h2><p>Select the intended process and review the termination sheet before confirming. Terminating an app can lose unsaved work. Your SSH account’s permissions determine which processes it can stop.</p></section><section aria-labelledby="limits"><h2 id="limits">If a process cannot be stopped</h2><p>The process may already have exited, belong to another user, or require privileges your account does not have. Check the result before trying again.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-choose-sort"><h2 id="more-choose-sort">Choose a useful sort order</h2>
 <p>Sort by <strong>CPU</strong> when the Mac is busy or its fans are active. Sort by <strong>Memory</strong> when you want to find apps using more RAM. Sort by <strong>Name</strong> when you already know what you are looking for.</p>
 <p>The PID is a process identifier. Several processes can have similar names, so check the name, PID, and user before taking action.</p>
@@ -71,7 +68,6 @@
 <p>If possible, save your work and quit the app normally first. Termination is useful for a stuck process, but it can interrupt a transfer, stop a command, or discard unsaved changes.</p>
 <p>After confirming, check the process list again. A background service may be started again by macOS or another app; seeing it return does not always mean the first request failed.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs/monitoring.html"><small>Previous</small>← Monitoring</a><a href="/docs/files.html"><small>Next</small>Files →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control

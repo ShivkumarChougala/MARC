@@ -5,13 +5,12 @@
 <meta name="theme-color" content="#101012">
 <title>SSH keys — MARC Docs</title>
 
-<link rel="stylesheet" href="/css/docs.css?v=20261022010922259675">
-<script src="/js/docs.js?v=20261022014615792243" defer></script>
-<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg?v=marc-m-1">
+<link rel="stylesheet" href="/css/docs.css">
+<script src="/js/docs.js" defer></script>
+<link rel="icon" type="image/svg+xml" sizes="any" href="/assets/favicon.svg">
 
 <meta name="description" content="Set up supported OpenSSH Ed25519 private keys for MARC and configure SSH key authentication for your Mac account.">
 <link rel="canonical" href="https://getmarc.app/docs/ssh-keys">
-<!-- MARC social metadata START -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MARC">
 <meta property="og:locale" content="en_US">
@@ -28,12 +27,11 @@
 <meta name="twitter:description" content="Set up supported OpenSSH Ed25519 private keys for MARC and configure SSH key authentication for your Mac account.">
 <meta name="twitter:image" content="https://getmarc.app/assets/marc-social.png">
 <meta name="twitter:image:alt" content="MARC — Your Mac. Within reach.">
-<!-- MARC social metadata END -->
-</head><body>
+<script src="/js/reading.js" defer></script>
+</head><body class="marc-open-docs">
 <a class="skip" href="#main-content">Skip to content</a>
 <header class="docs-header">
-  <a class="brand" href="/">MARC</a>
-  <a class="docs-label" href="/docs.html">Docs</a>
+  <a class="docs-brand" href="/docs.html" aria-label="MARC Docs home"><span class="docs-brand-name">MARC</span> <span class="docs-brand-label">Docs</span></a>
   <div class="search" hidden>
     <label class="sr-only" for="docs-search">Search documentation</label>
     <input id="docs-search" type="search"
@@ -66,7 +64,6 @@
 <p>The current MARC build accepts <strong>OpenSSH Ed25519 private keys</strong>. RSA and other private-key types are not supported by this build.</p>
 <p>The Mac account must already authorize the matching public key. Importing the private key into MARC only prepares the client side of the connection.</p>
 </section><section aria-labelledby="save"><h2 id="save">Save and select a key</h2><p>Open <strong>Settings → Keychain → SSH Keys</strong> to manage saved keys. Select the appropriate saved key when configuring your Mac connection.</p></section><section aria-labelledby="trust"><h2 id="trust">Verify the Mac separately</h2><p>An SSH key authenticates your account. The Mac’s host-key fingerprint verifies which machine you are connecting to. Check it even when using key-based login.</p></section><section aria-labelledby="failed"><h2 id="failed">If authentication fails</h2><p>Check the short username, selected key, and the public key authorized on the Mac. If your key requires a passphrase, follow the prompts supported by your build. Never include a private key in a bug report.</p></section>
-<!-- MARC detailed guide START -->
 <section aria-labelledby="more-import-steps"><h2 id="more-import-steps">Import a key into MARC</h2>
 <ol>
 <li>Open <strong>Settings → Keychain → SSH Keys</strong>.</li>
@@ -85,7 +82,6 @@
 <p>Give keys names that help you choose the right one later. A key that is still used by a saved login cannot be removed until you change the login that uses it.</p>
 <p>Removing a key from MARC does not remove its public key from your Mac’s authorized keys. Those are separate changes.</p>
 </section>
-<!-- MARC detailed guide END -->
 </div><nav class="pager" aria-label="Adjacent guides"><a href="/docs.html"><small>Previous</small>← Connect your Mac</a><a href="/docs/monitoring.html"><small>Next</small>Monitoring →</a></nav>
     <footer class="docs-footer">
       MARC · Macintosh Access &amp; Remote Control
