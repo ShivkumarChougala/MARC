@@ -9,7 +9,6 @@ private struct HostTrustSheet: View {
     @State private var matches = false
     @State private var pastedFingerprint = ""
     @State private var copied = false
-    @State private var confirmUnverified = false
 
     private var pastedMatch: Bool {
         HostKeyIdentity.matches(output: pastedFingerprint, fingerprint: request.fingerprint)
@@ -33,75 +32,64 @@ private struct HostTrustSheet: View {
                 Text("Confirm your Mac").font(.system(size: 20, weight: .semibold))
                 Text("\(request.host):\(request.port)")
                     .font(.system(size: 13)).textSelection(.enabled)
-                Text("Choose how to trust this Mac before MARC authenticates your connection.")
-                    .font(.system(size: 12)).foregroundStyle(p.muted)
+                Text("Trust this Mac to connect. MARC remembers its identity and blocks unexpected changes. The first connection is not independently verified unless you compare the fingerprint below.")
+                    .font(.system(size: 13)).foregroundStyle(p.muted)
 
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Compare it yourself").font(.system(size: 14, weight: .semibold))
-                    Text("Compare this fingerprint with the SSH host fingerprint obtained directly on your Mac.")
-                        .font(.system(size: 12)).foregroundStyle(p.muted)
-                    Text(request.algorithm).font(.system(size: 11)).foregroundStyle(p.muted)
-                    Text(request.fingerprint)
-                        .font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
-                    Toggle("I checked it on my Mac and it matches", isOn: $matches)
-                        .font(.system(size: 13)).tint(p.accent).disabled(hasPasted)
-
-                    Divider()
-                    DisclosureGroup("How do I check this?") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("On the Mac you’re connecting to, open Terminal and run this command. It reads the public SSH host key; it does not change your Mac.")
+                    DisclosureGroup("Advanced verification") {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("Compare this fingerprint with the SSH host fingerprint obtained directly on your Mac.")
                                 .font(.system(size: 12)).foregroundStyle(p.muted)
-                            Text("Compare the SHA256 value with the fingerprint above, or paste the full result below to check for a match. If they differ, cancel and check the Mac’s identity.")
-                                .font(.system(size: 12)).foregroundStyle(p.muted)
-                            Text(command).font(.system(size: 11, design: .monospaced))
-                                .textSelection(.enabled)
-                            Button(copied ? "Copied" : "Copy command") {
-                                UIPasteboard.general.string = command
-                                copied = true
-                            }.font(.system(size: 13)).tint(p.accent).frame(minHeight: 44)
-                            TextField("SHA256:… or the full output", text: $pastedFingerprint, axis: .vertical)
-                                .font(.system(size: 12, design: .monospaced))
-                                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                                .padding(12).background(p.raised, in: RoundedRectangle(cornerRadius: 10))
-                        }.padding(.top, 10)
-                    }.font(.system(size: 13)).tint(p.accent)
+                            Text(request.algorithm).font(.system(size: 11)).foregroundStyle(p.muted)
+                            Text(request.fingerprint)
+                                .font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                            Toggle("I checked it on my Mac and it matches", isOn: $matches)
+                                .font(.system(size: 13)).tint(p.accent).disabled(hasPasted)
 
-                    if hasPasted {
-                        Text(pastedMatch ? "Fingerprint matches" : "Fingerprint does not match. Check the Mac and pasted result before continuing.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(pastedMatch ? p.accent : Color.red)
-                    }
+                            Divider()
+                            DisclosureGroup("How do I check this?") {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("On the Mac you’re connecting to, open Terminal and run this command. It reads the public SSH host key; it does not change your Mac.")
+                                        .font(.system(size: 12)).foregroundStyle(p.muted)
+                                    Text("Compare the SHA256 value with the fingerprint above, or paste the full result below to check for a match. If they differ, cancel and check the Mac’s identity.")
+                                        .font(.system(size: 12)).foregroundStyle(p.muted)
+                                    Text(command).font(.system(size: 11, design: .monospaced))
+                                        .textSelection(.enabled)
+                                    Button(copied ? "Copied" : "Copy command") {
+                                        UIPasteboard.general.string = command
+                                        copied = true
+                                    }.font(.system(size: 13)).tint(p.accent).frame(minHeight: 44)
+                                    TextField("SHA256:… or the full output", text: $pastedFingerprint, axis: .vertical)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                        .padding(12).background(p.raised, in: RoundedRectangle(cornerRadius: 10))
+                                }.padding(.top, 10)
+                            }.font(.system(size: 13)).tint(p.accent)
+                        }.padding(.top, 12)
+                    }.font(.system(size: 14, weight: .medium)).tint(p.accent)
                 }.padding(16).background(p.surface, in: RoundedRectangle(cornerRadius: 16))
 
-                Button(action: approve) {
-                    Text("Verify & connect").font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(p.accent.opacity(canTrust ? 1 : 0.4), in: RoundedRectangle(cornerRadius: 14))
-                        .foregroundStyle(.white)
-                }.disabled(!canTrust)
-
-                if !canTrust {
-                    Button("Trust & connect without checking") { confirmUnverified = true }
-                        .font(.system(size: 13)).tint(p.accent)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .disabled(hasPasted && !pastedMatch)
+                if hasPasted {
+                    Text(pastedMatch ? "Fingerprint matches" : "Fingerprint does not match. Check the Mac and pasted result before continuing.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(pastedMatch ? p.accent : Color.red)
                 }
-                Text("MARC remembers this fingerprint in Keychain and blocks unexpected key changes.")
-                    .font(.system(size: 12)).foregroundStyle(p.muted)
+
+                Button {
+                    guard !hasPasted || pastedMatch else { return }
+                    approve()
+                } label: {
+                    Text(canTrust ? "Verify & connect" : "Trust & connect").font(.system(size: 15, weight: .semibold))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(p.accent.opacity(hasPasted && !pastedMatch ? 0.4 : 1), in: RoundedRectangle(cornerRadius: 14))
+                        .foregroundStyle(.white)
+                }.disabled(hasPasted && !pastedMatch)
+
                 Button("Cancel", role: .cancel, action: cancel)
                     .frame(maxWidth: .infinity, minHeight: 44).tint(p.accent)
             }.padding(24)
         }
         .marcCanvas().interactiveDismissDisabled()
-        .alert("Trust without verifying?", isPresented: $confirmUnverified) {
-            Button("Cancel", role: .cancel) { }
-            Button("Trust & connect") {
-                guard !hasPasted || pastedMatch else { return }
-                approve()
-            }
-        } message: {
-            Text("You have not checked this Mac’s identity. A device impersonating your Mac could receive your login credentials. Continue only if you accept this risk. MARC will remember this key and block future changes.")
-        }
     }
 }
 

@@ -29,3 +29,13 @@ validated, including the final byte and a full block emitted by the encoder.
 The existing bcrypt work-factor ceiling remains unchanged. MARCOpenSSHKeyTests
 adds malformed-input and valid-key regressions, including disposable encrypted
 AES-128/AES-256 fixtures and signing checks.
+
+Buffered command execution now reserves total stdout/stderr bytes before async
+queueing, excludes discarded stderr from returned output while counting it toward
+the total budget, and fails on a full 256-chunk queue instead of returning partial
+success. Exact byte copies avoid retaining larger backing allocations. Cancellation,
+setup failure, overflow and completion close only the affected command child channel;
+a cancellation recorded before child creation rejects the late channel. The generic
+streaming/interactive path remains unchanged. MARCBufferedCommandTests exercises
+budgets, producer-handler integration, stream errors, shell dispatch and lifecycle.
+NIOEmbedded is added only to the test target, from the existing pinned NIO package.

@@ -12,8 +12,8 @@
       "displayVersion": "0.12.1 + MARC local integration",
       "files": {
         "LICENSE": "580a39b7c09cba3cd18a5b1e0d4376e9d1ac200d241bda87e95ed74917bc3b31",
-        "MARC_MODIFICATIONS.md": "a9b16c3502be3e948c16bca1f3823c89a20386f8684837b858e6f8472f828de4",
-        "Package.swift": "a3452b56e43d6b04ac538f49908e848f4029f8eaf271b6772fe23d646fa44803",
+        "MARC_MODIFICATIONS.md": "083fd2ae81a4ae239d180771ee9e4868fd5e1b59fa9befae50c156f4a48238f7",
+        "Package.swift": "4360a8147a5a4f290f4ab4a7750e556f3f1bf0c951015810b71c4fb475b51ba2",
         "README.md": "2720448383e19fa5c7c63917d4cd063330fbf10dc550c9209d38bf03fe096de2",
         "Sources/CCitadelBcrypt/bcrypt-kdf.c": "0386b1343a93f263076d83716cab8592166518e2b820c2245fabbf60c63ac1cf",
         "Sources/CCitadelBcrypt/bcrypt-kdf.h": "38812b1edb8ba8abda14a920bb327ea2607191ec66c0591f45f177cf0249a7b6",
@@ -38,6 +38,7 @@
         "Sources/Citadel/Exec/Client/ExecClient.swift": "c7c44cc066db82749f0a81cb92b29f62b64b24909516a4df3cabd0b64d5e3da0",
         "Sources/Citadel/Exec/Server/ExecDelegate.swift": "7d4750313e03db7972e1cd1d8972b860e5b81cd65778095977cb325327869937",
         "Sources/Citadel/Exec/Server/ExecHandler.swift": "3a283bd39f08aba252c50a4e7aef5e200ec49d04302c0d07078874ba811aa3a5",
+        "Sources/Citadel/MARCBufferedCommand.swift": "3aa641ceb8590c4a2b68b92b4df3d5c65061a8aefb75b9b098081185b77753ac",
         "Sources/Citadel/NIOGlueHandler.swift": "810e859522d24361a27708e615cd4088bea8e546ff954fea77d4e6634b5a1538",
         "Sources/Citadel/OpenSSHKey.swift": "053a66f60cc86c67f04c9af192c61c31a3cba9bd7a45f891c62d6429ff74b301",
         "Sources/Citadel/RemotePortForward/Client/RemotePortForward+Client.swift": "31ca6f97308232707c72190c9d0b0524aa351d0b14f0d74171a15551594db3b1",
@@ -58,7 +59,7 @@
         "Sources/Citadel/SSHKeyTypeDetection.swift": "3441fe43973d314d243bacd97a5bc670bdbe1a5b3a85225bf7e83d92bf1fc17a",
         "Sources/Citadel/Server.swift": "fa4a140ccf1c36b2cdd5627d25a04d4477cba5faa45c15e1e8852d92201861f0",
         "Sources/Citadel/Shell/Server/ShellDelegate.swift": "f4ff2e856a5dd19d9503512261dcfb46df023d05b773db79d35b817cb1b99bc9",
-        "Sources/Citadel/TTY/Client/TTY.swift": "c8578b5bfa74e3d0ada9b68109cb0d33f1362c3c0d21208fab03dae3584a8b45",
+        "Sources/Citadel/TTY/Client/TTY.swift": "4bfda5f3717d826a023511509f7c2c42225e15aedc3140b0490cd4c911e277ae",
         "Sources/CitadelServerExample/EchoShell/BasicCommands.swift": "e36bbc34c12b28a7e8a9959f059a931ee5d4df17789ce3cec4f6409262e62b37",
         "Sources/CitadelServerExample/EchoShell/EchoShell.swift": "73ce91a6052c6ef84a7b246e0094c10461bc0fd8494110ee45e2791881b4ae77",
         "Sources/CitadelServerExample/EchoShell/Extensions.swift": "86e6a970eedd7dd7870d162ac2ff5012acde61c365e0a35d2200ffc346590d93",
@@ -68,6 +69,7 @@
         "Tests/CitadelTests/Citadel2Tests.swift": "f5f8026e9ba06518d1ae3d0a47889c48e27447a9443287c1764c4230d55df5ed",
         "Tests/CitadelTests/EndToEndTests.swift": "7164fc4332ce38da2a6625dc13376055b5d0ee557a906e5dfd498a3a7be73b47",
         "Tests/CitadelTests/KeyTests.swift": "aedab0b941789aefd2b3250ce7aacaeed9b5224e902ee03648f618b8c8f63942",
+        "Tests/CitadelTests/MARCBufferedCommandTests.swift": "1fa677c98061f2f44e2063937128e288a3b528c2f9848ff4ed19106863bd5d56",
         "Tests/CitadelTests/MARCOpenSSHKeyTests.swift": "c6479039a17bded7582c50a6f84a12a1f51467e533224b2a427db9365e69e64a",
         "Tests/CitadelTests/RemotePortForwardTests.swift": "f4072418544f958bb9ef753d60e99fd77a85a69d3ee8549bc5abd250ca86961f",
         "Tests/CitadelTests/WithExecTests.swift": "64eb25cc0f5fe74100c27dcf370e8f2a3ad2454eedf7df6c6d6af09c5ca14a8a"
@@ -151,6 +153,7 @@
         "Sources/Citadel/Exec/Client/ExecClient.swift": "modified",
         "Sources/Citadel/Exec/Server/ExecDelegate.swift": "modified",
         "Sources/Citadel/Exec/Server/ExecHandler.swift": "modified",
+        "Sources/Citadel/MARCBufferedCommand.swift": "added",
         "Sources/Citadel/NIOGlueHandler.swift": "modified",
         "Sources/Citadel/OpenSSHKey.swift": "modified",
         "Sources/Citadel/RemotePortForward/Client/RemotePortForward+Client.swift": "modified",
@@ -179,6 +182,7 @@
         "Sources/CitadelServerExample/Server.swift": "modified",
         "Tests/CitadelTests/Citadel2Tests.swift": "modified",
         "Tests/CitadelTests/KeyTests.swift": "modified",
+        "Tests/CitadelTests/MARCBufferedCommandTests.swift": "added",
         "Tests/CitadelTests/MARCOpenSSHKeyTests.swift": "added"
       }
     },

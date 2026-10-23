@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Buffered SSH commands and interface improvements
+
+- Enforce output budgets before queueing buffered command data; reject
+  queue overflow and close command channels on cancellation or completion.
+- Add 15 native command-output regression tests and update provenance
+  and matching open-source notices.
+- Move Status customization into the navigation bar and replace the
+  accent menu with a colour-selection sheet.
+- Simplify first-connection trust approval with optional advanced
+  fingerprint comparison; retain saved-key and changed-key checks.
+- Let the Processes heading and column labels scroll away while search
+  and sorting rise into a pinned header without a blur panel.
+
+
 ### SSH private-key import hardening
 
 - Validate cipher and key-derivation combinations, AES key/IV lengths and

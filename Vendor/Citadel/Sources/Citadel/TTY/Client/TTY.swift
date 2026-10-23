@@ -178,7 +178,8 @@ extension SSHClient {
     /// Executes a command on the remote server and returns its output as a single buffer
     /// - Parameters:
     ///   - command: The command to execute on the remote server
-    ///   - maxResponseSize: Maximum allowed size of the combined output in bytes. Defaults to Int.max
+    ///   - maxResponseSize: Maximum total stdout/stderr bytes received. Defaults to Int.max.
+    ///     Discarded stderr still counts; empty chunks are not queued.
     ///   - mergeStreams: Whether to include stderr output in the result. Defaults to false
     ///   - inShell: Whether to execute the command within a shell context. Defaults to false
     /// - Returns: A ByteBuffer containing the command's output
@@ -204,30 +205,31 @@ extension SSHClient {
         mergeStreams: Bool = false,
         inShell: Bool = false
     ) async throws -> ByteBuffer {
-        var result = ByteBuffer()
-        let stream = try await executeCommandStream(command, inShell: inShell)
-
-        for try await chunk in stream {
-            switch chunk {
-            case .stderr(let chunk):
-                guard mergeStreams else {
-                    logger.debug("Error data received, but ignored because `mergeStreams` is disabled")
-                    continue
+        try Task.checkCancellation()
+        let response = try MARCBufferedCommand(
+            maxResponseSize: maxResponseSize, mergeStreams: mergeStreams,
+            shellCommand: inShell ? command : nil
+        )
+        return try await withTaskCancellationHandler {
+            defer { response.cancel() }
+            let (_, stream) = try await _executeCommandStream(
+                mode: inShell ? .tty(command: command) : .command(command),
+                bufferedResponse: response
+            )
+            try Task.checkCancellation()
+            var result = ByteBuffer()
+            for try await chunk in stream {
+                try Task.checkCancellation()
+                switch chunk {
+                case .stdout(let bytes), .stderr(let bytes):
+                    result.writeImmutableBuffer(bytes)
                 }
-
-                fallthrough
-            case .stdout(let chunk):
-                let newResponseSize = chunk.readableBytes + result.readableBytes
-
-                if newResponseSize > maxResponseSize {
-                    throw CitadelError.commandOutputTooLarge
-                }
-
-                result.writeImmutableBuffer(chunk)
             }
+            try Task.checkCancellation()
+            return result
+        } onCancel: {
+            response.cancel()
         }
-
-        return result
     }
 
     /// Executes a command on the remote server and returns a stream of its output
@@ -268,8 +270,10 @@ extension SSHClient {
 
     internal func _executeCommandStream(
         environment: [SSHChannelRequestEvent.EnvironmentRequest] = [],
-        mode: CommandMode
+        mode: CommandMode,
+        bufferedResponse: MARCBufferedCommand? = nil
     ) async throws -> (channel: Channel, output: AsyncThrowingStream<ExecCommandOutput, Error>) {
+        if let bufferedResponse { try bufferedResponse.checkOpen() }
         let (stream, streamContinuation) = AsyncThrowingStream<ExecCommandOutput, Error>.makeStream()
 
         let hasReceivedChannelSuccess = NIOLockedValueBox<Bool>(false)
@@ -308,7 +312,12 @@ extension SSHClient {
         let channel = try await eventLoop.flatSubmit { [eventLoop, sshHandler = session.sshHandler] in
             let createChannel = eventLoop.makePromise(of: Channel.self)
             sshHandler.value.createChannel(createChannel) { channel, _ in
-                channel.pipeline.addHandlers(handler)
+                if let bufferedResponse {
+                    do { try bufferedResponse.attach(channel) }
+                    catch { return channel.eventLoop.makeFailedFuture(error) }
+                    return channel.pipeline.addHandlers(bufferedResponse.makeHandler(logger: self.logger))
+                }
+                return channel.pipeline.addHandlers(handler)
             }
 
             eventLoop.scheduleTask(in: .seconds(15)) {
@@ -318,10 +327,13 @@ extension SSHClient {
             return createChannel.futureResult
         }.get()
 
+        if let bufferedResponse { try bufferedResponse.checkOpen() }
         for env in environment {
+            if let bufferedResponse { try bufferedResponse.checkOpen() }
             try await channel.triggerUserOutboundEvent(env)
         }
 
+        if let bufferedResponse { try bufferedResponse.checkOpen() }
         switch mode {
         case .pty(let request):
             try await channel.triggerUserOutboundEvent(request)
@@ -337,7 +349,7 @@ extension SSHClient {
             ))
         }
 
-        return (channel, stream)
+        return (channel, bufferedResponse?.output ?? stream)
     }
 
     /// Creates a pseudo-terminal (PTY) session and executes the provided closure with input/output streams

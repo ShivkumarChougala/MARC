@@ -64,24 +64,13 @@ enum MARCAccentColor: String, CaseIterable, Identifiable {
 struct MARCAccentPicker: View {
     @AppStorage("marc.accent") private var selection = MARCAccentColor.defaultColor.rawValue
     @Environment(\.colorScheme) private var scheme
+    @State private var choosingColour = false
 
     var body: some View {
         let dark = scheme == .dark
         let p = MARCPalette(dark: dark)
-
         let selected = MARCAccentColor(rawValue: selection) ?? .defaultColor
-        Menu {
-            Picker("Accent colour", selection: $selection) {
-                ForEach(MARCAccentColor.allCases) { colour in
-                    Label {
-                        Text(colour.title)
-                    } icon: {
-                        menuSwatch(colour, dark: dark)
-                    }
-                    .tag(colour.rawValue)
-                }
-            }
-        } label: {
+        Button { choosingColour = true } label: {
             HStack(spacing: 12) {
                 MARCSettingsRowIcon(symbol: "paintpalette")
                 Text("Accent colour").foregroundStyle(p.text)
@@ -100,15 +89,39 @@ struct MARCAccentPicker: View {
         .accessibilityLabel("Accent colour")
         .accessibilityValue(selected.title)
         .accessibilityHint("Choose a colour for MARC")
-    }
-
-    // Native menus accept image icons. Original rendering preserves each swatch
-    // instead of tinting every option with the currently selected accent.
-    private func menuSwatch(_ colour: MARCAccentColor, dark: Bool) -> Image {
-        let image = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16)).image { context in
-            UIColor(colour.color(dark: dark)).setFill()
-            context.cgContext.fillEllipse(in: CGRect(x: 2, y: 2, width: 12, height: 12))
+        .sheet(isPresented: $choosingColour) {
+            NavigationStack {
+                List(MARCAccentColor.allCases) { colour in
+                    Button {
+                        selection = colour.rawValue
+                        choosingColour = false
+                    } label: {
+                        HStack(spacing: 14) {
+                            Circle().fill(colour.color(dark: dark))
+                                .frame(width: 20, height: 20).accessibilityHidden(true)
+                            Text(colour.title).foregroundStyle(p.text)
+                            Spacer()
+                            if selected == colour {
+                                Image(systemName: "checkmark").foregroundStyle(p.accent)
+                            }
+                        }.frame(minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected == colour ? .isSelected : [])
+                    .listRowBackground(p.surface)
+                }
+                .scrollContentBackground(.hidden)
+                .background(p.background)
+                .navigationTitle("Accent colour")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { choosingColour = false }.tint(p.accent)
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
-        return Image(uiImage: image.withRenderingMode(.alwaysOriginal))
     }
 }

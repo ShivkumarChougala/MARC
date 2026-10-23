@@ -67,14 +67,7 @@ struct HomeScreen: View {
                         .accessibilityLabel("Choose a saved Mac. Current: \(activeMac?.name ?? "none")")
 
                         Spacer(minLength: 4)
-                        Button { customizing = true } label: {
-                            Label("Customize", systemImage: "square.grid.2x2")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(p.accent).padding(.horizontal, 10)
-                                .frame(minHeight: 44)
-                                .background(p.raised, in: RoundedRectangle(cornerRadius: 13))
-                                .overlay(RoundedRectangle(cornerRadius: 13).stroke(p.border, lineWidth: 1))
-                        }.accessibilityLabel("Customize Status layout")
+
                     }
                     if let reading = store.monitor.snapshot {
                         if let received = store.monitor.updatedAt {
@@ -174,6 +167,18 @@ struct HomeScreen: View {
                         max(0, context.date.timeIntervalSince($0)) < 12
                     } == true)
         }.marcCanvas().marcNavigationTitle("Status")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { customizing = true } label: {
+                        Label("Customize", systemImage: "square.grid.2x2")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(p.accent)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel("Customize Status layout")
+                }
+                .marcToolbarBackgroundHidden()
+            }
             .onAppear {
                 statusVisible = true
                 sectionOrder = MARCStatusSection.ordered(sectionOrder).map(\.rawValue).joined(separator: ",")

@@ -38,113 +38,122 @@ struct ProcessesScreen: View {
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         let rows = visible
-        VStack(spacing: 0) {
-            HStack {
-                Text("Processes").font(.title3.weight(.semibold))
-                Spacer(minLength: 8)
-                MARCLiveNumberText(text: "\(monitor.connected ? monitor.processTotalCount : 0) total",
-                                   value: Double(monitor.connected ? monitor.processTotalCount : 0))
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(p.muted)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(minHeight: 44)
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                HStack {
+                    Text("Processes").font(.title3.weight(.semibold))
+                    Spacer(minLength: 8)
+                    MARCLiveNumberText(text: "\(monitor.connected ? monitor.processTotalCount : 0) total",
+                                       value: Double(monitor.connected ? monitor.processTotalCount : 0))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(p.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(minHeight: 44)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if let failure {
-                        Text(failure)
-                            .font(.system(size: 12))
-                            .foregroundStyle(p.accent)
-                            .padding(.vertical, 12)
-                    }
-                    if !monitor.connected {
-                        Text("Connect to a Mac in Settings to view running processes.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(p.muted)
-                            .padding(.vertical, 12)
-                    } else if !currentConnection || processes.isEmpty {
-                        VStack(spacing: 4) {
-                            if failure == nil { ProgressView().padding(.bottom, 6) }
-                            Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
-                        }
-                        .frame(maxWidth: .infinity)
-                            .font(.system(size: 13))
-                            .foregroundStyle(p.muted)
-                            .padding(.vertical, 12)
-                    } else {
-                        ForEach(rows) { process in
-                            Button {
-                                guard currentConnection else { return }
-                                searchFocused = false
-                                terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
-                            } label: {
-                                HStack(spacing: 8) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(process.name)
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(p.text)
-                                            .lineLimit(1)
-                                        Text("\(process.pid) · \(process.user)")
-                                            .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(p.muted)
-                                            .lineLimit(1)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
-                                        .foregroundStyle(Color(marcHex: 0x2dcc58))
-                                        .frame(width: 52, alignment: .trailing)
-                                    MARCLiveNumberText(text: ByteCountFormatter.string(
-                                        fromByteCount: MARCProcessRows.memoryBytes(process.memory),
-                                        countStyle: .binary
-                                    ), value: process.memory)
-                                    .foregroundStyle(p.text)
-                                    .frame(width: 72, alignment: .trailing)
-                                }
-                                .font(.system(size: 11))
-                                .monospacedDigit()
-                                .padding(.vertical, 10)
-                                .frame(minHeight: 56)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-
-                            .overlay(alignment: .bottom) {
-                                Rectangle().fill(p.border.opacity(0.5))
-                                    .frame(height: 0.5)
-                                    .allowsHitTesting(false)
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityHint("Opens termination confirmation")
-                        }
-                        if rows.isEmpty {
-                            Text("No matching processes.")
+                Section {
+                    processColumnLabels(palette: p)
+                        .padding(.horizontal, 16)
+                    Group {
+                        if let failure {
+                            Text(failure)
                                 .font(.system(size: 12))
-                                .foregroundStyle(p.muted)
+                                .foregroundStyle(p.accent)
                                 .padding(.vertical, 12)
                         }
+                        if !monitor.connected {
+                            Text("Connect to a Mac in Settings to view running processes.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(p.muted)
+                                .padding(.vertical, 12)
+                        } else if !currentConnection || processes.isEmpty {
+                            VStack(spacing: 4) {
+                                if failure == nil { ProgressView().padding(.bottom, 6) }
+                                Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
+                            }
+                            .frame(maxWidth: .infinity)
+                                .font(.system(size: 13))
+                                .foregroundStyle(p.muted)
+                                .padding(.vertical, 12)
+                        } else {
+                            ForEach(rows) { process in
+                                Button {
+                                    guard currentConnection else { return }
+                                    searchFocused = false
+                                    terminating = MARCProcessTarget(process: process, connection: monitor.processConnectionID)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(process.name)
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundStyle(p.text)
+                                                .lineLimit(1)
+                                            Text("\(process.pid) · \(process.user)")
+                                                .font(.system(size: 10, design: .monospaced))
+                                                .foregroundStyle(p.muted)
+                                                .lineLimit(1)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
+                                            .foregroundStyle(Color(marcHex: 0x2dcc58))
+                                            .frame(width: 52, alignment: .trailing)
+                                        MARCLiveNumberText(text: ByteCountFormatter.string(
+                                            fromByteCount: MARCProcessRows.memoryBytes(process.memory),
+                                            countStyle: .binary
+                                        ), value: process.memory)
+                                        .foregroundStyle(p.text)
+                                        .frame(width: 72, alignment: .trailing)
+                                    }
+                                    .font(.system(size: 11))
+                                    .monospacedDigit()
+                                    .padding(.vertical, 10)
+                                    .frame(minHeight: 56)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+
+                                .overlay(alignment: .bottom) {
+                                    Rectangle().fill(p.border.opacity(0.5))
+                                        .frame(height: 0.5)
+                                        .allowsHitTesting(false)
+                                }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityHint("Opens termination confirmation")
+                            }
+                            if rows.isEmpty {
+                                Text("No matching processes.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(p.muted)
+                                    .padding(.vertical, 12)
+                            }
+                        }
                     }
+                    .padding(.horizontal, 16)
+                } header: {
+                    processControls(palette: p)
+                        .padding(.vertical, 8)
+                        .background(p.background)
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(p.border.opacity(0.35))
+                                .frame(height: 0.5)
+                                .padding(.horizontal, 16)
+                                .allowsHitTesting(false)
+                        }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
             }
-            .scrollClipDisabled()
-            .scrollIndicators(.visible)
-            .scrollDismissesKeyboard(.interactively)
-            .marcListHeaderFade()
-            .safeAreaInset(edge: .top, spacing: 0) {
-                processControls(palette: p)
+            .padding(.bottom, 16)
+        }
+        .scrollIndicators(.visible)
+        .scrollDismissesKeyboard(.interactively)
+        .onScrollPhaseChange { _, phase in
+            if phase != .idle && !scrolling {
+                scrollOrder = visible.map(\.id)
             }
-            .onScrollPhaseChange { _, phase in
-                if phase != .idle && !scrolling {
-                    scrollOrder = visible.map(\.id)
-                }
-                scrolling = phase != .idle
-                if !scrolling { scrollOrder = [] }
-            }
+            scrolling = phase != .idle
+            if !scrolling { scrollOrder = [] }
         }
         .marcCanvas()
         .marcLearnOverlay(.processes, enabled: currentConnection && !processes.isEmpty &&
@@ -198,67 +207,67 @@ struct ProcessesScreen: View {
     }
 
     private func processControls(palette p: MARCPalette) -> some View {
-        VStack(spacing: 4) {
+        HStack(spacing: 8) {
             HStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(p.muted)
-                    TextField("Search processes", text: $query)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($searchFocused)
-                        .submitLabel(.done)
-                        .onSubmit { searchFocused = false }
-                    if !query.isEmpty {
-                        Button { query = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(p.muted)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear process search")
+                Image(systemName: "magnifyingglass").foregroundStyle(p.muted)
+                TextField("Search processes", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($searchFocused)
+                    .submitLabel(.done)
+                    .onSubmit { searchFocused = false }
+                if !query.isEmpty {
+                    Button { query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(p.muted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear process search")
                 }
-                .font(.system(size: 13))
-                .padding(.leading, 12)
-                .padding(.trailing, query.isEmpty ? 12 : 0)
+            }
+            .font(.system(size: 13))
+            .padding(.leading, 12)
+            .padding(.trailing, query.isEmpty ? 12 : 0)
+            .frame(minHeight: 44)
+            .background(p.raised, in: Capsule())
+            .overlay(Capsule().stroke(p.border.opacity(0.6), lineWidth: 0.5))
+            Menu {
+                Picker("Sort processes", selection: $sorting) {
+                    Text("CPU").tag("CPU")
+                    Text("Memory").tag("Memory")
+                    Text("Name").tag("Name")
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(sorting)
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(p.text)
+                .padding(.horizontal, 12)
                 .frame(minHeight: 44)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(p.raised, in: Capsule())
                 .overlay(Capsule().stroke(p.border.opacity(0.6), lineWidth: 0.5))
-                Menu {
-                    Picker("Sort processes", selection: $sorting) {
-                        Text("CPU").tag("CPU")
-                        Text("Memory").tag("Memory")
-                        Text("Name").tag("Name")
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(sorting)
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(p.text)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay(Capsule().stroke(p.border.opacity(0.6), lineWidth: 0.5))
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .accessibilityLabel("Sort processes")
-                .accessibilityValue(sorting)
-                .marcLearnTarget(.processes)
             }
-
-            HStack(spacing: 8) {
-                Text("NAME / PID").frame(maxWidth: .infinity, alignment: .leading)
-                Text("CPU").frame(width: 52, alignment: .trailing)
-                Text("MEMORY").frame(width: 72, alignment: .trailing)
-            }
-            .font(.system(size: 9, weight: .medium))
-            .foregroundStyle(p.muted)
-            .frame(minHeight: 28)
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel("Sort processes")
+            .accessibilityValue(sorting)
+            .marcLearnTarget(.processes)
         }
         .padding(.horizontal, 16)
+    }
+
+    private func processColumnLabels(palette p: MARCPalette) -> some View {
+        HStack(spacing: 8) {
+            Text("NAME / PID").frame(maxWidth: .infinity, alignment: .leading)
+            Text("CPU").frame(width: 52, alignment: .trailing)
+            Text("MEMORY").frame(width: 72, alignment: .trailing)
+        }
+        .font(.system(size: 9, weight: .medium))
+        .foregroundStyle(p.muted)
+        .frame(minHeight: 28)
     }
 }
 
