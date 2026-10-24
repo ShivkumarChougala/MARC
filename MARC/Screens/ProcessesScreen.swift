@@ -90,10 +90,10 @@ struct ProcessesScreen: View {
                                                     .lineLimit(1)
                                             }
                                             .frame(maxWidth: .infinity, alignment: .leading)
-                                            MARCProcessAnimatedNumber(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
+                                            MARCRollingNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
                                                 .foregroundStyle(Color(marcHex: 0x2dcc58))
                                                 .frame(width: 52, alignment: .trailing)
-                                            MARCProcessAnimatedNumber(text: ByteCountFormatter.string(
+                                            MARCRollingNumberText(text: ByteCountFormatter.string(
                                                 fromByteCount: MARCProcessRows.memoryBytes(process.memory),
                                                 countStyle: .binary
                                             ), value: process.memory)
@@ -248,7 +248,7 @@ private struct MARCProcessHeader: View {
                     .lineLimit(1).minimumScaleFactor(0.8)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                MARCProcessAnimatedNumber(text: "\(count) total", value: Double(count))
+                MARCRollingNumberText(text: "\(count) total", value: Double(count))
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(p.muted)
                     .lineLimit(1).minimumScaleFactor(0.8)
@@ -573,47 +573,5 @@ private struct MARCProcessUnderlayBlur: UIViewRepresentable {
         coordinator.animator?.stopAnimation(true)
         coordinator.animator = nil
         view.effect = nil
-    }
-}
-
-// Own the digit transition independently of the list's non-animated updates.
-// Only these three Process readings use this view; other screens are untouched.
-private struct MARCProcessAnimatedNumber: View {
-    let text: String
-    let value: Double?
-    @State private var displayedText: String
-    @State private var displayedValue: Double?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-
-    init(text: String, value: Double?) {
-        self.text = text
-        self.value = value
-        _displayedText = State(initialValue: text)
-        _displayedValue = State(initialValue: Self.valid(value))
-    }
-
-    private static func valid(_ value: Double?) -> Double? {
-        guard let value, value.isFinite, value >= 0 else { return nil }
-        return value
-    }
-
-    var body: some View {
-        Text(displayedText)
-            .contentTransition(!reduceMotion && scenePhase == .active && displayedValue != nil
-                ? .numericText(value: displayedValue ?? 0) : .identity)
-            .onChange(of: text) { _, updatedText in
-                let nextValue = Self.valid(value)
-                let animate = !reduceMotion && scenePhase == .active &&
-                    displayedValue != nil && nextValue != nil
-                // An explicit child-state transaction does not inherit the
-                // process array's disablesAnimations flag or animate row order.
-                var transaction = Transaction(animation: animate ? .smooth(duration: 0.35, extraBounce: 0) : nil)
-                transaction.disablesAnimations = !animate
-                withTransaction(transaction) {
-                    displayedText = updatedText
-                    displayedValue = nextValue
-                }
-            }
     }
 }
