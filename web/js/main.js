@@ -396,6 +396,8 @@ tabs.forEach((tab, index) => {
   if (!header || !toggle || !links) return;
 
   const mobile = window.matchMedia('(max-width: 640px)');
+  const actions = header.querySelector('.marc-nav-actions');
+  const download = header.querySelector('.marc-nav-download');
 
   function setOpen(open) {
     open = mobile.matches && open;
@@ -407,10 +409,19 @@ tabs.forEach((tab, index) => {
   }
 
   function syncLayout() {
-    const restoreFocus = mobile.matches && links.contains(document.activeElement);
+    const focused = document.activeElement;
+    const restoreMenuFocus = mobile.matches &&
+      (links.contains(focused) || focused === download);
+    const restoreDownloadFocus = !mobile.matches && focused === toggle;
+    // Move the same link so keyboard order follows its visible position.
+    if (download && actions) {
+      if (mobile.matches) links.append(download);
+      else actions.prepend(download);
+    }
     toggle.hidden = !mobile.matches;
     setOpen(false);
-    if (restoreFocus) toggle.focus();
+    if (restoreMenuFocus) toggle.focus();
+    else if (restoreDownloadFocus) download?.focus();
   }
 
   toggle.addEventListener('click', () => {
