@@ -23,6 +23,8 @@ response_type = monitor[monitor.index('struct MARCProcessResponse:'):monitor.ind
 stream = monitor[monitor.index('extension SSHMonitor {\n    func processUpdates('):monitor.index('extension SSHMonitor {\n    func marcInstalledAIModels(')]
 rows = (root / 'MARC/Services/MARCProcessRows.swift').read_text()
 sheet = screen[screen.index('private struct MARCTerminationSheet:'):]
+# Bound extraction to this top-level struct; later UI helpers are not task fixtures.
+sheet = sheet[:sheet.index('\n}') + 2]
 sheet_methods = sheet[sheet.index('    @MainActor\n    private func stopTermination()'):sheet.rfind('\n}')]
 remote_python = terminate[terminate.index('import subprocess, json, os, sys, base64, signal'):terminate.index('\nMARC_TERMINATE\n')]
 

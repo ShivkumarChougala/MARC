@@ -364,14 +364,30 @@ struct ContentView: View {
         NavigationStack {
             content()
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if !keyboardVisible {
+                    if !keyboardVisible && tab != 1 {
+                        navigationDock(palette: MARCPalette(dark: scheme == .dark))
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if !keyboardVisible && tab == 1 {
                         navigationDock(palette: MARCPalette(dark: scheme == .dark))
                     }
                 }
         }
     }
 
+    @ViewBuilder
     private func navigationDock(palette p: MARCPalette) -> some View {
+        navigationItems(palette: p)
+            .padding(4)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(p.border.opacity(0.7), lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+    }
+
+    private func navigationItems(palette p: MARCPalette) -> some View {
         HStack(spacing: 2) {
             navItem("Status", symbol: "gauge.with.needle", index: 0, palette: p)
             navItem("Processes", symbol: "slider.horizontal.3", index: 1, palette: p)
@@ -379,12 +395,6 @@ struct ContentView: View {
             navItem("Files", symbol: "folder", index: 3, palette: p)
             navItem("Settings", symbol: "slider.horizontal.2.square", index: 4, palette: p)
         }
-        .padding(4)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().stroke(p.border.opacity(0.7), lineWidth: 1))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
     }
 
     private func navItem(_ title: String, symbol: String, index: Int, palette: MARCPalette) -> some View {
