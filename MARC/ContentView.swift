@@ -364,12 +364,12 @@ struct ContentView: View {
         NavigationStack {
             content()
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    if !keyboardVisible && tab != 1 {
+                    if !keyboardVisible && tab != 1 && tab != 3 {
                         navigationDock(palette: MARCPalette(dark: scheme == .dark))
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    if !keyboardVisible && tab == 1 {
+                    if !keyboardVisible && (tab == 1 || tab == 3) {
                         navigationDock(palette: MARCPalette(dark: scheme == .dark))
                     }
                 }
