@@ -3,25 +3,29 @@
 
     <h1 id="hero-title" aria-label="Your Mac. Within reach.">Your Mac.<br><span>Within reach.</span></h1>
 
-    <p class="lead">Keep an eye on your Mac, manage processes and files, run terminal sessions with optional AI assistance, and adjust everyday controls all from your iPhone.</p>
+    <p class="lead"><span class="mh-description-desktop">Keep an eye on your Mac, manage processes and files, run terminal sessions with optional AI assistance, and adjust everyday controls all from your iPhone.</span><span class="mh-description-mobile">Monitor your Mac, manage files and run commands. All from your iPhone.</span></p>
 
   </div>
 
-  <div class="mh-visual" aria-label="MARC Status and Control Center screens">
+  <div class="mh-visual" id="mh-mobile-gallery" role="region" tabindex="0" aria-label="MARC screens: swipe or use the buttons below">
     <div class="mh-device">
-      <div class="mh-display">
+      <div class="mh-hardware"><div class="mh-display">
         <img srcset="/assets/status-320.webp 320w, /assets/status-360.webp 360w, /assets/status-400.webp 400w, /assets/status-480.webp 480w, /assets/status-640.webp 640w, /assets/status.webp 946w" sizes="(max-width: 640px) 54vw, 245px" src="/assets/status.webp"
              alt="MARC Status screen showing Mac performance, battery and storage"
              width="946" height="2048" fetchpriority="high">
-      </div>
+      </div></div>
     </div>
     <div class="mh-device">
-      <div class="mh-display">
+      <div class="mh-hardware"><div class="mh-display">
         <img srcset="/assets/control-320.webp 320w, /assets/control-360.webp 360w, /assets/control-400.webp 400w, /assets/control-480.webp 480w, /assets/control-640.webp 640w, /assets/control.webp 946w" sizes="(max-width: 640px) 54vw, 245px" src="/assets/control.webp"
              alt="MARC Control Center with wireless, volume and brightness controls"
              width="946" height="2048" decoding="async">
-      </div>
+      </div></div>
     </div>
+  </div>
+  <div class="mh-mobile-switch" role="group" aria-label="Choose a MARC screen">
+    <button type="button" aria-controls="mh-mobile-gallery" aria-pressed="true">Status</button>
+    <button type="button" aria-controls="mh-mobile-gallery" aria-pressed="false">Controls</button>
   </div>
   <div class="mh-actions">
     <div class="mh-download">

@@ -770,3 +770,109 @@ tabs.forEach((tab, index) => {
     request();
   });
 })();
+
+/* MARC mobile swipe: start */
+(() => {
+  const gallery = document.getElementById('mh-mobile-gallery');
+  const group = document.querySelector('.mh-mobile-switch');
+  if (!gallery || !group) return;
+
+  const hero = gallery.closest('.marc-hero-v2');
+  const actions = hero.querySelector('.mh-actions');
+  const download = hero.querySelector('.mh-download');
+  const phones = [...gallery.querySelectorAll('.mh-device')];
+  const buttons = [...group.querySelectorAll('button')];
+
+  const mobile = matchMedia('(max-width: 640px)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let selected = 0, frame = 0, entrance;
+
+  function mark(index) {
+    selected = index;
+    buttons.forEach((button, i) =>
+      button.setAttribute('aria-pressed', String(i === index))
+    );
+    phones.forEach((phone, i) =>
+      phone.dataset.active = String(i === index)
+    );
+  }
+
+  function go(index, animate = true) {
+    if (!mobile.matches) return;
+    index = Math.max(0, Math.min(phones.length - 1, index));
+    mark(index);
+    gallery.scrollTo({
+      left: phones[index].offsetLeft
+        - (gallery.clientWidth - phones[index].offsetWidth) / 2,
+      behavior: animate && !reduced.matches ? 'smooth' : 'instant'
+    });
+  }
+
+  buttons.forEach((button, i) =>
+    button.addEventListener('click', () => go(i))
+  );
+
+  gallery.addEventListener('scroll', () => {
+    if (!mobile.matches || frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const center = gallery.scrollLeft + gallery.clientWidth / 2;
+      const distances = phones.map(p =>
+        Math.abs(p.offsetLeft + p.offsetWidth / 2 - center)
+      );
+      mark(distances.indexOf(Math.min(...distances)));
+    });
+  }, {passive: true});
+
+  function keys(event) {
+    if (!mobile.matches) return;
+    const next = {
+      ArrowRight: selected + 1,
+      ArrowLeft: selected - 1,
+      Home: 0,
+      End: phones.length - 1
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    go(next);
+  }
+
+  gallery.addEventListener('keydown', keys);
+  group.addEventListener('keydown', keys);
+
+  function layout() {
+    if (mobile.matches && download.parentElement !== hero) {
+      hero.insertBefore(download, gallery);
+    }
+    if (!mobile.matches && download.parentElement !== actions) {
+      actions.prepend(download);
+    }
+    if (!mobile.matches && group.contains(document.activeElement)) {
+      gallery.focus({preventScroll: true});
+    }
+    gallery.tabIndex = mobile.matches ? 0 : -1;
+    gallery.style.setProperty('--mh-view-width', gallery.clientWidth + 'px');
+    requestAnimationFrame(() => go(selected, false));
+  }
+
+  addEventListener('resize', layout, {passive: true});
+  mobile.addEventListener('change', layout);
+  reduced.addEventListener('change', () => {
+    entrance?.cancel();
+    go(selected, false);
+  });
+
+  mark(0);
+  layout();
+
+  if (mobile.matches && !reduced.matches && gallery.animate) {
+    entrance = gallery.animate([
+      {translate: '0 18px', filter: 'blur(3px)'},
+      {translate: '0 0', filter: 'blur(0)'}
+    ], {
+      duration: 850,
+      easing: 'cubic-bezier(.16,1,.3,1)'
+    });
+  }
+})();
+/* MARC mobile swipe: end */
