@@ -640,6 +640,7 @@ tabs.forEach((tab, index) => {
   if (!hero || !visual || phones.length !== 2) return;
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const mobile = matchMedia('(max-width: 640px)');
   let frame = 0,
     top = 0,
     height = 1;
@@ -647,6 +648,7 @@ tabs.forEach((tab, index) => {
 
   function draw() {
     frame = 0;
+    if (mobile.matches) return;
     const p = reduced.matches ?
       0 :
       clamp((scrollY - top) / (height * .85));
@@ -670,7 +672,7 @@ tabs.forEach((tab, index) => {
   }
 
   function request() {
-    if (!frame) frame = requestAnimationFrame(draw);
+    if (!mobile.matches && !frame) frame = requestAnimationFrame(draw);
   }
 
   function measure() {
@@ -687,6 +689,7 @@ tabs.forEach((tab, index) => {
   });
   addEventListener('pageshow', measure);
   reduced.addEventListener('change', measure);
+  mobile.addEventListener('change', measure);
 
   if ('ResizeObserver' in window) {
     new ResizeObserver(measure).observe(hero);
@@ -785,9 +788,10 @@ tabs.forEach((tab, index) => {
 
   const mobile = matchMedia('(max-width: 640px)');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  let selected = 0, frame = 0, entrance;
+  let selected = -1, frame = 0, layoutFrame = 0, lastWidth = -1, entrance;
 
   function mark(index) {
+    if (index === selected) return;
     selected = index;
     buttons.forEach((button, i) =>
       button.setAttribute('aria-pressed', String(i === index))
@@ -841,6 +845,7 @@ tabs.forEach((tab, index) => {
   group.addEventListener('keydown', keys);
 
   function layout() {
+    layoutFrame = 0;
     if (mobile.matches && download.parentElement !== hero) {
       hero.insertBefore(download, gallery);
     }
@@ -851,12 +856,23 @@ tabs.forEach((tab, index) => {
       gallery.focus({preventScroll: true});
     }
     gallery.tabIndex = mobile.matches ? 0 : -1;
-    gallery.style.setProperty('--mh-view-width', gallery.clientWidth + 'px');
-    requestAnimationFrame(() => go(selected, false));
+    const width = gallery.clientWidth;
+    if (width !== lastWidth) {
+      lastWidth = width;
+      gallery.style.setProperty('--mh-view-width', width + 'px');
+      go(selected, false);
+    }
   }
 
-  addEventListener('resize', layout, {passive: true});
-  mobile.addEventListener('change', layout);
+  function requestLayout() {
+    if (!layoutFrame) layoutFrame = requestAnimationFrame(layout);
+  }
+
+  addEventListener('resize', requestLayout, {passive: true});
+  mobile.addEventListener('change', () => {
+    lastWidth = -1;
+    requestLayout();
+  });
   reduced.addEventListener('change', () => {
     entrance?.cancel();
     go(selected, false);

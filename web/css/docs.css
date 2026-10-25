@@ -553,7 +553,7 @@ main {
   }
   .article-body p,
   .article-body li {
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.8;
   }
   .article-body ul,
@@ -1024,9 +1024,11 @@ summary:focus-visible {
 }
 .marc-docs-spotlight .spotlight-close {
   position: absolute;
-  top: 20px;
-  right: 18px;
-  padding: 5px 8px;
+  top: 13px;
+  right: 12px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
   background: #ffffff07;
   border: 1px solid #ffffff12;
   border-radius: 6px;

@@ -107,7 +107,7 @@ nav {
   background: #111;
 }
 .section {
-  padding: 100px 0;
+  padding: clamp(64px, 7vw, 96px) 0;
 }
 .sectionhead {
   display: flex;
@@ -340,7 +340,7 @@ summary::-webkit-details-marker {
     min-height: 45px;
   }
   .section {
-    padding: 58px 0;
+    padding: 56px 0;
   }
   .container {
     padding: 0 20px;
@@ -743,7 +743,7 @@ section[aria-label="App screen explorer"] #screen-description {
 .story-copy > p:not(.story-label) {
   margin: 18px 0 0;
   color: #acacb8;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.75;
 }
 .story-phone {
@@ -775,7 +775,7 @@ section[aria-label="App screen explorer"] #screen-description {
 .story-features p {
   margin: 12px 0 0;
   color: #acacb8;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.75;
 }
 @media (max-width: 600px) {
@@ -1652,7 +1652,7 @@ body:has(.marc-support) #main-content > .container {
   max-width: 790px;
 }
 .uc-hero h1 {
-  font-size: clamp(46px,7vw,82px);
+  font-size: clamp(40px,6vw,72px);
   line-height: 1.06;
   letter-spacing: -3.5px;
   font-weight: 600;
@@ -2942,8 +2942,9 @@ body:has(.hero-scene) {
 .hero-scene .mh-benefits {
   justify-content: center;
   margin: 14px 0 0;
-  gap: 10px 15px;
-  font-size: 10px;
+  gap: 8px 16px;
+  font-size: 11px;
+  line-height: 1.5;
   color: #aaaab5;
 }
 .hero-scene .mh-benefits li::before {
@@ -3315,7 +3316,7 @@ summary:focus-visible {
 #preview .showcopy > p:not(.eyebrow) {
   max-width: 340px;
   margin: 16px 0 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.75;
 }
 @media (max-width:700px) {
@@ -3410,12 +3411,80 @@ summary:focus-visible {
   }
 }
 
-/* MARC mobile swipe: start */
+/* Responsive hero and navigation */
+.hero-scene .mh-store {
+  min-height: 28px;
+  padding: 2px 6px;
+  gap: 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #aaaab4;
+  opacity: 1;
+}
+.hero-scene .mh-store svg {
+  width: 13px;
+  height: 17px;
+}
+.hero-scene .mh-store span {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
 .mh-mobile-switch,
 .mh-copy .lead > .mh-description-mobile { display: none; }
 .mh-hardware { display: contents; }
 
 @media (max-width: 640px) {
+
+  .marc-header,
+  .marc-header.is-scrolled {
+    top: 10px;
+    width: calc(100% - 40px);
+    border-radius: 25px;
+  }
+  .marc-header > .container {
+    padding: 1px 3px 1px 14px;
+  }
+  .marc-header .marc-nav {
+    min-height: 44px;
+  }
+  .marc-header .logo-brand {
+    width: 64px;
+    min-width: 64px;
+    height: 44px;
+  }
+  .marc-header .logo-brand .marc-nav-logo {
+    width: 60px;
+    height: 60px;
+  }
+  .marc-header .marc-menu-toggle {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  .marc-header .marc-menu-toggle svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .marc-header:has(.marc-menu-toggle[aria-expanded="true"]) {
+    background: rgba(32, 32, 36, .62);
+    backdrop-filter: blur(24px) saturate(125%);
+    -webkit-backdrop-filter: blur(24px) saturate(125%);
+    border-color: rgba(255, 255, 255, .16);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, .24),
+      inset 0 1px 0 rgba(255, 255, 255, .06);
+  }
+  .marc-header .marc-nav-links {
+    background: transparent;
+  }
+  .marc-header .marc-nav-links > a:not(.marc-nav-download) {
+    color: #e8e8ee;
+  }
   .hero-scene {
     background-color: #101012;
     background-image:
@@ -3433,7 +3502,7 @@ summary:focus-visible {
     min-height: 100svh;
     height: auto;
     justify-content: flex-start;
-    padding-block: 88px 24px;
+    padding-block: 84px 24px;
     gap: 14px;
   }
   .hero-scene .mh-copy { order: 1; }
@@ -3460,11 +3529,6 @@ summary:focus-visible {
 
   .hero-scene .mh-actions { display: contents; }
   .hero-scene .mh-download { order: 2; margin: 0; }
-  .hero-scene .mh-store {
-    min-height: 44px;
-    padding: 10px 17px;
-  }
-  .hero-scene .mh-store span { font-size: 12px; }
 
   .hero-scene .mh-visual {
     --mh-slide-width: min(54vw, clamp(150px, calc((100svh - 370px) / 2.18), 220px));
@@ -3584,8 +3648,8 @@ summary:focus-visible {
   .hero-scene .mh-benefits {
     order: 5;
     margin: 0;
-    font-size: 9px;
-    gap: 7px 12px;
+    font-size: 11px;
+    gap: 6px 12px;
   }
 }
 @media (max-width: 380px) {
@@ -3602,66 +3666,8 @@ summary:focus-visible {
   .mh-mobile-switch button,
   .mh-mobile-switch button::after { transition: none; }
 }
-/* MARC mobile swipe: end */
-
-/* MARC compact mobile navbar: start */
-@media (max-width: 640px) {
-  .marc-header,
-  .marc-header.is-scrolled {
-    top: 10px;
-    width: calc(100% - 40px);
-    border-radius: 25px;
-  }
-  .marc-header > .container {
-    padding: 1px 3px 1px 14px;
-  }
-  .marc-header .marc-nav {
-    min-height: 44px;
-  }
-  .marc-header .logo-brand {
-    width: 64px;
-    min-width: 64px;
-    height: 44px;
-  }
-  .marc-header .logo-brand .marc-nav-logo {
-    width: 60px;
-    height: 60px;
-  }
-  .marc-header .marc-menu-toggle {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
-    padding: 0;
-  }
-  .marc-header .marc-menu-toggle svg {
-    width: 19px;
-    height: 19px;
+@media (prefers-reduced-transparency: reduce) {
+  .marc-header:has(.marc-menu-toggle[aria-expanded="true"]) {
+    background: #242428;
   }
 }
-/* MARC compact mobile navbar: end */
-
-/* MARC quiet mobile availability: start */
-.hero-scene .mh-store {
-  min-height: 28px;
-  padding: 2px 6px;
-  gap: 7px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #aaaab4;
-  opacity: 1;
-}
-.hero-scene .mh-store svg {
-  width: 13px;
-  height: 17px;
-}
-.hero-scene .mh-store span {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-@media (max-width: 640px) {
-  .hero-scene .mh-store span { font-size: 11px; }
-}
-/* MARC quiet mobile availability: end */
