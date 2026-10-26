@@ -89,7 +89,7 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var connectionIssue: MARCConnectionIssue?
     private(set) var updatedAt: Date?
     @ObservationIgnored private var client: SSHClient?
-    @ObservationIgnored private var developerReadCache: [String: (connection: UUID, date: Date, uptime: TimeInterval, data: Data)] = [:]
+    private var developerReadCache: [String: (connection: UUID, date: Date, uptime: TimeInterval, data: Data)] = [:]
     @ObservationIgnored private var developerActionInFlight: UUID?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()

@@ -76,12 +76,15 @@ struct MARCDeveloperToolsView: View {
         let containers = reply?.containers ?? []
         let shownContainers = Array(containers.prefix(3))
         let ownFeed = feed.connection == monitor.statisticsConnectionID && feed.action == tab.rawValue
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 12) {
-                Text("Services & Docker").font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(p.text).accessibilityAddTraits(.isHeader)
-                    .lineLimit(1).minimumScaleFactor(0.85)
-                Spacer(minLength: 4)
+        VStack(alignment: .leading, spacing: 0) {
+            // Keep the title compact; the trailing action retains its 44-point
+            // target in the empty trailing space beside the tabs below.
+            Text("Services & Docker").font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(p.text).accessibilityAddTraits(.isHeader)
+                .lineLimit(1).minimumScaleFactor(0.85)
+                .padding(.trailing, 116)
+                .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
+                .overlay(alignment: .trailing) {
                 NavigationLink {
                     MARCDeveloperList(monitor: monitor, kind: tab.rawValue, connection: monitor.statisticsConnectionID)
                 } label: {
@@ -90,7 +93,7 @@ struct MARCDeveloperToolsView: View {
                         Image(systemName: "chevron.right").font(.system(size: 10))
                     }.font(.system(size: 12)).foregroundStyle(p.accent).frame(minHeight: 44)
                 }.buttonStyle(.plain).disabled(!monitor.connected)
-            }
+                }
             HStack(spacing: 18) {
                 ForEach(MARCDeveloperTab.allCases) { item in
                     Button { tab = item } label: {

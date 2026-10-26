@@ -158,9 +158,14 @@ print('PASS: production port parsing, IPv6/deduplication, limits, Docker/Homebre
 models=source.split('enum MARCDeveloperScript {',1)[0]
 feed=ui[ui.index('@MainActor @Observable private final class MARCDeveloperFeed'):ui.index('\nstruct MARCDeveloperToolsView:')]
 feed=feed.replace('@MainActor @Observable private final class','@MainActor final class')
-backend = (root/'MARC/Services/SSHMonitor.swift').read_text().split('// Requests and actions stay bound',1)[1]
+monitor_source = (root/'MARC/Services/SSHMonitor.swift').read_text()
+cache_declaration = next(line for line in monitor_source.splitlines() if 'var developerReadCache:' in line)
+assert '@ObservationIgnored' not in cache_declaration, 'Cache refreshes must invalidate the Status preview even when service rows are unchanged.'
+backend = monitor_source.split('// Requests and actions stay bound',1)[1]
 backend = backend[backend.index('extension SSHMonitor {'):]
 fixture=models+'''
+import Observation
+final class ObservationFlag: @unchecked Sendable { var changed = false }
 enum MARCAIError: Error { case message(String) }
 enum MARCDeveloperScript { static let python = "fixture" }
 struct FixtureBuffer { let readableBytesView: [UInt8] }
@@ -176,11 +181,11 @@ struct FixtureBuffer { let readableBytesView: [UInt8] }
         blocked?.resume(returning: FixtureBuffer(readableBytesView: Array(json.utf8))); blocked = nil
     }
 }
-@MainActor final class SSHMonitor {
+@MainActor @Observable final class SSHMonitor {
     var connected = true
     var generation = UUID()
     var statisticsConnectionID: UUID { get { generation } set { generation = newValue } }
-    var developerReadCache: [String: (connection: UUID, date: Date, uptime: TimeInterval, data: Data)] = [:]
+    CACHE_DECLARATION
     var developerActionInFlight: UUID?
     var client: FixtureClient? = FixtureClient()
     var calls: Int { client!.calls }
@@ -209,10 +214,21 @@ struct FixtureBuffer { let readableBytesView: [UInt8] }
         while cacheMonitor.calls == 0 { await Task.yield() }
         cacheMonitor.finish(); _ = await read.value
         precondition(cacheMonitor.marcDeveloperCachedRead("services")?.reply.services?.count == 1)
+        // Track the production cache getter, then publish identical rows again.
+        // The timestamp/cache write must invalidate the preview independently of feed equality.
+        let observation = ObservationFlag()
+        withObservationTracking {
+            _ = cacheMonitor.marcDeveloperCachedRead("services")
+        } onChange: { observation.changed = true }
+        let repeated = Task { try? await cacheMonitor.marcDeveloperRequest(action: "services", expectedConnection: cacheMonitor.statisticsConnectionID) }
+        while cacheMonitor.calls < 2 { await Task.yield() }
+        cacheMonitor.finish(); _ = await repeated.value
+        precondition(observation.changed, "Identical service rows must still notify the preview of fresh data")
+        precondition(cacheMonitor.marcDeveloperCachedRead("services")?.reply.services?.count == 1)
         let restored = MARCDeveloperFeed()
         let restore = Task { await restored.poll(monitor: cacheMonitor, tab: "services", connection: cacheMonitor.statisticsConnectionID) }
         while restored.connection == nil { await Task.yield() }
-        precondition(!restored.loading && restored.services.count == 1 && cacheMonitor.calls == 1)
+        precondition(!restored.loading && restored.services.count == 1 && cacheMonitor.calls == 2)
         restore.cancel(); await restore.value
         cacheMonitor.statisticsConnectionID = UUID()
         precondition(cacheMonitor.marcDeveloperCachedRead("services") == nil)
@@ -235,6 +251,8 @@ struct FixtureBuffer { let readableBytesView: [UInt8] }
     }
 }
 '''
+fixture = fixture.replace('    CACHE_DECLARATION', cache_declaration)
+print('PASS: production Developer cache is observable; native fixture tracks identical-result refresh invalidation')
 assert 'case services, docker\n' in ui and 'Copy endpoint' not in ui and 'MARCSavedCommand' not in source
 assert 'List {' not in ui and 'Search process or port' in ui and 'Stop process' in ui
 if '--source-only' in sys.argv: print('NOT RUN: native Swift Developer Tools checks (source-only mode)')
