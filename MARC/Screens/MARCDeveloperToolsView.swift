@@ -76,10 +76,11 @@ struct MARCDeveloperToolsView: View {
         let containers = reply?.containers ?? []
         let shownContainers = Array(containers.prefix(3))
         let ownFeed = feed.connection == monitor.statisticsConnectionID && feed.action == tab.rawValue
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text("Developer Tools").font(.system(size: 14, weight: .semibold)).foregroundStyle(p.text)
-                    .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 12) {
+                Text("Services & Docker").font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(p.text).accessibilityAddTraits(.isHeader)
+                    .lineLimit(1).minimumScaleFactor(0.85)
                 Spacer(minLength: 4)
                 NavigationLink {
                     MARCDeveloperList(monitor: monitor, kind: tab.rawValue, connection: monitor.statisticsConnectionID)
@@ -90,21 +91,22 @@ struct MARCDeveloperToolsView: View {
                     }.font(.system(size: 12)).foregroundStyle(p.accent).frame(minHeight: 44)
                 }.buttonStyle(.plain).disabled(!monitor.connected)
             }
-            HStack(spacing: 4) {
+            HStack(spacing: 18) {
                 ForEach(MARCDeveloperTab.allCases) { item in
                     Button { tab = item } label: {
                         Text(item.title).font(.system(size: 13, weight: tab == item ? .semibold : .regular))
                             .foregroundStyle(tab == item ? p.accent : p.muted)
-                            .frame(maxWidth: .infinity, minHeight: 34)
-                            .background {
+                            .frame(minWidth: 56, minHeight: 44)
+                            .overlay(alignment: .bottom) {
                                 if tab == item {
-                                    RoundedRectangle(cornerRadius: 9).fill(p.raised)
+                                    Capsule().fill(p.accent).frame(height: 2)
                                         .matchedGeometryEffect(id: "developerSelection", in: tabSelection)
                                 }
-                            }.padding(.vertical, 5).contentShape(Rectangle())
+                            }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityAddTraits(tab == item ? .isSelected : [])
                 }
-            }.padding(.horizontal, 3).background(p.surface, in: RoundedRectangle(cornerRadius: 12))
+                Spacer(minLength: 0)
+            }.frame(maxWidth: .infinity, alignment: .leading)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: tab)
             if let cached, ProcessInfo.processInfo.systemUptime - cached.uptime >= 16 {
                 HStack(spacing: 3) {

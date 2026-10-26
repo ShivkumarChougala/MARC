@@ -28,7 +28,7 @@ struct HomeScreen: View {
         let p = MARCPalette(dark: scheme == .dark)
         TimelineView(.periodic(from: .now, by: 5)) { context in
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 10) {
                         Button {
                             pickerMac = nil
@@ -50,7 +50,7 @@ struct HomeScreen: View {
                                         if let uptime = statusUptime {
                                             Text("·").accessibilityHidden(true)
                                             Text("Uptime \(uptime)")
-                                                .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                                                .lineLimit(1).minimumScaleFactor(0.8)
                                         }
                                     }.font(.system(size: 11)).foregroundStyle(p.muted)
                                 }
@@ -62,7 +62,13 @@ struct HomeScreen: View {
                         .accessibilityValue(statusUptime.map { "Uptime " + $0 } ?? "")
 
                         Spacer(minLength: 4)
-
+                        if let reading = store.monitor.snapshot,
+                           !hiddenSections.split(separator: ",").contains("powerStorage") {
+                            VStack(alignment: .trailing, spacing: 5) {
+                                MARCOverviewPowerReading(details: reading.details, palette: p, fontSize: 11)
+                                MARCOverviewStorageReading(reading: reading, palette: p, fontSize: 11)
+                            }.fixedSize(horizontal: true, vertical: false)
+                        }
                     }
                     if let reading = store.monitor.snapshot {
                         if let received = store.monitor.updatedAt {
@@ -154,7 +160,7 @@ struct HomeScreen: View {
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
                         .padding(.top, 24)
                     }
-                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 20)
+                }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
             }.scrollClipDisabled().scrollIndicators(.hidden)
                 .environment(\.marcLiveMotionEnabled,
                     statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
@@ -271,38 +277,24 @@ struct HomeScreen: View {
                          palette: MARCPalette) -> some View {
         switch item {
         case .system:
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("System").font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(palette.text)
+                        .foregroundStyle(palette.text).accessibilityAddTraits(.isHeader)
                     Spacer(minLength: 4)
                     NavigationLink {
                         LiveSystemDetailScreen(store: store, openSettings: openSettings)
                     } label: {
                         HStack(spacing: 5) {
                             Text("Details")
-                            Image(systemName: "chevron.right")
-                        }.font(.system(size: 13, weight: .medium))
+                            Image(systemName: "chevron.right").font(.system(size: 10))
+                        }.font(.system(size: 12))
                             .foregroundStyle(palette.accent)
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("System details")
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    if !hiddenSections.split(separator: ",").contains("powerStorage") {
-                        HStack(spacing: 12) {
-                            MARCOverviewPowerReading(details: reading.details, palette: palette, fontSize: 11)
-                            MARCOverviewStorageReading(reading: reading, palette: palette, fontSize: 11)
-                        }.frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
-                }.padding(14)
-                    .background(palette.text.opacity(scheme == .dark ? 0.025 : 0.018), in: RoundedRectangle(cornerRadius: 20))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 20)
-                            .strokeBorder(palette.text.opacity(scheme == .dark ? 0.09 : 0.07), lineWidth: 0.5)
-                            .allowsHitTesting(false).accessibilityHidden(true)
-                    }
+                MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
             }.marcLearnTarget(.statusSystem)
         case .processes:
             MARCOverviewProcesses(
@@ -327,7 +319,7 @@ private enum MARCStatusSection: String, CaseIterable, Identifiable {
         switch self {
         case .system: return "System"
         case .processes: return "Top processes"
-        case .developer: return "Developer Tools"
+        case .developer: return "Services & Docker"
         }
     }
     static func developerFirst(_ stored: String) -> [Self] {
@@ -381,7 +373,7 @@ struct MARCStatusCustomizeSheet: View {
                     Text("Drag the handles to reorder Status sections.")
                 }
                 Section {
-                    Toggle("Battery & SSD in System", isOn: shown("powerStorage")).tint(p.accent)
+                    Toggle("Battery & SSD in header", isOn: shown("powerStorage")).tint(p.accent)
                     Toggle("Show power status", isOn: $showPowerStatus).tint(p.accent)
                     Picker("Power refresh", selection: $powerRefreshSeconds) {
                         Text("5 seconds").tag(5)
@@ -460,13 +452,6 @@ private struct MARCOverviewGaugeReading {
         return valid.map { $0 > 0 && $0 < 1_073_741_824 ? "MB" : "GB" }
     }
     var progress: Double? { kind == .percentage ? value.map { $0 / 100 } : nil }
-    var caption: String {
-        switch kind {
-        case .percentage: return ""
-        case .load: return "1-min avg"
-        case .swap: return "Used"
-        }
-    }
     var spoken: String { text + (unit.map { " " + $0 } ?? "") }
 }
 
@@ -479,12 +464,16 @@ private struct MARCOverviewSystemCard: View {
     @State private var feedbackTrigger = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            cpu
-            memory
-            network
-            disk
-        }.frame(maxWidth: .infinity).padding(.vertical, 4)
+        VStack(spacing: 16) {
+            HStack(alignment: .top, spacing: 24) {
+                cpu
+                memory
+            }
+            HStack(alignment: .top, spacing: 24) {
+                network
+                disk
+            }.padding(12).background(palette.surface, in: RoundedRectangle(cornerRadius: 16))
+        }.frame(maxWidth: .infinity)
             .sensoryFeedback(.selection, trigger: feedbackTrigger)
             .onChange(of: monitor.server?.id) { _, _ in
                 showLoad = false
@@ -500,6 +489,9 @@ private struct MARCOverviewSystemCard: View {
             feedbackTrigger &+= 1
         } label: {
             MARCOverviewGauge(title: showLoad ? "Load" : "CPU", reading: readingValue,
+                secondaryLabel: showLoad ? "CPU" : "Load",
+                secondary: MARCOverviewGaugeReading(raw: showLoad ? reading.cpu : reading.details?.load,
+                    kind: showLoad ? .percentage : .load),
                 tint: reading.cpu >= 80 ? Color(red: 1, green: 0.39, blue: 0.43)
                     : Color(red: 0.18, green: 0.78, blue: 0.52), palette: palette)
                 .id(showLoad).transition(.opacity)
@@ -520,6 +512,9 @@ private struct MARCOverviewSystemCard: View {
             feedbackTrigger &+= 1
         } label: {
             MARCOverviewGauge(title: showSwap ? "Swap" : "Memory", reading: readingValue,
+                secondaryLabel: showSwap ? "Memory" : "Swap",
+                secondary: MARCOverviewGaugeReading(raw: showSwap ? reading.memoryPercent : reading.details?.swap,
+                    kind: showSwap ? .percentage : .swap),
                 tint: reading.memoryPercent >= 85 ? Color(red: 1, green: 0.39, blue: 0.43)
                     : Color(red: 0.18, green: 0.78, blue: 0.52), palette: palette)
                 .id(showSwap).transition(.opacity)
@@ -542,59 +537,70 @@ private struct MARCOverviewSystemCard: View {
     }
     private func metrics(title: String, firstLabel: String, first: Double?,
                          secondLabel: String, second: Double?) -> some View {
-        VStack(spacing: 8) {
-            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.muted)
-            VStack(spacing: 8) {
-                VStack(spacing: 4) {
-                    MARCLiveNumberText(text: MARCOverviewFormat.rate(first), value: first)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
-                    Text(firstLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                }
-                VStack(spacing: 4) {
-                    MARCLiveNumberText(text: MARCOverviewFormat.rate(second), value: second)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
-                    Text(secondLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                }
-            }.frame(height: 76)
-        }.frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.text)
+            metricLine(firstLabel, value: first)
+            metricLine(secondLabel, value: second)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private func metricLine(_ label: String, value: Double?) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Text(label).font(.system(size: 11)).foregroundStyle(palette.muted)
+                Spacer(minLength: 2)
+                rateValue(value).fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label).font(.system(size: 11)).foregroundStyle(palette.muted)
+                rateValue(value)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func rateValue(_ value: Double?) -> some View {
+        MARCLiveNumberText(text: MARCOverviewFormat.rate(value), value: value)
+            .font(.system(size: 12, weight: .medium)).foregroundStyle(palette.text)
+            .monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
     }
 }
 
 private struct MARCOverviewGauge: View {
     let title: String
     let reading: MARCOverviewGaugeReading
+    let secondaryLabel: String
+    let secondary: MARCOverviewGaugeReading
     let tint: Color
     let palette: MARCPalette
     var body: some View {
-        VStack(spacing: 8) {
-            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.muted)
-            ZStack {
-                if reading.kind == .percentage {
-                    Circle().stroke(palette.border, lineWidth: 4)
-                    Circle().trim(from: 0, to: reading.progress ?? 0)
-                        .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .modifier(MARCLiveValueMotion(value: reading.value))
-                } else {
-                    Circle().stroke(reading.value == nil ? palette.border : tint, lineWidth: 1.5)
-                }
-                VStack(spacing: 0) {
-                    MARCLiveNumberText(text: reading.text, value: reading.value)
-                        .font(.system(size: reading.kind == .swap ? 15 : 19, weight: .semibold))
-                        .monospacedDigit().foregroundStyle(palette.text).minimumScaleFactor(0.65).lineLimit(1)
-                    if let unit = reading.unit {
-                        Text(unit).font(.system(size: 9, weight: .medium)).foregroundStyle(palette.text)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.text)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                // Reserve the percentage's widest reading so its unit does not jump.
+                Text(reading.progress == nil ? reading.text : "100%").hidden()
+                    .overlay(alignment: .leading) {
+                        MARCLiveNumberText(text: reading.text, value: reading.value)
                     }
-                }.padding(.horizontal, 4)
-            }.frame(width: 54, height: 54)
-                .frame(height: 76)
-                .overlay(alignment: .bottom) {
-                    Text(reading.caption).font(.system(size: 9)).foregroundStyle(palette.muted)
-                        .lineLimit(1)
-                }
-        }.frame(maxWidth: .infinity).contentShape(Rectangle())
+                    .accessibilityHidden(true)
+                    .font(.system(size: 28, weight: .semibold)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.65)
+                if let unit = reading.unit { Text(unit).font(.system(size: 12, weight: .medium)) }
+            }.foregroundStyle(palette.text)
+            GeometryReader { geometry in
+                Capsule().fill(palette.border)
+                    .overlay(alignment: .leading) {
+                        if let progress = reading.progress {
+                            Capsule().fill(tint).frame(width: geometry.size.width * progress)
+                                .modifier(MARCLiveValueMotion(value: progress))
+                        }
+                    }
+            }.frame(height: 5).accessibilityHidden(true)
+            HStack(spacing: 4) {
+                Text(secondaryLabel)
+                MARCLiveNumberText(text: secondary.text, value: secondary.value).monospacedDigit()
+                if let unit = secondary.unit { Text(unit) }
+            }.font(.system(size: 11)).foregroundStyle(palette.muted)
+                .lineLimit(1).minimumScaleFactor(0.75)
+        }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
     }
 }
 
@@ -668,7 +674,7 @@ private struct MARCOverviewProcesses: View {
     private var current: Bool { active && processConnection == monitor.processConnectionID }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Top processes").font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.text).accessibilityAddTraits(.isHeader)
@@ -676,8 +682,8 @@ private struct MARCOverviewProcesses: View {
                 Button(action: openProcesses) {
                     HStack(spacing: 4) {
                         Text("View all")
-                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .medium))
-                    }.font(.system(size: 13)).foregroundStyle(palette.accent)
+                        Image(systemName: "chevron.right").font(.system(size: 10))
+                    }.font(.system(size: 12)).foregroundStyle(palette.accent)
                         .frame(minHeight: 44).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel("View all processes, sorted by CPU")
             }
@@ -692,8 +698,6 @@ private struct MARCOverviewProcesses: View {
                         .padding(.bottom, 6).accessibilityHidden(true)
                     ForEach(rows) { process in
                         HStack(spacing: 8) {
-                            Image(systemName: "macwindow").font(.system(size: 16))
-                                .foregroundStyle(palette.muted).accessibilityHidden(true)
                             Text(process.name).font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(palette.text).lineLimit(1)
                                 .frame(maxWidth: .infinity, alignment: .leading)
