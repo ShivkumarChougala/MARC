@@ -54,6 +54,8 @@ python3 Tests/ApplicationCatalogChecks.py
 python3 Tests/AudioWirelessChecks.py
 python3 Tests/QuickLaunchSelectionChecks.py
 python3 Tests/ProcessChecks.py
+python3 Tests/StatusOverviewChecks.py
+python3 Tests/DeveloperToolsChecks.py
 python3 Tests/SystemStatisticsChecks.py
 python3 Tests/SystemDetailsChecks.py
 python3 Tests/DiskCollectorChecks.py

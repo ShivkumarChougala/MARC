@@ -7,7 +7,7 @@ enum MARCLearningHint: String, CaseIterable {
     var preferenceKey: String { "marc.learn.v1." + rawValue }
     var title: String {
         switch self {
-        case .status: return "See the bigger picture"
+        case .status: return "See what’s using your Mac"
         case .statusSystem: return "Take a closer look"
         case .processes: return "Find what’s slowing things down"
         case .files: return "Send a file to this folder"
@@ -22,7 +22,7 @@ enum MARCLearningHint: String, CaseIterable {
     }
     var message: String {
         switch self {
-        case .status: return "Open Statistics to see how your Mac’s usage changes over time."
+        case .status: return "Top processes shows your busiest processes. Choose View all to open Processes."
         case .statusSystem: return "Open System for CPU, memory, network, storage and battery details where available."
         case .processes: return "Choose CPU for the busiest apps, or Memory for the biggest users. Tap a row to review it before ending a process."
         case .files: return "Choose Files or Photos & Videos from Upload. An existing filename gives you Replace or Cancel."

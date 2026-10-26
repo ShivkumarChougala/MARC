@@ -3,6 +3,9 @@ struct SettingsScreen: View {
     let store: ServerStore
     var onAddedConnection: (UUID) -> Void = { _ in }
     @State private var addedConnection: UUID?
+    @State private var customizingStatus = false
+    @AppStorage("marc.status.order") private var statusOrder = "system,developer,processes"
+    @AppStorage("marc.status.hidden") private var statusHidden = ""
     @State private var customizingSettings = false
     @State private var setupScroll = ScrollPosition(edge: .top)
     @Environment(\.marcGuidedTour) private var guidedTour
@@ -88,6 +91,9 @@ struct SettingsScreen: View {
                     }.buttonStyle(.plain).accessibilityLabel("Customize Settings layout")
                 }
                 .marcToolbarBackgroundHidden()
+            }
+            .sheet(isPresented: $customizingStatus) {
+                MARCStatusCustomizeSheet(order: $statusOrder, hidden: $statusHidden)
             }
             .sheet(isPresented: $customizingSettings) {
                 MARCSettingsCustomizeSheet(order: $settingsOrder, hidden: $settingsHidden)
@@ -210,6 +216,10 @@ struct SettingsScreen: View {
                     }.padding(.horizontal, 14).frame(minHeight: 50)
                     MARCSettingsDivider()
                     MARCAccentPicker()
+                    MARCSettingsDivider()
+                    Button { customizingStatus = true } label: {
+                        MARCSettingsSupportRow(title: "Customize Status", icon: "square.grid.2x2", external: false)
+                    }.buttonStyle(.plain)
                     MARCSettingsDivider()
                     HStack(spacing: 12) {
                         MARCSettingsRowIcon(symbol: "arrow.clockwise")

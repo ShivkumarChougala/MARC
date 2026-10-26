@@ -213,7 +213,10 @@ checks = r'''
         let keys = ["marc.serverProfiles.v1", "marc.autoServer", "marc.quickLaunch.v1",
                     "marc.ai.localServer", "marc.ai.localModel", "marc.ai.provider",
                     "marc.files.lastFolder.\(a.id.uuidString)", "marc.ai.model.\(a.id.uuidString)",
-                    "marc.files.lastFolder.\(b.id.uuidString)", "marc.ai.model.\(b.id.uuidString)"]
+                    "marc.files.lastFolder.\(b.id.uuidString)", "marc.ai.model.\(b.id.uuidString)",
+                    "marc.status.lastTrend.\(a.id.uuidString)", "marc.status.lastTrend.\(b.id.uuidString)",
+                    "marc.developer.commands.\(a.id.uuidString)", "marc.developer.commands.\(b.id.uuidString)",
+                    "marc.developer.tab.\(a.id.uuidString)", "marc.developer.tab.\(b.id.uuidString)"]
         let originals = keys.map { defaults.object(forKey: $0) }
         defer {
             for (key, value) in zip(keys, originals) {
@@ -225,7 +228,13 @@ checks = r'''
         let login = MARCCredentials.Saved(password: "fixture password", hostKey: "fixture key")
         let store = ServerStore(); store.add(a); store.add(b)
         MARCCredentials.items[a.id] = login; MARCCredentials.items[b.id] = login
+        defaults.set(Data("retired-a".utf8), forKey: "marc.status.lastTrend.\(a.id.uuidString)")
+        defaults.set(Data("retired-b".utf8), forKey: "marc.status.lastTrend.\(b.id.uuidString)")
+        defaults.set(Data("retired-commands".utf8), forKey: "marc.developer.commands.\(a.id.uuidString)")
         precondition(ServerStore().servers == [a, b], "Saved profiles must round-trip")
+        precondition(defaults.object(forKey: "marc.developer.commands.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.status.lastTrend.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.status.lastTrend.\(b.id.uuidString)") == nil)
         defaults.set(Data("invalid profiles".utf8), forKey: keys[0])
         precondition(ServerStore().storageError != nil)
         store.update(a)
@@ -281,6 +290,11 @@ checks = r'''
 
         MARCCredentials.deleteFails = true
         defaults.set(a.id.uuidString, forKey: "marc.autoServer")
+        defaults.set(Data("a-commands".utf8), forKey: "marc.developer.commands.\(a.id.uuidString)")
+        defaults.set(Data("b-commands".utf8), forKey: "marc.developer.commands.\(b.id.uuidString)")
+        defaults.set("docker", forKey: "marc.developer.tab.\(a.id.uuidString)")
+        defaults.set(Data("a-trend".utf8), forKey: "marc.status.lastTrend.\(a.id.uuidString)")
+        defaults.set(Data("b-trend".utf8), forKey: "marc.status.lastTrend.\(b.id.uuidString)")
         defaults.set("/a/folder", forKey: "marc.files.lastFolder.\(a.id.uuidString)")
         defaults.set("/b/folder", forKey: "marc.files.lastFolder.\(b.id.uuidString)")
         defaults.set("model-a", forKey: "marc.ai.model.\(a.id.uuidString)")
@@ -298,11 +312,18 @@ checks = r'''
         precondition(defaults.string(forKey: "marc.quickLaunch.v1") == launchStorage)
         precondition(defaults.string(forKey: "marc.ai.localModel") == "model-a")
         precondition(defaults.string(forKey: "marc.files.lastFolder.\(a.id.uuidString)") == "/a/folder")
+        precondition(defaults.data(forKey: "marc.status.lastTrend.\(a.id.uuidString)") == Data("a-trend".utf8))
+        precondition(defaults.data(forKey: "marc.developer.commands.\(a.id.uuidString)") == Data("a-commands".utf8))
         MARCCredentials.deleteFails = false
         precondition(store.remove(a) && !store.monitor.connected && MARCCredentials.items[a.id] == nil)
         precondition(defaults.string(forKey: "marc.autoServer") == nil && store.selectedID == b.id)
         precondition(defaults.object(forKey: "marc.files.lastFolder.\(a.id.uuidString)") == nil)
         precondition(defaults.object(forKey: "marc.ai.model.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.status.lastTrend.\(a.id.uuidString)") == nil)
+        precondition(defaults.data(forKey: "marc.status.lastTrend.\(b.id.uuidString)") == Data("b-trend".utf8))
+        precondition(defaults.object(forKey: "marc.developer.commands.\(a.id.uuidString)") == nil)
+        precondition(defaults.object(forKey: "marc.developer.tab.\(a.id.uuidString)") == nil)
+        precondition(defaults.data(forKey: "marc.developer.commands.\(b.id.uuidString)") == Data("b-commands".utf8))
         precondition(defaults.object(forKey: "marc.ai.localServer") == nil)
         precondition(defaults.object(forKey: "marc.ai.localModel") == nil)
         precondition(defaults.string(forKey: "marc.ai.provider") == "local")

@@ -10,7 +10,16 @@ import Observation
     var selected: ServerProfile? { servers.first { $0.id == selectedID } }
     init() {
         guard let data = UserDefaults.standard.data(forKey: key) else { return }
-        do { servers = try JSONDecoder().decode([ServerProfile].self, from: data); selectedID = servers.first?.id }
+        do {
+            servers = try JSONDecoder().decode([ServerProfile].self, from: data)
+            selectedID = servers.first?.id
+            // Retired Status graphs no longer keep an on-device trend snapshot.
+            for profile in servers {
+                UserDefaults.standard.removeObject(forKey: "marc.status.lastTrend.\(profile.id.uuidString)")
+                // Retired Quick Commands text is no longer retained by Developer Tools.
+                UserDefaults.standard.removeObject(forKey: "marc.developer.commands.\(profile.id.uuidString)")
+            }
+        }
         catch { storageError = "Saved server profiles could not be read." }
     }
     func add(_ profile: ServerProfile) {
@@ -45,6 +54,9 @@ import Observation
         let mac = id.uuidString
         defaults.removeObject(forKey: "marc.files.lastFolder.\(mac)")
         defaults.removeObject(forKey: "marc.ai.model.\(mac)")
+        defaults.removeObject(forKey: "marc.status.lastTrend.\(mac)")
+        defaults.removeObject(forKey: "marc.developer.commands.\(mac)")
+        defaults.removeObject(forKey: "marc.developer.tab.\(mac)")
         if defaults.string(forKey: "marc.ai.localServer") == mac {
             defaults.removeObject(forKey: "marc.ai.localServer")
             defaults.removeObject(forKey: "marc.ai.localModel")

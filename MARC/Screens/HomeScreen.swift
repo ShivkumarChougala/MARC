@@ -12,18 +12,12 @@ struct HomeScreen: View {
     @State private var switchingMac = false
     @State private var switchFailure: String?
     @State private var switchTask: Task<Void, Never>?
-    @State private var customizing = false
-    @State private var customizingAlerts = false
     @State private var statusVisible = false
-    @AppStorage("marc.alerts.storage") private var showStorageAlerts = true
-    @AppStorage("marc.alerts.battery") private var showBatteryAlerts = true
-    @AppStorage("marc.alerts.cpu") private var showCPUAlerts = true
-    @AppStorage("marc.alerts.memory") private var showMemoryAlerts = true
-    @AppStorage("marc.alerts.connection") private var showConnectionAlerts = true
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("marc.status.order") private var sectionOrder = "system,statistics,powerStorage,alerts"
+    @AppStorage("marc.status.order") private var sectionOrder = "system,developer,processes"
+    @AppStorage("marc.status.developerFirst") private var developerFirstApplied = false
     @AppStorage("marc.status.hidden") private var hiddenSections = ""
-    @AppStorage("marc.refreshInterval") private var refreshInterval = 2
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
     private var visibleSections: [MARCStatusSection] {
@@ -36,13 +30,6 @@ struct HomeScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 10) {
-                        Button { controls = true } label: {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 19)).foregroundStyle(p.text)
-                                .frame(width: 44, height: 44)
-                                .background(p.raised, in: RoundedRectangle(cornerRadius: 13))
-                                .overlay(RoundedRectangle(cornerRadius: 13).stroke(p.border, lineWidth: 1))
-                        }.accessibilityLabel("Open Control Center")
                         Button {
                             pickerMac = nil
                             pickerManage = false
@@ -51,20 +38,28 @@ struct HomeScreen: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 6) {
                                     Text(activeMac?.name ?? "Choose a Mac")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(.system(size: 16, weight: .medium))
                                         .lineLimit(1).minimumScaleFactor(0.75)
                                     Image(systemName: "chevron.down")
                                         .font(.system(size: 10, weight: .semibold))
                                 }.foregroundStyle(p.text)
                                 if let activeMac {
-                                    Text(activeMac.username)
-                                        .font(.system(size: 12)).foregroundStyle(p.muted).lineLimit(1)
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "person.crop.circle").accessibilityHidden(true)
+                                        Text(activeMac.username).lineLimit(1)
+                                        if let uptime = statusUptime {
+                                            Text("·").accessibilityHidden(true)
+                                            Text("Uptime \(uptime)")
+                                                .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                                        }
+                                    }.font(.system(size: 11)).foregroundStyle(p.muted)
                                 }
                             }.frame(minHeight: 44, alignment: .leading)
                         }
                         .buttonStyle(.plain)
                         .disabled(switchingMac || store.monitor.connecting)
                         .accessibilityLabel("Choose a saved Mac. Current: \(activeMac?.name ?? "none")")
+                        .accessibilityValue(statusUptime.map { "Uptime " + $0 } ?? "")
 
                         Spacer(minLength: 4)
 
@@ -82,16 +77,15 @@ struct HomeScreen: View {
                                 .accessibilityLabel("Readings are not live. Last update received \(age) seconds ago.")
                             }
                         }
-                        let alerts = liveAlerts(reading: reading, now: context.date)
                         ForEach(visibleSections) { item in
-                            section(item, reading: reading, alerts: alerts, palette: p)
+                            section(item, reading: reading, palette: p)
                         }
                         if visibleSections.isEmpty {
-                            Text("Choose sections in Customize.")
+                            Text("Choose Status sections in Settings → General.")
                                 .font(.system(size: 13)).foregroundStyle(p.muted)
                         }
-                        // Connection failures remain visible even when alerts are hidden.
-                        if !visibleSections.contains(.alerts), showConnectionAlerts, let error = store.monitor.error {
+                        // Connection failures remain visible independently of section customization.
+                        if let error = store.monitor.error {
                             Text(error).font(.system(size: 12)).foregroundStyle(.red)
                             Button("Open Settings", action: openSettings).tint(p.accent)
                         }
@@ -160,7 +154,7 @@ struct HomeScreen: View {
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 20))
                         .padding(.top, 24)
                     }
-                }.padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 16)
+                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 20)
             }.scrollClipDisabled().scrollIndicators(.hidden)
                 .environment(\.marcLiveMotionEnabled,
                     statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
@@ -169,23 +163,26 @@ struct HomeScreen: View {
         }.marcCanvas().marcNavigationTitle("Status")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { customizing = true } label: {
-                        Label("Customize", systemImage: "square.grid.2x2")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(p.accent)
+                    Button { controls = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 19)).foregroundStyle(p.text)
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel("Customize Status layout")
+                    }.buttonStyle(.plain).accessibilityLabel("Open Control Center")
                 }
                 .marcToolbarBackgroundHidden()
             }
             .onAppear {
                 statusVisible = true
-                sectionOrder = MARCStatusSection.ordered(sectionOrder).map(\.rawValue).joined(separator: ",")
+                let order = developerFirstApplied ? MARCStatusSection.ordered(sectionOrder) : MARCStatusSection.developerFirst(sectionOrder)
+                sectionOrder = order.map(\.rawValue).joined(separator: ",")
+                developerFirstApplied = true
                 var hidden = Set(hiddenSections.split(separator: ",").map(String.init))
                 if hidden.contains("power") && hidden.contains("storage") { hidden.insert("powerStorage") }
                 hidden.remove("power")
                 hidden.remove("storage")
+                hidden.remove("statistics")
+                hidden.remove("alerts")
                 hiddenSections = hidden.sorted().joined(separator: ",")
             }
             .sheet(isPresented: $showingMacPicker, onDismiss: {
@@ -216,8 +213,8 @@ struct HomeScreen: View {
                 switchTask?.cancel(); switchTask = nil
             }
             .marcLearnOverlay([.statusSystem, .status], enabled: statusVisible && store.monitor.connected &&
-                store.monitor.snapshot != nil && !controls && !showingMacPicker && !customizing &&
-                !customizingAlerts && loginMac == nil && pickerMac == nil && !switchingMac)
+                store.monitor.snapshot != nil && !controls && !showingMacPicker &&
+                loginMac == nil && pickerMac == nil && !switchingMac)
             .sheet(isPresented: $controls) {
                 NavigationStack {
                     ControlsScreen(monitor: store.monitor).toolbar {
@@ -228,15 +225,17 @@ struct HomeScreen: View {
                     }
                 }
             }
-            .sheet(isPresented: $customizing) {
-                MARCStatusCustomizeSheet(order: $sectionOrder, hidden: $hiddenSections)
-            }
-            .sheet(isPresented: $customizingAlerts) {
-                MARCStatusAlertCustomizeSheet()
-            }
     }
     private var activeMac: ServerProfile? {
         store.monitor.server ?? store.selected
+    }
+
+    private var statusUptime: String? {
+        guard store.monitor.connected,
+              store.monitor.server?.id == activeMac?.id,
+              let seconds = store.monitor.snapshot?.details?.uptime,
+              seconds.isFinite, seconds >= 0 else { return nil }
+        return MARCStatisticsData.uptime(seconds)
     }
 
     private func chooseMac(_ server: ServerProfile) {
@@ -269,240 +268,98 @@ struct HomeScreen: View {
 
     @ViewBuilder
     private func section(_ item: MARCStatusSection, reading: MacSnapshot,
-                         alerts: [MARCStatusAlert], palette: MARCPalette) -> some View {
+                         palette: MARCPalette) -> some View {
         switch item {
         case .system:
-            NavigationLink {
-                LiveSystemDetailScreen(store: store, openSettings: openSettings)
-            } label: {
-                MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
-            }.buttonStyle(.plain).marcLearnTarget(.statusSystem)
-        case .statistics:
-            NavigationLink {
-                MARCStatisticsScreen(monitor: store.monitor)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "chart.xyaxis.line")
-                        .font(.system(size: 21)).foregroundStyle(palette.accent)
-                        .frame(width: 30)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Statistics")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(palette.text)
-                        Text("CPU, load, memory, network and disk history")
-                            .font(.system(size: 11)).foregroundStyle(palette.muted)
-                            .lineLimit(2)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12)).foregroundStyle(palette.muted)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("System").font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(palette.text)
+                    Spacer(minLength: 4)
+                    NavigationLink {
+                        LiveSystemDetailScreen(store: store, openSettings: openSettings)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text("Details")
+                            Image(systemName: "chevron.right")
+                        }.font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(palette.accent)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel("System details")
                 }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .modifier(MARCOverviewSurface(palette: palette))
-            }.buttonStyle(.plain).marcLearnTarget(.status)
-        case .powerStorage:
-            HStack(alignment: .top, spacing: 12) {
-                MARCOverviewPowerCard(details: reading.details, palette: palette)
-                    .frame(maxWidth: .infinity)
-                MARCOverviewStorageCard(reading: reading, palette: palette)
-                    .frame(maxWidth: .infinity)
-            }
-        case .alerts:
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Needs attention").font(.system(size: 18, weight: .semibold))
-                        Spacer()
-                        if !alerts.isEmpty {
-                            Text(String(alerts.count)).font(.system(size: 13)).foregroundStyle(palette.muted)
-                        }
-                        Button { customizingAlerts = true } label: {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 15)).foregroundStyle(palette.accent)
-                                .frame(width: 44, height: 44)
-                        }.accessibilityLabel("Customize alerts")
-                    }.foregroundStyle(palette.text).padding(.horizontal, 8)
-                    if alerts.isEmpty {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: allAlertChecksDisabled ? "bell.slash" : (hasFreshReadings ? "checkmark.circle" : "clock"))
-                                .font(.system(size: 21))
-                                .foregroundStyle(allAlertChecksDisabled || !hasFreshReadings
-                                    ? palette.muted : Color(red: 0.18, green: 0.78, blue: 0.52))
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(allAlertChecksDisabled ? "Alerts are off" : (hasFreshReadings ? "No active alerts" : "Waiting for live data"))
-                                    .font(.system(size: 15, weight: .medium)).foregroundStyle(palette.text)
-                                Text(allAlertChecksDisabled ? "Choose alerts to enable the checks you want."
-                                     : (hasFreshReadings ? "No active alerts from your enabled checks." : "Reconnect to resume live checks."))
-                                    .font(.system(size: 12)).foregroundStyle(palette.muted)
-                            }
-                            Spacer(minLength: 0)
-                        }.padding(.vertical, 6)
-                            .modifier(MARCOverviewSurface(palette: palette))
-                    } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(alerts.prefix(3).enumerated()), id: \.element.id) { index, alert in
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: alert.symbol)
-                                    .font(.system(size: 19)).frame(width: 24)
-                                    .foregroundStyle(Color(red: 1, green: 0.39, blue: 0.43))
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(alert.title).font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(palette.text)
-                                    Text(alert.detail).font(.system(size: 12)).foregroundStyle(palette.muted)
-                                    if let action = alert.action {
-                                        if alert.settings {
-                                            Button(action, action: openSettings).tint(palette.accent)
-                                                .font(.system(size: 12, weight: .medium))
-                                        } else if let sorting = alert.processSorting {
-                                            Button(action) { openProcesses(sorting) }
-                                                .font(.system(size: 12, weight: .medium)).tint(palette.accent)
-                                        } else {
-                                            NavigationLink(action) {
-                                                LiveSystemDetailScreen(store: store, openSettings: openSettings)
-                                            }.font(.system(size: 12, weight: .medium)).tint(palette.accent)
-                                        }
-                                    }
-                                }
-                                Spacer(minLength: 0)
-                            }.padding(.vertical, 12)
-                            if index < min(alerts.count, 3) - 1 {
-                                Rectangle().fill(palette.border).frame(height: 1)
-                            }
-                        }
-                        if alerts.count > 3 {
-                            Text("\(alerts.count - 3) more alerts will appear as these clear.")
-                                .font(.system(size: 11)).foregroundStyle(palette.muted)
-                                .padding(.top, 8)
-                        }
-                    }.modifier(MARCOverviewSurface(palette: palette))
+                VStack(alignment: .leading, spacing: 8) {
+                    if !hiddenSections.split(separator: ",").contains("powerStorage") {
+                        HStack(spacing: 12) {
+                            MARCOverviewPowerReading(details: reading.details, palette: palette, fontSize: 11)
+                            MARCOverviewStorageReading(reading: reading, palette: palette, fontSize: 11)
+                        }.frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                }
+                    MARCOverviewSystemCard(reading: reading, monitor: store.monitor, palette: palette)
+                }.padding(14)
+                    .background(palette.text.opacity(scheme == .dark ? 0.025 : 0.018), in: RoundedRectangle(cornerRadius: 20))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20)
+                            .strokeBorder(palette.text.opacity(scheme == .dark ? 0.09 : 0.07), lineWidth: 0.5)
+                            .allowsHitTesting(false).accessibilityHidden(true)
+                    }
+            }.marcLearnTarget(.statusSystem)
+        case .processes:
+            MARCOverviewProcesses(
+                monitor: store.monitor, palette: palette,
+                enabled: statusVisible && scenePhase == .active && !controls &&
+                    !showingMacPicker && !switchingMac && loginMac == nil,
+                openProcesses: { openProcesses("CPU") }
+            ).marcLearnTarget(.status)
+        case .developer:
+            MARCDeveloperToolsView(monitor: store.monitor,
+                enabled: statusVisible && scenePhase == .active && !controls &&
+                    !showingMacPicker && !switchingMac && loginMac == nil)
+
         }
-    }
-    private var allAlertChecksDisabled: Bool {
-        !showStorageAlerts && !showBatteryAlerts && !showCPUAlerts &&
-        !showMemoryAlerts && !showConnectionAlerts
-    }
-    private var hasFreshReadings: Bool {
-        guard store.monitor.connected, store.monitor.error == nil,
-              let updated = store.monitor.updatedAt else { return false }
-        return Date().timeIntervalSince(updated) <= Double(max(20, refreshInterval * 4))
-    }
-    private func sustained(_ threshold: Double, seconds: Double,
-                           value: (SystemHistoryPoint) -> Double) -> Bool {
-        let points = store.monitor.history
-        guard let latest = points.last else { return false }
-        let cutoff = latest.date.addingTimeInterval(-seconds)
-        guard let baseline = points.last(where: { $0.date <= cutoff }) else { return false }
-        let window = points.filter { $0.date >= baseline.date }
-        guard window.count >= 2, window.allSatisfy({ value($0) >= threshold }) else { return false }
-        let gapLimit = Double(max(8, refreshInterval * 3))
-        return zip(window, window.dropFirst()).allSatisfy { pair in
-            pair.1.date.timeIntervalSince(pair.0.date) <= gapLimit
-        }
-    }
-    private func liveAlerts(reading: MacSnapshot, now: Date) -> [MARCStatusAlert] {
-        rawLiveAlerts(reading: reading, now: now).filter { alert in
-            switch alert.id {
-            case "storage": return showStorageAlerts
-            case "battery": return showBatteryAlerts
-            case "cpu": return showCPUAlerts
-            case "memory": return showMemoryAlerts
-            case "connection", "stale": return showConnectionAlerts
-            default: return false
-            }
-        }
-    }
-    private func rawLiveAlerts(reading: MacSnapshot, now: Date) -> [MARCStatusAlert] {
-        if let error = store.monitor.error {
-            return [MARCStatusAlert(id: "connection", symbol: "wifi.exclamationmark",
-                title: "Monitoring interrupted", detail: error, action: "Open Settings", settings: true)]
-        }
-        if !store.monitor.connected || store.monitor.updatedAt.map({
-            now.timeIntervalSince($0) > Double(max(20, refreshInterval * 4))
-        }) == true {
-            return [MARCStatusAlert(id: "stale", symbol: "clock.badge.exclamationmark",
-                title: "Readings are no longer live", detail: "Reconnect to refresh this Mac’s data.",
-                action: "Open Settings", settings: true)]
-        }
-        var alerts: [MARCStatusAlert] = []
-        if reading.diskTotal > 0 {
-            let fraction = reading.diskPercent / 100
-            if fraction >= 0.90 {
-                alerts.append(MARCStatusAlert(id: "storage", symbol: "internaldrive",
-                    title: fraction >= 0.95 ? "Storage almost full" : "Storage running low",
-                    detail: "\(MARCStatisticsData.storageBytes(reading.diskAvailable)) available · \(Int((fraction * 100).rounded()))% used",
-                    action: "View system", settings: false))
-            }
-        }
-        if let details = reading.details, details.powerSource == "Battery Power",
-           let percent = details.batteryPercent, percent < 20 {
-            alerts.append(MARCStatusAlert(id: "battery", symbol: "battery.25",
-                title: percent < 10 ? "Battery critically low" : "Battery running low",
-                detail: "\(Int(percent.rounded()))% remaining · On battery", action: nil, settings: false))
-        }
-        if sustained(80, seconds: 30, value: { $0.cpu }) {
-            alerts.append(MARCStatusAlert(id: "cpu", symbol: "cpu", title: "CPU staying high",
-                detail: "Above 80% for 30 seconds.", action: "View processes", settings: false))
-        }
-        if sustained(85, seconds: 60, value: { $0.memory }) {
-            alerts.append(MARCStatusAlert(id: "memory", symbol: "memorychip", title: "Memory usage staying high",
-                detail: "Above 85% for 60 seconds.", action: "View processes", settings: false))
-        }
-        return alerts
     }
 }
 
 private enum MARCStatusSection: String, CaseIterable, Identifiable {
-    case system, statistics, powerStorage, alerts
+    case system, developer, processes
     var id: String { rawValue }
     var title: String {
         switch self {
         case .system: return "System"
-        case .statistics: return "Statistics"
-        case .powerStorage: return "Power & Storage"
-        case .alerts: return "Needs attention"
+        case .processes: return "Top processes"
+        case .developer: return "Developer Tools"
         }
+    }
+    static func developerFirst(_ stored: String) -> [Self] {
+        var result = ordered(stored).filter { $0 != .developer }
+        result.insert(.developer, at: result.firstIndex(of: .processes) ?? result.endIndex)
+        return result
     }
     static func ordered(_ stored: String) -> [Self] {
         var result: [Self] = []
         for raw in stored.split(separator: ",") {
-            let migrated = raw == "power" || raw == "storage" ? "powerStorage" : String(raw)
-            if let item = Self(rawValue: migrated), !result.contains(item) { result.append(item) }
+            // Retired standalone sections do not occupy space in the new layout.
+            if let item = Self(rawValue: String(raw)), !result.contains(item) { result.append(item) }
         }
-        for item in allCases where !result.contains(item) { result.append(item) }
+        for item in allCases where !result.contains(item) {
+            result.append(item)
+        }
         return result
     }
 }
-private struct MARCStatusAlert: Identifiable {
-    let id: String
-    let symbol: String
-    let title: String
-    let detail: String
-    let action: String?
-    let settings: Bool
-    var processSorting: String? {
-        switch id {
-        case "cpu": return "CPU"
-        case "memory": return "Memory"
-        default: return nil
-        }
-    }
-}
-
-private struct MARCStatusCustomizeSheet: View {
-    @State private var customizingAlerts = false
+struct MARCStatusCustomizeSheet: View {
     @Binding var order: String
     @Binding var hidden: String
     @AppStorage("marc.showPowerStatus") private var showPowerStatus = true
     @AppStorage("marc.powerRefreshSeconds") private var powerRefreshSeconds = 10
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    private func shown(_ item: MARCStatusSection) -> Binding<Bool> {
+    private func shown(_ key: String) -> Binding<Bool> {
         Binding(get: {
-            !hidden.split(separator: ",").map(String.init).contains(item.rawValue)
+            !hidden.split(separator: ",").map(String.init).contains(key)
         }, set: { enabled in
             var values = Set(hidden.split(separator: ",").map(String.init))
-            if enabled { values.remove(item.rawValue) } else { values.insert(item.rawValue) }
+            if enabled { values.remove(key) } else { values.insert(key) }
             hidden = values.sorted().joined(separator: ",")
         })
     }
@@ -512,7 +369,7 @@ private struct MARCStatusCustomizeSheet: View {
             List {
                 Section {
                     ForEach(MARCStatusSection.ordered(order)) { item in
-                        Toggle(item.title, isOn: shown(item)).tint(p.accent)
+                        Toggle(item.title, isOn: shown(item.rawValue)).tint(p.accent)
                     }.onMove { indices, destination in
                         var items = MARCStatusSection.ordered(order)
                         items.move(fromOffsets: indices, toOffset: destination)
@@ -521,9 +378,10 @@ private struct MARCStatusCustomizeSheet: View {
                 } header: {
                     Text("Status sections")
                 } footer: {
-                    Text("Drag the handles to reorder. Power & Storage always stay together. Needs attention shows active alerts or a brief status summary.")
+                    Text("Drag the handles to reorder Status sections.")
                 }
                 Section {
+                    Toggle("Battery & SSD in System", isOn: shown("powerStorage")).tint(p.accent)
                     Toggle("Show power status", isOn: $showPowerStatus).tint(p.accent)
                     Picker("Power refresh", selection: $powerRefreshSeconds) {
                         Text("5 seconds").tag(5)
@@ -534,70 +392,18 @@ private struct MARCStatusCustomizeSheet: View {
                 } header: { Text("Power") }
                   footer: { Text("Refresh changes apply after reconnecting.") }
                 Section {
-                    Button { customizingAlerts = true } label: {
-                        HStack {
-                            Text("Choose alerts")
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 12))
-                        }
-                    }.foregroundStyle(p.accent)
-                }
-                Section {
                     Button("Reset layout") {
-                        order = "system,statistics,powerStorage,alerts"
+                        order = "system,developer,processes"
                         hidden = ""
                     }.foregroundStyle(p.accent)
                 }
             }.environment(\.editMode, .constant(.active))
-                .navigationTitle("Customize").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle("Customize Status").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
                     .marcToolbarBackgroundHidden()
                 }
                 .tint(p.accent)
-        }.sheet(isPresented: $customizingAlerts) {
-            MARCStatusAlertCustomizeSheet()
-        }
-    }
-}
-
-private struct MARCStatusAlertCustomizeSheet: View {
-    @AppStorage("marc.alerts.storage") private var storage = true
-    @AppStorage("marc.alerts.battery") private var battery = true
-    @AppStorage("marc.alerts.cpu") private var cpu = true
-    @AppStorage("marc.alerts.memory") private var memory = true
-    @AppStorage("marc.alerts.connection") private var connection = true
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        let p = MARCPalette(dark: scheme == .dark)
-        NavigationStack {
-            Form {
-                Section {
-                    Toggle("Storage", isOn: $storage)
-                    Toggle("Battery", isOn: $battery)
-                    Toggle("CPU", isOn: $cpu)
-                    Toggle("Memory", isOn: $memory)
-                    Toggle("Connection", isOn: $connection)
-                } header: { Text("Show alerts for") }
-                  footer: {
-                    Text("Storage: 90% used. Battery: below 20% on battery. CPU: 80% for 30 seconds. Memory: 85% for 60 seconds. Connection: interrupted or stale readings.")
-                }
-                Section {
-                    Button("Enable all alerts") {
-                        storage = true
-                        battery = true
-                        cpu = true
-                        memory = true
-                        connection = true
-                    }
-                }
-            }.tint(p.accent)
-                .navigationTitle("Alerts").navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-                    .marcToolbarBackgroundHidden()
-                }
         }
     }
 }
@@ -628,60 +434,107 @@ private enum MARCOverviewFormat {
     }
 }
 
-private struct MARCOverviewSurface: ViewModifier {
-    let palette: MARCPalette
-    func body(content: Content) -> some View {
-        content.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(palette.surface, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(palette.border, lineWidth: 1))
+private struct MARCOverviewGaugeReading {
+    enum Kind: Equatable { case percentage, load, swap }
+    let raw: Double?
+    let kind: Kind
+    private var valid: Double? {
+        guard let raw, raw.isFinite, raw >= 0 else { return nil }
+        return raw
     }
+    var value: Double? {
+        guard let raw = valid else { return nil }
+        switch kind {
+        case .percentage: return min(100, raw)
+        case .load: return raw
+        case .swap: return raw / (raw > 0 && raw < 1_073_741_824 ? 1_048_576 : 1_073_741_824)
+        }
+    }
+    var text: String {
+        guard let value else { return "—" }
+        if kind == .percentage { return String(format: "%.0f%%", value) }
+        return String(format: value >= 1000 ? "%.2g" : "%.1f", value)
+    }
+    var unit: String? {
+        guard kind == .swap else { return nil }
+        return valid.map { $0 > 0 && $0 < 1_073_741_824 ? "MB" : "GB" }
+    }
+    var progress: Double? { kind == .percentage ? value.map { $0 / 100 } : nil }
+    var caption: String {
+        switch kind {
+        case .percentage: return ""
+        case .load: return "1-min avg"
+        case .swap: return "Used"
+        }
+    }
+    var spoken: String { text + (unit.map { " " + $0 } ?? "") }
 }
 
 private struct MARCOverviewSystemCard: View {
     let reading: MacSnapshot
     let monitor: SSHMonitor
     let palette: MARCPalette
+    @State private var showLoad = false
+    @State private var showSwap = false
+    @State private var feedbackTrigger = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Text("System").font(.system(size: 20, weight: .semibold))
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(palette.muted)
-            }.foregroundStyle(palette.text)
-            HStack(alignment: .top, spacing: 8) {
-                cpu
-                memory
-                network
-                disk
+        HStack(alignment: .top, spacing: 8) {
+            cpu
+            memory
+            network
+            disk
+        }.frame(maxWidth: .infinity).padding(.vertical, 4)
+            .sensoryFeedback(.selection, trigger: feedbackTrigger)
+            .onChange(of: monitor.server?.id) { _, _ in
+                showLoad = false
+                showSwap = false
             }
-        }.modifier(MARCOverviewSurface(palette: palette))
     }
+
     private var cpu: some View {
-        MARCOverviewGauge(
-            title: "CPU",
-            percent: reading.cpu,
-            tint: reading.cpu >= 80
-                ? Color(red: 1, green: 0.39, blue: 0.43)
-                : Color(red: 0.18, green: 0.78, blue: 0.52),
-            palette: palette
-        )
+        let readingValue = MARCOverviewGaugeReading(raw: showLoad ? reading.details?.load : reading.cpu,
+            kind: showLoad ? .load : .percentage)
+        return Button {
+            showLoad.toggle()
+            feedbackTrigger &+= 1
+        } label: {
+            MARCOverviewGauge(title: showLoad ? "Load" : "CPU", reading: readingValue,
+                tint: reading.cpu >= 80 ? Color(red: 1, green: 0.39, blue: 0.43)
+                    : Color(red: 0.18, green: 0.78, blue: 0.52), palette: palette)
+                .id(showLoad).transition(.opacity)
+        }.buttonStyle(.plain)
+            .frame(maxWidth: .infinity).contentShape(Rectangle())
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: showLoad)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(showLoad ? "One-minute load average" : "CPU usage")
+            .accessibilityValue(readingValue.spoken)
+            .accessibilityHint(showLoad ? "Shows CPU usage" : "Shows load average")
     }
 
     private var memory: some View {
-        MARCOverviewGauge(
-            title: "Memory",
-            percent: reading.memoryPercent,
-            tint: reading.memoryPercent >= 85
-                ? Color(red: 1, green: 0.39, blue: 0.43)
-                : Color(red: 0.18, green: 0.78, blue: 0.52),
-            palette: palette
-        )
+        let readingValue = MARCOverviewGaugeReading(raw: showSwap ? reading.details?.swap : reading.memoryPercent,
+            kind: showSwap ? .swap : .percentage)
+        return Button {
+            showSwap.toggle()
+            feedbackTrigger &+= 1
+        } label: {
+            MARCOverviewGauge(title: showSwap ? "Swap" : "Memory", reading: readingValue,
+                tint: reading.memoryPercent >= 85 ? Color(red: 1, green: 0.39, blue: 0.43)
+                    : Color(red: 0.18, green: 0.78, blue: 0.52), palette: palette)
+                .id(showSwap).transition(.opacity)
+        }.buttonStyle(.plain)
+            .frame(maxWidth: .infinity).contentShape(Rectangle())
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: showSwap)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(showSwap ? "Swap used" : "Memory usage")
+            .accessibilityValue(readingValue.spoken)
+            .accessibilityHint(showSwap ? "Shows memory usage" : "Shows swap used")
     }
 
     private var network: some View {
-        metrics(title: "Network", firstLabel: "↓ Download", first: monitor.downloadRate,
-                secondLabel: "↑ Upload", second: monitor.uploadRate)
+        metrics(title: "Network", firstLabel: "Download", first: monitor.downloadRate,
+                secondLabel: "Upload", second: monitor.uploadRate)
     }
     private var disk: some View {
         metrics(title: "Disk", firstLabel: "Read", first: monitor.diskReadRate,
@@ -689,130 +542,233 @@ private struct MARCOverviewSystemCard: View {
     }
     private func metrics(title: String, firstLabel: String, first: Double?,
                          secondLabel: String, second: Double?) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.muted)
-            VStack(spacing: 7) {
-                Text(firstLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                MARCLiveNumberText(text: MARCOverviewFormat.rate(first), value: first)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
-            }
-            VStack(spacing: 7) {
-                Text(secondLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
-                MARCLiveNumberText(text: MARCOverviewFormat.rate(second), value: second)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
-            }
+            VStack(spacing: 8) {
+                VStack(spacing: 4) {
+                    MARCLiveNumberText(text: MARCOverviewFormat.rate(first), value: first)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+                    Text(firstLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
+                }
+                VStack(spacing: 4) {
+                    MARCLiveNumberText(text: MARCOverviewFormat.rate(second), value: second)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(palette.text).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+                    Text(secondLabel).font(.system(size: 11)).foregroundStyle(palette.muted)
+                }
+            }.frame(height: 76)
         }.frame(maxWidth: .infinity)
     }
 }
 
 private struct MARCOverviewGauge: View {
     let title: String
-    let percent: Double
+    let reading: MARCOverviewGaugeReading
     let tint: Color
     let palette: MARCPalette
-    private var value: Double { percent.isFinite ? min(100, max(0, percent)) : 0 }
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(palette.muted)
             ZStack {
-                Circle().stroke(palette.border, lineWidth: 4)
-                Circle().trim(from: 0, to: value / 100)
-                    .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .modifier(MARCLiveValueMotion(value: value))
-                MARCLiveNumberText(text: "\(Int(value.rounded()))%", value: value)
-                    .font(.system(size: 21, weight: .semibold)).monospacedDigit()
-                    .foregroundStyle(tint).minimumScaleFactor(0.75).lineLimit(1)
-            }.frame(width: 64, height: 64)
-        }.frame(maxWidth: .infinity)
+                if reading.kind == .percentage {
+                    Circle().stroke(palette.border, lineWidth: 4)
+                    Circle().trim(from: 0, to: reading.progress ?? 0)
+                        .stroke(tint, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .modifier(MARCLiveValueMotion(value: reading.value))
+                } else {
+                    Circle().stroke(reading.value == nil ? palette.border : tint, lineWidth: 1.5)
+                }
+                VStack(spacing: 0) {
+                    MARCLiveNumberText(text: reading.text, value: reading.value)
+                        .font(.system(size: reading.kind == .swap ? 15 : 19, weight: .semibold))
+                        .monospacedDigit().foregroundStyle(palette.text).minimumScaleFactor(0.65).lineLimit(1)
+                    if let unit = reading.unit {
+                        Text(unit).font(.system(size: 9, weight: .medium)).foregroundStyle(palette.text)
+                    }
+                }.padding(.horizontal, 4)
+            }.frame(width: 54, height: 54)
+                .frame(height: 76)
+                .overlay(alignment: .bottom) {
+                    Text(reading.caption).font(.system(size: 9)).foregroundStyle(palette.muted)
+                        .lineLimit(1)
+                }
+        }.frame(maxWidth: .infinity).contentShape(Rectangle())
     }
 }
 
-private struct MARCOverviewPowerCard: View {
+private struct MARCOverviewPowerReading: View {
     @AppStorage("marc.showPowerStatus") private var showPowerStatus = true
     let details: SystemDetails?
     let palette: MARCPalette
+    var fontSize: CGFloat = 12
     private var batteryPercent: Double? {
         guard let value = details?.batteryPercent, value.isFinite else { return nil }
         return min(100, max(0, value))
     }
     private var pluggedIn: Bool { details?.powerSource == "AC Power" }
-    private var charging: Bool {
-        details?.batteryState == "charging" ||
-        details?.batteryState == "finishing charge"
-    }
     private var status: String {
         guard let details else { return "Power data unavailable" }
         if details.hasBattery == false { return pluggedIn ? "External power" : "No battery detected" }
         switch details.batteryState {
-        case "charging": return "Charging"
+        case "charging", "finishing charge": return "Charging"
         case "charged": return "Fully charged"
-        case "finishing charge": return "Charging"
         case "discharging": return "On battery"
         case .some: return pluggedIn ? "Not charging" : "On battery"
         case .none: return "Power data unavailable"
         }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Power", systemImage: "battery.100")
-                .font(.system(size: 16, weight: .semibold)).foregroundStyle(palette.text)
+        HStack(spacing: 5) {
+            Text(details?.hasBattery == false ? "Power" : "Battery").foregroundStyle(palette.muted)
             MARCLiveNumberText(
                 text: batteryPercent.map { "\(Int($0.rounded()))%" }
                     ?? (details?.hasBattery == false && pluggedIn ? "AC" : "—"),
                 value: batteryPercent)
-                .font(.system(size: 28, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(palette.text)
-            if showPowerStatus {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    if charging { Image(systemName: "bolt.fill").foregroundStyle(palette.accent) }
-                    Text(status).foregroundStyle(palette.muted)
-                }.font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-            }
-        }.frame(height: 132, alignment: .topLeading)
-            .modifier(MARCOverviewSurface(palette: palette))
+                .foregroundStyle(palette.text).monospacedDigit()
+        }.font(.system(size: fontSize)).lineLimit(1).minimumScaleFactor(0.8)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(showPowerStatus ? status : "")
     }
 }
 
-private struct MARCOverviewStorageCard: View {
+private struct MARCOverviewStorageReading: View {
     let reading: MacSnapshot
     let palette: MARCPalette
-    private var usedFraction: Double {
-        reading.diskPercent / 100
+    var fontSize: CGFloat = 12
+    private var percent: Double? {
+        guard reading.diskTotal.isFinite, reading.diskTotal > 0, reading.diskAvailable.isFinite, reading.diskPercent.isFinite else { return nil }
+        return min(100, max(0, reading.diskPercent))
     }
     var body: some View {
+        HStack(spacing: 5) {
+            Text("SSD").foregroundStyle(palette.muted)
+            MARCLiveNumberText(text: percent.map { "\(Int($0.rounded()))%" } ?? "—", value: percent)
+                .foregroundStyle(palette.text).monospacedDigit()
+        }.font(.system(size: fontSize)).lineLimit(1).minimumScaleFactor(0.8)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Storage used")
+            .accessibilityValue(percent.map { "\(Int($0.rounded())) percent" } ?? "Storage data unavailable")
+    }
+}
+
+private struct MARCOverviewProcesses: View {
+    let monitor: SSHMonitor
+    let palette: MARCPalette
+    let enabled: Bool
+    let openProcesses: () -> Void
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var rows: [MARCProcess] = []
+    @State private var processConnection: UUID?
+    @State private var failure: String?
+    @State private var received = false
+
+    private var active: Bool { enabled && scenePhase == .active && monitor.connected }
+    private var current: Bool { active && processConnection == monitor.processConnectionID }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Storage", systemImage: "internaldrive")
-                .font(.system(size: 16, weight: .semibold)).foregroundStyle(palette.text)
-            MARCLiveNumberText(
-                text: reading.diskTotal > 0 ? MARCStatisticsData.storageBytes(reading.diskAvailable) : "—",
-                value: reading.diskTotal > 0 ? reading.diskAvailable : nil)
-                .font(.system(size: 28, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(palette.text).lineLimit(1).minimumScaleFactor(0.7)
-            Text(reading.diskTotal > 0 ? "free of " + MARCStatisticsData.storageBytes(reading.diskTotal) : "Storage data unavailable")
-                .font(.system(size: 12)).foregroundStyle(palette.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(palette.border)
-                    Capsule().fill(
-                        usedFraction >= 0.90
-                            ? Color(red: 1, green: 0.39, blue: 0.43)
-                            : Color(red: 0.18, green: 0.78, blue: 0.52)
-                    )
-                        .frame(width: geometry.size.width * usedFraction)
-                        .modifier(MARCLiveValueMotion(value: usedFraction))
-                }
-            }.frame(height: 5).accessibilityHidden(true)
-            if reading.diskTotal > 0 {
-                MARCLiveNumberText(text: "\(Int((usedFraction * 100).rounded()))% used",
-                                     value: usedFraction * 100)
-                    .font(.system(size: 10)).foregroundStyle(palette.muted)
+            HStack {
+                Text("Top processes").font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(palette.text).accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Button(action: openProcesses) {
+                    HStack(spacing: 4) {
+                        Text("View all")
+                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .medium))
+                    }.font(.system(size: 13)).foregroundStyle(palette.accent)
+                        .frame(minHeight: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel("View all processes, sorted by CPU")
             }
-        }.frame(height: 132, alignment: .topLeading)
-            .modifier(MARCOverviewSurface(palette: palette))
+            VStack(spacing: 0) {
+                if current, !rows.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Name").frame(maxWidth: .infinity, alignment: .leading)
+                        Text("PID").frame(width: 44, alignment: .trailing)
+                        Text("CPU").frame(width: 48, alignment: .trailing)
+                        Text("Memory").frame(width: 64, alignment: .trailing)
+                    }.font(.system(size: 11)).foregroundStyle(palette.muted)
+                        .padding(.bottom, 6).accessibilityHidden(true)
+                    ForEach(rows) { process in
+                        HStack(spacing: 8) {
+                            Image(systemName: "macwindow").font(.system(size: 16))
+                                .foregroundStyle(palette.muted).accessibilityHidden(true)
+                            Text(process.name).font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(palette.text).lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(String(process.pid)).font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(palette.muted).lineLimit(1).minimumScaleFactor(0.8)
+                                .frame(width: 44, alignment: .trailing)
+                                .accessibilityLabel("Process ID \(process.pid)")
+                            MARCLiveNumberText(text: String(format: "%.1f%%", process.cpu), value: process.cpu)
+                                .frame(width: 48, alignment: .trailing)
+                            MARCLiveNumberText(text: ByteCountFormatter.string(
+                                fromByteCount: MARCProcessRows.memoryBytes(process.memory), countStyle: .binary),
+                                value: process.memory)
+                                .frame(width: 64, alignment: .trailing)
+                        }.font(.system(size: 12)).foregroundStyle(palette.text)
+                            .monospacedDigit().frame(minHeight: 44)
+                            .accessibilityElement(children: .combine)
+                        if process.id != rows.last?.id {
+                            Rectangle().fill(palette.border.opacity(0.5)).frame(height: 0.5)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                } else {
+                    Text(!monitor.connected ? "Connect a Mac to see its processes."
+                         : !active ? "Process updates paused."
+                         : failure ?? (received ? "No processes available." : "Loading processes…"))
+                        .font(.system(size: 12)).foregroundStyle(palette.muted)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                if current, !rows.isEmpty, let failure {
+                    Text(failure).font(.system(size: 11)).foregroundStyle(palette.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .task(id: "\(monitor.processConnectionID)-\(active)") {
+            await refreshProcesses()
+        }
+    }
+
+    private func refreshProcesses() async {
+        guard !Task.isCancelled else { return }
+        let connection = monitor.processConnectionID
+        processConnection = connection
+        rows = []
+        failure = nil
+        received = false
+        guard active else { return }
+        while !Task.isCancelled && active && monitor.processConnectionID == connection {
+            do {
+                let stream = try await monitor.processUpdates(expectedConnection: connection)
+                for try await response in stream {
+                    guard !Task.isCancelled, active,
+                          monitor.processConnectionID == connection else { return }
+                    let next = Array(MARCProcessRows.visible(response.processes, query: "", sorting: "CPU").prefix(3))
+                    if next != rows {
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { rows = next }
+                    }
+                    received = true
+                    failure = nil
+                }
+                guard !Task.isCancelled, active,
+                      monitor.processConnectionID == connection else { return }
+                failure = "Process updates stopped. Retrying…"
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled, active,
+                      monitor.processConnectionID == connection else { return }
+                failure = "Process updates delayed. Retrying…"
+            }
+            do { try await Task.sleep(for: .seconds(3)) }
+            catch { return }
+        }
     }
 }
 

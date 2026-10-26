@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective 22 October 2026
+Effective 26 October 2026
 
 I’m Shivkumar Chougala, the developer of MARC (Macintosh Access & Remote Control). This policy explains how the app and website handle information, where it is stored, and the choices you have.
 
@@ -16,11 +16,13 @@ The app has no MARC account to create, advertising, behavioral analytics or cros
 
 ## Information processed by the app
 
-MARC saves your Mac profiles and preferences on your iPhone. These include names, addresses, SSH usernames and ports, appearance settings, Quick Launch choices, selected models and remembered folders.
+MARC saves your Mac profiles and preferences on your iPhone. These include names, addresses, SSH usernames and ports, appearance settings, Quick Launch choices, selected models, remembered folders, and Developer Tools tab choices.
 
 Connection credentials, trusted SSH host identities, SSH private keys and saved API keys are stored in Apple’s Keychain. Your private SSH key is used to authenticate your connection; MARC’s normal authentication flow does not upload it to your Mac.
 
 While connected, MARC reads system statistics, running processes, file details and control information from your Mac. Commands and file transfers use SSH. Nearby discovery looks for SSH services on your local network. Your Mac or services you connect to may keep their own login and activity logs.
+
+Developer Tools reads TCP listeners visible to your SSH user, Homebrew background services and local Docker container information. Start, Stop and Stop process actions run only when you select them, using your SSH account. Its latest read results are kept in app memory for the current SSH connection so returning to Status can show them while updating. These results are not saved to disk. Removing a Mac profile removes its Developer Tools tab choice from MARC. Retired quick-command text is removed for saved Mac profiles when they load. Services and containers may keep their own logs on your Mac.
 
 MARC uses SSH for remote connections and HTTPS for API requests. You should still protect your devices and review commands before running them.
 

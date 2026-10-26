@@ -89,6 +89,8 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var connectionIssue: MARCConnectionIssue?
     private(set) var updatedAt: Date?
     @ObservationIgnored private var client: SSHClient?
+    @ObservationIgnored private var developerReadCache: [String: (connection: UUID, date: Date, uptime: TimeInterval, data: Data)] = [:]
+    @ObservationIgnored private var developerActionInFlight: UUID?
     @ObservationIgnored private var polling: Task<Void, Never>?
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var collectorWatchdog: Task<Void, Never>?
@@ -1328,3 +1330,57 @@ extension SSHMonitor {
 }
 
 
+
+// Requests and actions stay bound to the connection selected when the user tapped.
+extension SSHMonitor {
+    func marcDeveloperCachedRead(_ tab: String) -> MARCDeveloperCachedRead? {
+        guard connected, let cached = developerReadCache[tab], cached.connection == generation,
+              let reply = try? JSONDecoder().decode(MARCDeveloperReply.self, from: cached.data) else { return nil }
+        return MARCDeveloperCachedRead(reply: reply, receivedAt: cached.date, uptime: cached.uptime)
+    }
+
+    func marcDeveloperRequest(action: String, target: String? = nil,
+                              expectedState: String? = nil, expectedHost: String? = nil,
+                              identity: MARCListeningIdentity? = nil,
+                              expectedConnection: UUID) async throws -> MARCDeveloperReply {
+        try Task.checkCancellation()
+        guard generation == expectedConnection, connected, let client else { throw CancellationError() }
+        guard ["services", "docker", "dockerStart", "dockerStop", "serviceStart", "serviceStop", "portStop"].contains(action) else {
+            throw MARCAIError.message("Unsupported action.")
+        }
+        let isAction = action != "services" && action != "docker"
+        let ticket = UUID()
+        if isAction {
+            guard developerActionInFlight == nil else { throw MARCAIError.message("Wait for the current action to finish.") }
+            developerActionInFlight = ticket
+            let tab = action.hasPrefix("docker") ? "docker" : "services"
+            if let cached = developerReadCache[tab] {
+                developerReadCache[tab] = (cached.connection, cached.date, -1_000_000, cached.data)
+            }
+        }
+        defer { if developerActionInFlight == ticket { developerActionInFlight = nil } }
+        var request = ["action": action]
+        if let target { request["target"] = target }
+        if let expectedState { request["expectedState"] = expectedState }
+        if let expectedHost { request["expectedHost"] = expectedHost }
+        if let identity { request["identity"] = String(decoding: try JSONEncoder().encode(identity), as: UTF8.self) }
+        let encoded = try JSONEncoder().encode(request).base64EncodedString()
+        let script = "python3 - " + encoded + " <<'MARC_DEVELOPER_TOOLS'\n" + MARCDeveloperScript.python + "\nMARC_DEVELOPER_TOOLS\n"
+        try Task.checkCancellation()
+        let output = try await client.executeCommand(script, maxResponseSize: 524288, mergeStreams: false)
+        try Task.checkCancellation()
+        guard connected, generation == expectedConnection else { throw CancellationError() }
+        let data = Data(output.readableBytesView)
+        let reply = try JSONDecoder().decode(MARCDeveloperReply.self, from: data)
+        if !isAction, reply.message == nil {
+            developerReadCache[action] = (generation, Date(), ProcessInfo.processInfo.systemUptime, data)
+        } else if isAction {
+            // Keep the last rows visible, but force the next read to refresh them.
+            let tab = action.hasPrefix("docker") ? "docker" : "services"
+            if let cached = developerReadCache[tab] {
+                developerReadCache[tab] = (cached.connection, cached.date, -1_000_000, cached.data)
+            }
+        }
+        return reply
+    }
+}
