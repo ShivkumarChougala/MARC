@@ -585,15 +585,17 @@ private struct MARCOverviewGauge: View {
                     .lineLimit(1).minimumScaleFactor(0.65)
                 if let unit = reading.unit { Text(unit).font(.system(size: 12, weight: .medium)) }
             }.foregroundStyle(palette.text)
-            GeometryReader { geometry in
-                Capsule().fill(palette.border)
-                    .overlay(alignment: .leading) {
-                        if let progress = reading.progress {
-                            Capsule().fill(tint).frame(width: geometry.size.width * progress)
-                                .modifier(MARCLiveValueMotion(value: progress))
+            if reading.kind == .percentage {
+                GeometryReader { geometry in
+                    Capsule().fill(palette.border)
+                        .overlay(alignment: .leading) {
+                            if let progress = reading.progress {
+                                Capsule().fill(tint).frame(width: geometry.size.width * progress)
+                                    .modifier(MARCLiveValueMotion(value: progress))
+                            }
                         }
-                    }
-            }.frame(height: 5).accessibilityHidden(true)
+                }.frame(height: 5).accessibilityHidden(true)
+            }
             HStack(spacing: 4) {
                 Text(secondaryLabel)
                 MARCLiveNumberText(text: secondary.text, value: secondary.value).monospacedDigit()

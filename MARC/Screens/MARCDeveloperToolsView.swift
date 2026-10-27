@@ -61,7 +61,6 @@ struct MARCDeveloperToolsView: View {
     let enabled: Bool
     @State private var feed = MARCDeveloperFeed()
     @State private var tab = MARCDeveloperTab.services
-    @Namespace private var tabSelection
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -100,12 +99,7 @@ struct MARCDeveloperToolsView: View {
                         Text(item.title).font(.system(size: 13, weight: tab == item ? .semibold : .regular))
                             .foregroundStyle(tab == item ? p.accent : p.muted)
                             .frame(minWidth: 56, minHeight: 44)
-                            .overlay(alignment: .bottom) {
-                                if tab == item {
-                                    Capsule().fill(p.accent).frame(height: 2)
-                                        .matchedGeometryEffect(id: "developerSelection", in: tabSelection)
-                                }
-                            }.contentShape(Rectangle())
+                            .contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityAddTraits(tab == item ? .isSelected : [])
                 }
                 Spacer(minLength: 0)
