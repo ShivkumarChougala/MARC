@@ -72,8 +72,11 @@ def verify(root=ROOT, built=None):
         raise ValueError('Blowfish embedded license missing.')
     if data['acknowledgement'] != 'This product includes software developed by Niels Provos.':
         raise ValueError('Required Blowfish acknowledgement missing.')
-    if 'MARCOpenSourceScreen()' not in (root / 'MARC/Screens/SettingsScreen.swift').read_text():
-        raise ValueError('Offline notices route missing.')
+    settings = (root / 'MARC/Screens/SettingsScreen.swift').read_text()
+    if 'Link(destination: URL(string: "https://github.com/ShivkumarChougala/MARC/blob/main/LICENSE")!)' not in settings:
+        raise ValueError('GitHub license link missing.')
+    if 'MARCOpenSourceScreen()' in settings:
+        raise ValueError('Settings still routes to the bundled notices reader.')
     if built is not None:
         candidates = [built / resource.name, built / 'Resources' / resource.name]
         if not any(p.is_file() and p.read_bytes() == resource.read_bytes() for p in candidates):

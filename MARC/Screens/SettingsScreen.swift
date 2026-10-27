@@ -245,8 +245,10 @@ struct SettingsScreen: View {
                         MARCSettingsSupportRow(title: "What’s inside MARC", icon: "square.grid.2x2", external: false)
                     }.buttonStyle(.plain).disabled(guidedTour?.active == true)
                     MARCSettingsDivider()
-                    Link(destination: URL(string: "https://getmarc.app/support.html")!) {
-                        MARCSettingsSupportRow(title: "Help & feedback", icon: "bubble.left")
+                    NavigationLink {
+                        MARCHelpFeedbackScreen()
+                    } label: {
+                        MARCSettingsSupportRow(title: "Help & feedback", icon: "bubble.left", external: false)
                     }.buttonStyle(.plain)
                 }
         case .contribute:
@@ -270,22 +272,16 @@ struct SettingsScreen: View {
                 }
         case .legal:
                 MARCSettingsGroup(title: "Legal") {
-                    NavigationLink {
-                        MARCLegalScreen(.privacy)
-                    } label: {
-                        MARCSettingsSupportRow(title: "Privacy Policy", icon: "doc.text", external: false)
+                    Link(destination: URL(string: "https://getmarc.app/privacy")!) {
+                        MARCSettingsSupportRow(title: "Privacy Policy", icon: "doc.text")
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    NavigationLink {
-                        MARCLegalScreen(.terms)
-                    } label: {
-                        MARCSettingsSupportRow(title: "Terms of Use", icon: "doc.text", external: false)
+                    Link(destination: URL(string: "https://getmarc.app/terms")!) {
+                        MARCSettingsSupportRow(title: "Terms of Use", icon: "doc.text")
                     }.buttonStyle(.plain)
                     MARCSettingsDivider()
-                    NavigationLink {
-                        MARCOpenSourceScreen()
-                    } label: {
-                        MARCSettingsSupportRow(title: "Open-source licenses", icon: "chevron.left.forwardslash.chevron.right", external: false)
+                    Link(destination: URL(string: "https://github.com/ShivkumarChougala/MARC/blob/main/LICENSE")!) {
+                        MARCSettingsSupportRow(title: "License", icon: "chevron.left.forwardslash.chevron.right")
                     }.buttonStyle(.plain)
                 }
         }
@@ -821,5 +817,51 @@ private struct MARCSettingsCustomizeSheet: View {
                 .marcToolbarBackgroundHidden()
             }.tint(p.accent)
         }
+    }
+}
+
+/// Support destinations are opened only after the user chooses a row.
+private struct MARCHelpFeedbackScreen: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ScrollView {
+            MARCSettingsGroup(title: "Get in touch") {
+                supportLink("Email support", subtitle: "contact@getmarc.app", icon: "envelope",
+                    destination: URL(string: "mailto:contact@getmarc.app?subject=MARC%20support")!)
+                MARCSettingsDivider()
+                supportLink("Report a bug", subtitle: "Open an issue on GitHub", icon: "ladybug",
+                    destination: URL(string: "https://github.com/ShivkumarChougala/MARC/issues/new?title=Bug%20report")!)
+                MARCSettingsDivider()
+                supportLink("Request a feature", subtitle: "Share an idea on GitHub", icon: "lightbulb",
+                    destination: URL(string: "https://github.com/ShivkumarChougala/MARC/issues/new?title=Feature%20request")!)
+            }
+            .padding(.horizontal, 16).padding(.top, 28).padding(.bottom, 20)
+        }
+        .scrollIndicators(.hidden)
+        .marcCanvas()
+        .marcNavigationTitle("Help & feedback")
+    }
+
+    private func supportLink(_ title: String, subtitle: String, icon: String, destination: URL) -> some View {
+        let p = MARCPalette(dark: scheme == .dark)
+        return Link(destination: destination) {
+            HStack(spacing: 14) {
+                MARCSettingsRowIcon(symbol: icon)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.body).foregroundStyle(p.text)
+                    Text(subtitle).font(.footnote).foregroundStyle(p.muted)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 13)).foregroundStyle(p.muted)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
+        }.buttonStyle(.plain)
     }
 }

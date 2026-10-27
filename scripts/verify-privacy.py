@@ -51,8 +51,10 @@ for resource, slug in [("MARCPrivacyPolicy", "privacy"), ("MARCTermsOfUse", "ter
     policies.append(policy)
 settings = (source.parents[1] / "MARC/Screens/SettingsScreen.swift").read_text()
 for page in ("privacy", "terms"):
-    if "MARCLegalScreen(." + page + ")" not in settings:
-        raise SystemExit("Missing offline legal screen in Settings: " + page)
+    if 'Link(destination: URL(string: "https://getmarc.app/' + page + '")!)' not in settings:
+        raise SystemExit("Missing website legal link in Settings: " + page)
+    if "MARCLegalScreen(." + page + ")" in settings:
+        raise SystemExit("Settings still routes to the bundled legal reader: " + page)
 if "marc.thechougala.in" in settings:
     raise SystemExit("Settings still points at the retired MARC website.")
 render = [sys.executable, str(source.parents[1] / "scripts/render-privacy.py"), "--check"]
@@ -73,4 +75,4 @@ if args.bundle:
         print("PASS: current offline legal document included in built app: " + policy.name)
 
 else:
-    print("PASS: privacy declarations, legal document validation and offline Settings routes")
+    print("PASS: privacy declarations, legal document validation and website Settings links")
