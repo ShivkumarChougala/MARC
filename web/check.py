@@ -72,7 +72,7 @@ def main():
         match = re.search(r'<script[^>]*id="docs-index"[^>]*>(.*?)</script>', text, re.S)
         if match:
             index = json.loads(match.group(1))
-            assert len(index) == 12, f'Unexpected documentation index in {page.name}'
+            assert len(index) == 13, f'Unexpected documentation index in {page.name}'
             for guide in index:
                 assert resolve(page, urlsplit(guide['url']).path).is_file(), f'Missing indexed guide: {guide["url"]}'
     for path in (DIST / 'css').glob('*.css'):

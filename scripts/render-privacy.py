@@ -7,6 +7,7 @@ import json
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--check", action="store_true")
+parser.add_argument("--website-root", type=Path, help="Sync the existing MARC website policy pages without changing their shell")
 args = parser.parse_args()
 outputs = {}
 for resource, stem in [("MARCPrivacyPolicy", "privacy"), ("MARCTermsOfUse", "terms")]:
@@ -35,6 +36,10 @@ for resource, stem in [("MARCPrivacyPolicy", "privacy"), ("MARCTermsOfUse", "ter
     page += '<h1>' + escape(policy["title"]) + '</h1><p class="date">Effective ' + escape(policy["effectiveDate"]) + '</p>'
     page += '<p>' + escape(policy["introduction"]) + '</p><p>Contact: ' + escape(policy['contactEmail']) + '</p><p><a href="' + escape(policy['publishedURL'], quote=True) + '">Published version</a></p>' + "\n".join(sections) + '\n</main></body></html>\n'
     outputs.update({root / ("docs/" + stem.upper() + ".md"): "\n\n".join(markdown) + "\n", root / ("docs/" + stem + ".html"): page})
+    if args.website_root:
+        from policy_website import website_policy
+        website = args.website_root.resolve() / (stem + '.html')
+        outputs[website] = website_policy(website.read_text(), policy)
 for path, content in outputs.items():
     if args.check:
         if not path.is_file() or path.read_text() != content:

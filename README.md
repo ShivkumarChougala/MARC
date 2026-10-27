@@ -38,6 +38,7 @@ I also wanted the basics to stay accessible. Opening another terminal session or
 ## What you can do
 
 - **Monitor your Mac.** Check CPU activity, memory, battery, storage, network traffic, uptime, and system information.
+- **Manage services and containers.** Inspect listening TCP ports, start or stop supported Homebrew services, and control eligible local Docker containers. These actions use your SSH account’s access.
 - **Manage processes.** Search and sort running processes, inspect their resource usage, and terminate a process when needed.
 - **Work with files.** Browse folders, preview files, edit supported text files, upload and download, rename, move, and change permissions.
 - **Use a full terminal.** Run commands, scroll through output, and keep separate tasks in multiple SSH terminal sessions.
@@ -125,3 +126,7 @@ You can also [support development](https://getmarc.app/support).
 MARC is available under the [MIT License](LICENSE). Third-party dependencies retain their respective licenses.
 
 Built by [Shivkumar Chougala](https://github.com/ShivkumarChougala).
+
+## Data handling and policy verification
+
+The bundled policy JSON files are the source of truth for the offline app documents and generated reference copies. See [policy publishing](docs/PRIVACY_PUBLISHING.md) for synchronizing the existing website without changing its design. Monitoring history is stored on the Mac; optional API AI sends prompts to the selected provider after endpoint approval. Read the [Privacy Policy](docs/PRIVACY.md) for storage, sharing and deletion details.
