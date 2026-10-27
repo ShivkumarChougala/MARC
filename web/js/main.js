@@ -1,391 +1,35 @@
-const screens = {
-  "status": {
-    "label": "Status",
-    "title": "Your Mac at a glance.",
-    "description": "See live CPU, memory, network, disk, battery, and storage readings alongside alerts.",
-    "src": "assets/status.webp"
-  },
-  "system": {
-    "label": "System",
-    "title": "Look closer at your Mac.",
-    "description": "Explore CPU cores, memory, uptime, and other system details.",
-    "src": "assets/system.webp"
-  },
-  "statistics": {
-    "label": "Statistics",
-    "title": "Understand performance over time.",
-    "description": "Review CPU, load, memory, network, and disk activity history.",
-    "src": "assets/statistics.webp"
-  },
-  "processes": {
-    "label": "Processes",
-    "title": "Find what is using resources.",
-    "description": "Search running processes, compare CPU and memory use, and inspect what is active.",
-    "src": "assets/processes.webp"
-  },
-  "files": {
-    "label": "Files",
-    "title": "Work with your Mac files.",
-    "description": "Browse folders, preview content, manage files, and transfer over SFTP.",
-    "src": "assets/files.webp"
-  },
-  "terminal": {
-    "label": "Terminal",
-    "title": "An SSH terminal on your iPhone.",
-    "description": "Use multiple terminal sessions, handy shortcut keys, and optional AI command suggestions.",
-    "src": "assets/terminal.webp"
-  },
-  "control": {
-    "label": "Control Center",
-    "title": "Everyday controls, close at hand.",
-    "description": "Manage supported Wi-Fi and Bluetooth controls, audio, brightness, playback, and quick launch.",
-    "src": "assets/control.webp"
-  },
-  "settings": {
-    "label": "Settings",
-    "title": "Make MARC your own.",
-    "description": "Manage saved Macs, connection settings, appearance, refresh rate, and available security options.",
-    "src": "assets/settings.webp"
-  }
-};
-const tabs = [...document.querySelectorAll('[data-screen]')];
-const picture = document.getElementById('screen-image');
-let selection = 0;
-let screenRequest = 0;
-let screenAnimations = [];
-let displayedScreen = 0;
-async function selectScreen(index, focus = false) {
-  const tab = tabs[index];
-  const screen = tab && screens[tab.dataset.screen];
-  if (!screen || !picture) return;
-
-  const direction = index >= selection ? 1 : -1;
-  const request = ++screenRequest;
-  selection = index;
-  screenAnimations.forEach(a => a.cancel());
-  screenAnimations = [];
-
-  const panel = document.getElementById('showcase-panel');
-  const copy = panel.querySelector('.showcopy');
-  const setTabs = current => tabs.forEach((button, i) => {
-    button.setAttribute('aria-selected', String(i === current));
-    button.tabIndex = i === current ? 0 : -1;
-  });
-
-  setTabs(index);
-  panel.setAttribute('aria-labelledby', tab.id);
-  if (focus) tab.focus();
-
-  if (index === displayedScreen) {
-    panel.setAttribute('aria-busy', 'false');
-    return;
-  }
-
-  panel.setAttribute('aria-busy', 'true');
-  const next = new Image();
-  next.src = screen.src;
-
-  try {
-    await next.decode();
-  } catch {
-    if (request === screenRequest) {
-      selection = displayedScreen;
-      setTabs(displayedScreen);
-      panel.setAttribute('aria-labelledby', tabs[displayedScreen].id);
-      panel.setAttribute('aria-busy', 'false');
-    }
-    return;
-  }
-
-  if (request !== screenRequest) return;
+// One entrance per section element; native scroll stays in control.
+(() => {
+  if (!document.querySelector('.marc-product-home') ||
+      !Element.prototype.animate || !('IntersectionObserver' in window)) return;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-
-  if (!reduced.matches && picture.animate) {
-    screenAnimations = [picture, copy].filter(Boolean).map(node =>
-      node.animate([{
-        opacity: 1
-      }, {
-        opacity: 0
-      }], {
-        duration: 110,
-        easing: 'ease-out',
-        fill: 'forwards'
-      })
-    );
-    await Promise.all(
-      screenAnimations.map(a => a.finished.catch(() => {}))
-    );
-    if (request !== screenRequest) return;
-  }
-
-  screenAnimations.forEach(a => a.cancel());
-  screenAnimations = [];
-
-  document.getElementById('screen-label').textContent = screen.label;
-  document.getElementById('screen-title').textContent = screen.title;
-  document.getElementById('screen-description').textContent =
-    screen.description;
-
-  picture.removeAttribute('srcset');
-  picture.removeAttribute('sizes');
-  picture.src = screen.src;
-  picture.alt = 'MARC ' + screen.label + ' app screenshot';
-  displayedScreen = index;
-  panel.setAttribute('aria-busy', 'false');
-
-  if (!reduced.matches && picture.animate) {
-    screenAnimations = [picture, copy].filter(Boolean).map((node, i) =>
-      node.animate([{
-        opacity: 0,
-        transform: 'translateX(' + (direction * (i ? 10 : 5)) + 'px)'
-      }, {
-        opacity: 1,
-        transform: 'translateX(0)'
-      }], {
-        duration: 320,
-        easing: 'cubic-bezier(.2,.8,.2,1)'
-      })
-    );
-  }
-}
-
-tabs.forEach((tab, index) => {
-  tab.addEventListener('click', () => selectScreen(index));
-  tab.addEventListener('keydown', event => {
-    let next = index;
-    if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-    else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = tabs.length - 1;
-    else return;
-    event.preventDefault();
-    selectScreen(next, true)
-  })
-});
-
-// MARC screenshot enlargement
-(() => {
-  const image = document.getElementById('screen-image');
-  if (!image || document.querySelector('.marc-lightbox')) return;
-
-  const trigger = document.createElement('button');
-  trigger.type = 'button';
-  trigger.className = 'screen-zoom-button';
-  trigger.setAttribute('aria-label', 'Enlarge the selected app screenshot');
-  trigger.setAttribute('aria-haspopup', 'dialog');
-  image.before(trigger);
-  trigger.append(image);
-
-  const dialog = document.createElement('dialog');
-  dialog.className = 'marc-lightbox';
-  dialog.setAttribute('aria-label', 'Enlarged MARC screenshot');
-  dialog.innerHTML = `
-    <div class="lightbox-toolbar">
-      <span>App screenshot</span>
-      <button type="button" class="lightbox-close"
-              aria-label="Close enlarged screenshot">×</button>
-    </div>
-    <img alt="">
-  `;
-  document.body.append(dialog);
-
-  trigger.addEventListener('click', () => {
-    const enlarged = dialog.querySelector('img');
-    enlarged.src = image.src;
-    enlarged.alt = image.alt;
-    dialog.querySelector('.lightbox-toolbar span').textContent =
-      document.getElementById('screen-label')?.textContent || 'App screenshot';
-    dialog.showModal();
-  });
-
-  dialog.querySelector('.lightbox-close').addEventListener(
-    'click', () => dialog.close()
-  );
-
-  dialog.addEventListener('click', event => {
-    if (event.target !== dialog) return;
-    const box = dialog.getBoundingClientRect();
-    if (
-      event.clientX < box.left || event.clientX > box.right ||
-      event.clientY < box.top || event.clientY > box.bottom
-    ) dialog.close();
-  });
-
-  dialog.addEventListener('close', () => trigger.focus());
-})();
-
-// MARC keep selected mobile tab visible
-(() => {
-  const row = document.querySelector('.showtabs');
-  if (!row) return;
-
-  function revealSelected() {
-    if (!window.matchMedia('(max-width: 800px)').matches) return;
-    const selected = row.querySelector('[aria-selected="true"]');
-    if (!selected) return;
-
-    const left = selected.offsetLeft - row.offsetLeft;
-    const target = left - (row.clientWidth - selected.offsetWidth) / 2;
-    const reduced = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-
-    row.scrollTo({
-      left: Math.max(0, target),
-      behavior: reduced ? 'instant' : 'smooth'
-    });
-  }
-
-  new MutationObserver(revealSelected).observe(row, {
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['aria-selected']
-  });
-
-  window.addEventListener('resize', revealSelected);
-})();
-
-// MARC coordinated text and image entrances.
-// Content stays readable if scripting, observers, or animation support is absent.
-(() => {
-  const hero = document.querySelector('.marc-hero-v2');
-  if (!hero || !Element.prototype.animate || !('IntersectionObserver' in window)) return;
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  if (reduced.matches) return;
   const active = new Set();
-  const seen = new WeakSet();
-  const ease = 'cubic-bezier(.2,1,.3,1)';
-
-  function play(node, frames, duration, delay = 0) {
-    if (reduced.matches) return;
-    const animation = node.animate(frames, {
-      duration,
-      delay,
-      easing: ease,
-      fill: 'backwards'
-    });
-    active.add(animation);
-    animation.finished.catch(() => {}).finally(() => active.delete(animation));
-  }
-
-  function textReveal(element, byLetter = false) {
-    if (!element || seen.has(element)) return;
-    seen.add(element);
-    if (byLetter) element.setAttribute('aria-label', element.getAttribute('aria-label') || element.innerText.replace(/\s+/g, ' ').trim());
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    const pieces = [];
-    for (const node of nodes) {
-      const fragment = document.createDocumentFragment();
-      // Keep words intact at line wraps, and retain existing <br> and accent spans.
-      for (const token of node.textContent.split(/(\s+)/)) {
-        if (!token) continue;
-        if (/^\s+$/.test(token)) {
-          fragment.append(document.createTextNode(token));
-          continue;
-        }
-        const word = document.createElement('span');
-        word.className = 'marc-motion-word';
-        if (byLetter) word.setAttribute('aria-hidden', 'true');
-        if (byLetter) {
-          for (const letter of Array.from(token)) {
-            const part = document.createElement('span');
-            part.className = 'marc-motion-letter';
-            part.textContent = letter;
-            word.append(part);
-            pieces.push(part);
-          }
-        } else {
-          word.textContent = token;
-          pieces.push(word);
-        }
-        fragment.append(word);
-      }
-      node.replaceWith(fragment);
-    }
-    // Cap total staggering so long descriptions remain quick to read.
-    const step = Math.min(byLetter ? 28 : 32, 380 / Math.max(pieces.length - 1, 1));
-    pieces.forEach((part, index) => play(part, [{
-      opacity: 0,
-      transform: 'translateY(10px)',
-      filter: byLetter ? 'blur(6px)' : 'blur(3px)'
-    }, {
-      opacity: 1,
-      transform: 'translateY(0)',
-      filter: 'blur(0)'
-    }], byLetter ? 640 : 560, index * step));
-  }
-
-  textReveal(document.getElementById('hero-title'), true);
-  textReveal(hero.querySelector('.lead'));
-  // Leave the main screenshots opaque so their first paint isn't delayed.
-  hero.querySelectorAll('.mh-device').forEach((node, index) => play(node, [{
-    translate: `0 ${22 + index * 8}px`
-  }, {
-    translate: '0 0'
-  }], 850, index * 90));
-  [hero.querySelector('.eyebrow'), hero.querySelector('.mh-download'),
-    hero.querySelector('.mh-benefits')
-  ].filter(Boolean).forEach((node, index) => play(node, [{
-    opacity: .35,
-    translate: '0 8px'
-  }, {
-    opacity: 1,
-    translate: '0 0'
-  }], 600, index * 70));
-
-  const targets = new Map();
-  document.querySelectorAll('#preview .sectionhead h2, .story-heading h2, .story-copy h3, #download-title')
-    .forEach(node => targets.set(node, 'text'));
-  document.querySelectorAll('#preview .sectionhead p, .story-heading p, .story-copy > p, .md-description')
-    .forEach(node => targets.set(node, 'words'));
-  document.querySelectorAll('#preview .showcase, .story-phone, .story-features article, .md-logo, .md-actions, #faq .sectionhead')
-    .forEach(node => targets.set(node, 'block'));
-  let remaining = targets.size;
   const observer = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
       observer.unobserve(entry.target);
-      if (--remaining === 0) observer.disconnect();
-      if (reduced.matches) continue;
-      const mode = targets.get(entry.target);
-      if (mode !== 'block') textReveal(entry.target);
-      else {
-        const siblings = [...entry.target.parentElement.children];
-        const delay = entry.target.matches('.story-features article') ? siblings.indexOf(entry.target) * 65 : 0;
-        play(entry.target, [{
-          opacity: 0,
-          translate: '0 22px'
-        }, {
-          opacity: 1,
-          translate: '0 0'
-        }], 720, delay);
-      }
-    }
-  }, {
-    threshold: 0,
-    rootMargin: '0px 0px 30px 0px'
-  });
-  targets.forEach((mode, node) => observer.observe(node));
-
-  function stop() {
-    observer.disconnect();
-    active.forEach(animation => animation.cancel());
-    active.clear();
-  }
-  reduced.addEventListener('change', event => {
-    if (event.matches) stop();
-  });
-  // Keyboard navigation must never land on an animating, transparent control.
+      if (reduced.matches) return;
+      const node = entry.target;
+      const index = node.matches('.story-features article') ?
+        [...node.parentElement.children].indexOf(node) % 2 : 0;
+      const animation = node.animate([
+        {opacity: .15, transform: 'translateY(16px)'},
+        {opacity: 1, transform: 'translateY(0)'}
+      ], {duration: 560, delay: index * 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
+      active.add(animation);
+      animation.finished.catch(() => {}).finally(() => active.delete(animation));
+    });
+  }, {threshold: 0, rootMargin: '0px 0px -24px 0px'});
+  document.querySelectorAll('.story-heading, .story-copy, .story-phone, .story-features article, #faq-title, .marc-faq-list, .md-logo, #download-title, .md-description, .md-actions, .mt-mobile-copy')
+    .forEach(node => observer.observe(node));
+  function cancel() { active.forEach(animation => animation.cancel()); }
+  reduced.addEventListener('change', () => { if (reduced.matches) cancel(); });
   document.addEventListener('focusin', event => {
     active.forEach(animation => {
       if (animation.effect?.target?.contains(event.target)) animation.cancel();
     });
   });
-  window.addEventListener('pagehide', stop, {
-    once: true
-  });
+  addEventListener('pagehide', cancel);
 })();
 
 // MARC responsive navigation
@@ -399,13 +43,50 @@ tabs.forEach((tab, index) => {
   const actions = header.querySelector('.marc-nav-actions');
   const download = header.querySelector('.marc-nav-download');
 
-  function setOpen(open) {
+  const menuReduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let menuAnimation;
+
+  function setOpen(open, animate = true) {
     open = mobile.matches && open;
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+    if (mobile.matches && open === expanded &&
+        (menuAnimation || links.hidden === !open)) return;
+
+    const from = links.hidden ? 0 : links.getBoundingClientRect().height;
+    const style = getComputedStyle(links);
+    const opacity = links.hidden ? 0 : parseFloat(style.opacity);
+    const paddingTop = links.hidden ? '0px' : style.paddingTop;
+    const paddingBottom = links.hidden ? '0px' : style.paddingBottom;
+    menuAnimation?.cancel();
+    menuAnimation = null;
+    links.style.overflow = '';
+    links.inert = false;
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute(
-      'aria-label', open ? 'Close navigation menu' : 'Open navigation menu'
-    );
-    links.hidden = mobile.matches && !open;
+    toggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+
+    if (!mobile.matches || !animate || menuReduced.matches || !links.animate) {
+      links.hidden = mobile.matches && !open;
+      return;
+    }
+    links.hidden = false;
+    const natural = getComputedStyle(links);
+    const to = open ? links.scrollHeight : 0;
+    const toTop = open ? natural.paddingTop : '0px';
+    const toBottom = open ? natural.paddingBottom : '0px';
+    links.inert = !open;
+    links.style.overflow = 'hidden';
+    const animation = links.animate([
+      {height: from + 'px', opacity, paddingTop, paddingBottom},
+      {height: to + 'px', opacity: open ? 1 : 0, paddingTop: toTop, paddingBottom: toBottom}
+    ], {duration: open ? 260 : 190, easing: 'cubic-bezier(.2,.8,.2,1)'});
+    menuAnimation = animation;
+    animation.onfinish = () => {
+      if (menuAnimation !== animation) return;
+      menuAnimation = null;
+      links.hidden = !open;
+      links.inert = false;
+      links.style.overflow = '';
+    };
   }
 
   function syncLayout() {
@@ -419,7 +100,7 @@ tabs.forEach((tab, index) => {
       else actions.prepend(download);
     }
     toggle.hidden = !mobile.matches;
-    setOpen(false);
+    setOpen(false, false);
     if (restoreMenuFocus) toggle.focus();
     else if (restoreDownloadFocus) download?.focus();
   }
@@ -452,6 +133,9 @@ tabs.forEach((tab, index) => {
     });
   });
 
+  menuReduced.addEventListener('change', () => {
+    if (menuReduced.matches) menuAnimation?.finish();
+  });
   mobile.addEventListener('change', syncLayout);
   syncLayout();
 })();
@@ -607,6 +291,18 @@ tabs.forEach((tab, index) => {
     };
   }
 
+  reduced.addEventListener('change', () => {
+    if (!reduced.matches) return;
+    items.forEach(item => {
+      const state = states.get(item);
+      state?.height?.cancel();
+      state?.fade?.cancel();
+      item.open = !!state?.opening;
+      item.style.height = '';
+      item.style.overflow = '';
+    });
+  });
+
   // Manage exclusivity here so the previous answer can animate closed.
   items.forEach(item => {
     item.removeAttribute("name");
@@ -633,262 +329,77 @@ tabs.forEach((tab, index) => {
   });
 })();
 
+// MARC weighted desktop wheel scrolling.
 (() => {
-  const hero = document.querySelector('.hero-scene');
-  const visual = hero?.querySelector('.mh-visual');
-  const phones = visual?.querySelectorAll('.mh-device');
-  if (!hero || !visual || phones.length !== 2) return;
-
+  const desktop = matchMedia('(min-width: 901px) and (hover: hover) and (pointer: fine)');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const mobile = matchMedia('(max-width: 640px)');
-  let frame = 0,
-    top = 0,
-    height = 1;
-  const clamp = n => Math.max(0, Math.min(1, n));
+  let frame = 0, target = 0, last = 0, previousTime = 0;
 
-  function draw() {
+  function stop() {
+    cancelAnimationFrame(frame);
     frame = 0;
-    if (mobile.matches) return;
-    const p = reduced.matches ?
-      0 :
-      clamp((scrollY - top) / (height * .85));
-
-    const x = p * (innerWidth <= 700 ? 10 : 34);
-
-    phones[0].style.transform =
-      'translate3d(' + (-x) + 'px,' + (p * 12) +
-      'px,0) rotate(' + (-p * .8) + 'deg)';
-
-    phones[1].style.transform =
-      'translate3d(' + x + 'px,' + (-p * 10) +
-      'px,0) rotate(' + (p * .8) + 'deg)';
-
-    const fade = clamp((p - .45) / .55);
-    visual.style.opacity =
-      String(1 - fade * fade * (3 - 2 * fade));
-
-    visual.style.willChange =
-      p > 0 && p < 1 ? 'opacity' : 'auto';
+    previousTime = 0;
   }
-
-  function request() {
-    if (!mobile.matches && !frame) frame = requestAnimationFrame(draw);
+  function limit() {
+    return Math.max(0, document.documentElement.scrollHeight - innerHeight);
   }
-
-  function measure() {
-    top = hero.getBoundingClientRect().top + scrollY;
-    height = hero.offsetHeight;
-    request();
+  function draw(time) {
+    if (!desktop.matches || reduced.matches || document.hidden ||
+        Math.abs(scrollY - last) > 3) { stop(); return; }
+    const dt = previousTime ? Math.min(time - previousTime, 40) : 16;
+    previousTime = time;
+    target = Math.max(0, Math.min(target, limit()));
+    const remaining = target - scrollY;
+    const next = Math.abs(remaining) < .75 ? target :
+      scrollY + remaining * (1 - Math.exp(-dt / 90));
+    window.scrollTo({top: next, behavior: 'instant'});
+    last = scrollY;
+    if (Math.abs(target - last) < .75) { stop(); return; }
+    frame = requestAnimationFrame(draw);
   }
-
-  addEventListener('scroll', request, {
-    passive: true
-  });
-  addEventListener('resize', measure, {
-    passive: true
-  });
-  addEventListener('pageshow', measure);
-  reduced.addEventListener('change', measure);
-  mobile.addEventListener('change', measure);
-
-  if ('ResizeObserver' in window) {
-    new ResizeObserver(measure).observe(hero);
+  function nestedScroll(event) {
+    for (const node of event.composedPath()) {
+      if (!(node instanceof Element)) continue;
+      if (node === document.body || node === document.documentElement) break;
+      if (node.matches('dialog, input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="slider"]')) return true;
+      const css = getComputedStyle(node);
+      if (/(auto|scroll|overlay)/.test(css.overflowY) &&
+          node.scrollHeight > node.clientHeight + 1) return true;
+    }
+    return false;
   }
-
-  measure();
-})();
-
-(() => {
-  if (!document.querySelector('.hero-scene') ||
-    !('IntersectionObserver' in window)) return;
-
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const nodes = [...document.querySelectorAll(
-    '#preview .showbody > .phone, ' +
-    '#features .story-featured, ' +
-    '#features .story-features article, ' +
-    '#download .md-logo'
-  )];
-
-  const visible = new Set();
-  const offsets = new WeakMap();
-  let frame = 0;
-
-  function draw() {
-    frame = 0;
-    const distance = innerWidth <= 700 ? 7 : 14;
-    const updates = [];
-
-    visible.forEach(node => {
-      const box = node.getBoundingClientRect();
-      const top = box.top - (offsets.get(node) || 0);
-      const p = Math.max(0, Math.min(1,
-        (innerHeight - top) / (innerHeight + box.height)
-      ));
-      const y = reduced.matches ? 0 : (1 - 2 * p) * distance;
-      updates.push([node, y]);
-    });
-
-    updates.forEach(([node, y]) => {
-      offsets.set(node, y);
-      node.style.transform =
-        'translate3d(0,' + y.toFixed(2) + 'px,0)';
-    });
-  }
-
-  function request() {
-    if (!frame && visible.size) {
+  addEventListener('wheel', event => {
+    if (!desktop.matches || reduced.matches || event.defaultPrevented ||
+        !event.cancelable || event.ctrlKey || event.metaKey || event.shiftKey ||
+        !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY) ||
+        document.querySelector('dialog[open]') || nestedScroll(event)) {
+      stop(); return;
+    }
+    const delta = event.deltaY * (event.deltaMode === 1 ? 20 :
+      event.deltaMode === 2 ? innerHeight : 1);
+    const current = scrollY;
+    if (!frame) target = current;
+    // Direction changes respond immediately, without the old momentum.
+    if ((target - current) * delta < 0) target = current;
+    const next = Math.max(0, Math.min(limit(), target + Math.max(-600, Math.min(600, delta))));
+    if (next === current && !frame) return;
+    event.preventDefault();
+    target = next;
+    if (!frame) {
+      last = current;
+      previousTime = 0;
       frame = requestAnimationFrame(draw);
     }
-  }
-
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        visible.add(entry.target);
-      } else {
-        visible.delete(entry.target);
-        offsets.delete(entry.target);
-        entry.target.style.removeProperty('transform');
-      }
-    });
-    request();
-  }, {
-    rootMargin: '60px 0px'
-  });
-
-  nodes.forEach(node => observer.observe(node));
-  addEventListener('scroll', request, {
-    passive: true
-  });
-  addEventListener('resize', request, {
-    passive: true
-  });
-
-  reduced.addEventListener('change', () => {
-    nodes.forEach(node => {
-      node.style.removeProperty('transform');
-      offsets.delete(node);
-    });
-    request();
-  });
+  }, {passive: false});
+  // Native anchors, keyboard, touch, and scrollbar dragging retain control.
+  addEventListener('keydown', stop);
+  addEventListener('pointerdown', stop, {passive: true});
+  addEventListener('touchstart', stop, {passive: true});
+  addEventListener('focusin', stop);
+  addEventListener('hashchange', stop);
+  addEventListener('resize', stop, {passive: true});
+  addEventListener('pagehide', stop);
+  document.addEventListener('visibilitychange', stop);
+  desktop.addEventListener('change', stop);
+  reduced.addEventListener('change', stop);
 })();
-
-/* MARC mobile swipe: start */
-(() => {
-  const gallery = document.getElementById('mh-mobile-gallery');
-  const group = document.querySelector('.mh-mobile-switch');
-  if (!gallery || !group) return;
-
-  const hero = gallery.closest('.marc-hero-v2');
-  const actions = hero.querySelector('.mh-actions');
-  const download = hero.querySelector('.mh-download');
-  const phones = [...gallery.querySelectorAll('.mh-device')];
-  const buttons = [...group.querySelectorAll('button')];
-
-  const mobile = matchMedia('(max-width: 640px)');
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  let selected = -1, frame = 0, layoutFrame = 0, lastWidth = -1, entrance;
-
-  function mark(index) {
-    if (index === selected) return;
-    selected = index;
-    buttons.forEach((button, i) =>
-      button.setAttribute('aria-pressed', String(i === index))
-    );
-    phones.forEach((phone, i) =>
-      phone.dataset.active = String(i === index)
-    );
-  }
-
-  function go(index, animate = true) {
-    if (!mobile.matches) return;
-    index = Math.max(0, Math.min(phones.length - 1, index));
-    mark(index);
-    gallery.scrollTo({
-      left: phones[index].offsetLeft
-        - (gallery.clientWidth - phones[index].offsetWidth) / 2,
-      behavior: animate && !reduced.matches ? 'smooth' : 'instant'
-    });
-  }
-
-  buttons.forEach((button, i) =>
-    button.addEventListener('click', () => go(i))
-  );
-
-  gallery.addEventListener('scroll', () => {
-    if (!mobile.matches || frame) return;
-    frame = requestAnimationFrame(() => {
-      frame = 0;
-      const center = gallery.scrollLeft + gallery.clientWidth / 2;
-      const distances = phones.map(p =>
-        Math.abs(p.offsetLeft + p.offsetWidth / 2 - center)
-      );
-      mark(distances.indexOf(Math.min(...distances)));
-    });
-  }, {passive: true});
-
-  function keys(event) {
-    if (!mobile.matches) return;
-    const next = {
-      ArrowRight: selected + 1,
-      ArrowLeft: selected - 1,
-      Home: 0,
-      End: phones.length - 1
-    }[event.key];
-    if (next === undefined) return;
-    event.preventDefault();
-    go(next);
-  }
-
-  gallery.addEventListener('keydown', keys);
-  group.addEventListener('keydown', keys);
-
-  function layout() {
-    layoutFrame = 0;
-    if (mobile.matches && download.parentElement !== hero) {
-      hero.insertBefore(download, gallery);
-    }
-    if (!mobile.matches && download.parentElement !== actions) {
-      actions.prepend(download);
-    }
-    if (!mobile.matches && group.contains(document.activeElement)) {
-      gallery.focus({preventScroll: true});
-    }
-    gallery.tabIndex = mobile.matches ? 0 : -1;
-    const width = gallery.clientWidth;
-    if (width !== lastWidth) {
-      lastWidth = width;
-      gallery.style.setProperty('--mh-view-width', width + 'px');
-      go(selected, false);
-    }
-  }
-
-  function requestLayout() {
-    if (!layoutFrame) layoutFrame = requestAnimationFrame(layout);
-  }
-
-  addEventListener('resize', requestLayout, {passive: true});
-  mobile.addEventListener('change', () => {
-    lastWidth = -1;
-    requestLayout();
-  });
-  reduced.addEventListener('change', () => {
-    entrance?.cancel();
-    go(selected, false);
-  });
-
-  mark(0);
-  layout();
-
-  if (mobile.matches && !reduced.matches && gallery.animate) {
-    entrance = gallery.animate([
-      {translate: '0 18px', filter: 'blur(3px)'},
-      {translate: '0 0', filter: 'blur(0)'}
-    ], {
-      duration: 850,
-      easing: 'cubic-bezier(.16,1,.3,1)'
-    });
-  }
-})();
-/* MARC mobile swipe: end */

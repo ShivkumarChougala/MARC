@@ -590,3 +590,10 @@ body.marc-open-legal {
     grid-template-columns: 1fr;
   }
 }
+
+/* Comfortable reading measure shared by privacy and terms. */
+.marc-open-legal .policy-article { overflow-wrap: break-word; }
+.marc-open-legal .policy-article p,
+.marc-open-legal .policy-article li { line-height: 1.8; }
+.marc-open-legal .policy-article h2 { text-wrap: balance; }
+.marc-open-legal .marc-policy .policy-contents nav a { min-height: 44px; display: flex; align-items: center; }

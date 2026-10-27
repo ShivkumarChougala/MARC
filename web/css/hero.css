@@ -1,0 +1,53 @@
+/* MARC product hero. Scoped to the homepage; content works without JavaScript. */
+body.marc-product-home { padding-top: 0; }
+.mr-scene {background: #101012; color: #f5f5f7; overflow: hidden; overflow: clip;}
+.mr-hero {position: relative; isolation: isolate; width: 100%; height: 100svh; min-height: 860px; max-height: 1120px; margin: 0 auto; padding: 100px 24px 0; text-align: center; box-sizing: border-box;}
+.mr-intro { position: relative; z-index: 2; }
+.mr-intro h1 {margin: 0; color: #f5f5f7; font-size: clamp(22px, 6.4vw, 88px); font-weight: 650; line-height: 1.08; letter-spacing: -.055em; white-space: nowrap;}
+.mr-intro h1 > span { display: inline-block; }
+.mr-intro .mr-title-first { color: #f5f5f7; }
+.mr-intro .mr-title-second { color: #9b9ba3; }
+.mr-description {max-width: 640px; margin: 24px auto 0; color: #a9a9b2; font-size: 16px; font-weight: 400; line-height: 1.65; letter-spacing: -.015em; text-wrap: pretty;}
+.mr-stage {position: relative; z-index: 0; width: min(400px, 46vw); margin: 32px auto 0;}
+.mr-phone-motion { transform-origin: 50% 20%; }
+.mr-phone {position: relative; padding: 7px; border: 1px solid #b7b7b3; border-radius: 62px; background: linear-gradient(105deg, #d1d1cc 0%, #777774 1%, #202022 3%, #101012 96%, #777773 99%, #cacac4); box-shadow: -4px 0 0 #777774, -7px 1px 0 #343436, 0 0 0 1px #000; transform: rotate(var(--mr-angle, 7deg)); transform-origin: 50% 20%;}
+.mr-phone::before,
+.mr-phone::after {content: ""; position: absolute; left: -9px; width: 3px; border-radius: 2px; background: #858580;}
+.mr-phone::before { top: 132px; height: 32px; }
+.mr-phone::after { top: 190px; height: 66px; }
+.mr-display { position: relative; overflow: hidden; border-radius: 54px; background: #101012; }
+.mr-display::before {content: ""; position: absolute; z-index: 1; top: 2%; left: 36%; width: 28%; height: 2.8%; border-radius: 999px; background: #050505;}
+.mr-display img { display: block; width: 100%; height: auto; aspect-ratio: 946 / 2048; }
+.mr-captions {position: absolute; z-index: 3; inset: auto 0 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 76px max(48px, calc((100% - 1280px) / 2)) 46px; text-align: left; pointer-events: none; background: linear-gradient(transparent, #101012d9 72%, #101012);}
+.mr-caption { max-width: 250px; }
+.mr-caption h2 { margin: 0; font-size: 25px; font-weight: 600; line-height: 1.2; letter-spacing: -.7px; }
+.mr-caption p,
+.mr-action p { margin: 8px 0 0; color: #a9a9b2; font-size: 14px; line-height: 1.6; }
+.mr-action { pointer-events: auto; }
+.mr-action a {display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: #f5f5f7; font-size: 18px; font-weight: 500; text-decoration: none; text-underline-offset: 6px;}
+.mr-action a:hover { text-decoration: underline; }
+.mr-action a:focus-visible { outline: 2px solid #d7d7df; outline-offset: 5px; border-radius: 4px; }
+@media (max-width: 1000px) {
+  .mr-hero { min-height: 820px; padding-top: 112px; }
+  .mr-caption { display: none; }
+  .mr-captions { justify-content: center; text-align: center; padding-bottom: 28px; }
+}
+@media (max-width: 640px) {
+  .mr-hero { min-height: 760px; max-height: 980px; padding: 94px 24px 0; }
+  .mr-description { max-width: 370px; margin-top: 20px; font-size: 14px; line-height: 1.65; }
+  .mr-stage { width: min(70vw, 330px); margin-top: 34px; }
+  .mr-phone { padding: 5px; border-radius: 40px; }
+  .mr-display { border-radius: 34px; }
+  .mr-phone::before { top: 80px; height: 22px; }
+  .mr-phone::after { top: 120px; height: 42px; }
+  .mr-captions { padding: 62px 20px 24px; }
+  .mr-action a { font-size: 16px; }
+  .mr-action p { margin-top: 2px; font-size: 12px; }
+}
+@media (max-width: 360px) {
+  .mr-hero { min-height: 780px; padding-inline: 20px; }
+  .mr-description { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mr-phone { transform: none; }
+}

@@ -1,0 +1,100 @@
+/* A native scrolling tour. Names are scoped to Explore. */
+.marc-product-home #preview.mt-tour { padding-block: clamp(72px, 9vw, 120px); scroll-margin-top: 90px; }
+.mt-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 64px; }
+.mt-nav { display: block; height: auto; margin: 0; position: sticky; top: clamp(104px, 20svh, 180px); max-height: calc(100svh - 130px); overflow-y: auto; padding: 4px; }
+.mt-nav ol { display: grid; gap: 36px; list-style: none; margin: 0; padding: 0; }
+.mt-nav li { min-width: 0; }
+.mt-nav a { position: relative; display: block; min-height: 44px; padding-left: 24px; color: #92929c; text-decoration: none; }
+.mt-nav a::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 2px; width: 2px; border-radius: 2px; background: #f5f5f7; transform: scaleY(0); transform-origin: top; transition: transform .3s ease; }
+.mt-nav a[aria-current="step"] { color: #f5f5f7; }
+.mt-nav a[aria-current="step"]::before { transform: scaleY(1); }
+.mt-number { display: block; margin-bottom: 10px; font-size: 12px; font-weight: 500; letter-spacing: .04em; line-height: 1.5; }
+.mt-step-title { display: block; font-size: clamp(26px, 2.5vw, 36px); font-weight: 600; letter-spacing: -.035em; line-height: 1.15; }
+.mt-summary { margin: 14px 0 0 24px; max-width: 380px; color: #a9a9b2; font-size: 16px; line-height: 1.7; }
+.mt-tour.is-ready .mt-summary { display: none; }
+.mt-tour.is-ready .mt-nav a[aria-current="step"] + .mt-summary { display: block; }
+.mt-scenes { display: grid; gap: 120px; min-width: 0; }
+.mt-scene { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: max(720px, 88svh); scroll-margin-top: 104px; }
+.mt-mobile-copy { display: none; }
+.mt-device { width: clamp(220px, calc((100svh - 220px) / 2.165), 300px); max-width: 100%; padding: 5px; border: 1px solid #77777b; border-radius: 38px; background: #171719; box-shadow: -3px 0 0 #3d3d40; }
+.mt-zoom { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 32px; background: transparent; color: inherit; cursor: zoom-in; }
+.mt-device img { display: block; width: 100%; height: auto; aspect-ratio: 946 / 2048; border-radius: 32px; background: #101012; }
+.mt-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; max-width: 100%; margin-top: 20px; }
+.mt-options button { position: relative; min-height: 44px; padding: 8px 2px; border: 0; border-radius: 0; background: transparent; color: #a9a9b2; font: inherit; font-size: 13px; cursor: pointer; }
+.mt-options button::after { content: ""; position: absolute; inset: auto 0 0; height: 2px; background: currentColor; transform: scaleX(0); transition: transform .2s ease; }
+.mt-options button[aria-pressed="true"] { color: #f5f5f7; }
+.mt-options button[aria-pressed="true"]::after { transform: scaleX(1); }
+.mt-screen-caption { max-width: 340px; min-height: 3.4em; margin: 14px 0 0; color: #a9a9b2; font-size: 13px; line-height: 1.7; text-align: center; }
+.mt-nav a:focus-visible,
+.mt-options button:focus-visible,
+.mt-zoom:focus-visible { outline: 2px solid #d7d7df; outline-offset: 4px; }
+.mt-status { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+.mt-lightbox .lightbox-close { min-width: 44px; min-height: 44px; }
+@media (max-width: 1000px) { .mt-layout { gap: 36px; } .mt-summary { font-size: 15px; } }
+@media (max-width: 800px), (max-height: 650px) {
+  .mt-layout { display: block; }
+  .mt-nav { display: none; }
+  .mt-scenes { gap: 88px; }
+  .mt-scene { min-height: 0; scroll-margin-top: 90px; }
+  .mt-mobile-copy { display: block; width: 100%; max-width: 480px; margin: 0 auto 32px; }
+  .mt-mobile-copy .mt-number { color: #a9a9b2; }
+  .mt-mobile-copy h3 { margin: 0; font-size: clamp(30px, 5vw, 40px); font-weight: 600; line-height: 1.12; letter-spacing: -.035em; }
+  .mt-mobile-copy p { margin: 16px 0 0; color: #a9a9b2; font-size: 15px; line-height: 1.7; }
+  .mt-device { width: min(76vw, 290px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .mt-nav a::before,
+  .mt-options button::after { transition: none; }
+}
+
+/* Scroll-reading introduction; fully readable without JavaScript. */
+.mt-intro { max-width: 900px; margin: 0 0 clamp(72px, 9vw, 120px); }
+.mt-intro h2 { margin: 0; color: #f5f5f7; font-size: clamp(30px, 3.2vw, 44px); font-weight: 550; line-height: 1.25; letter-spacing: -.035em; text-wrap: pretty; }
+.mt-intro > p { margin: 28px 0 0; color: #f5f5f7; font-size: clamp(23px, 2.5vw, 34px); font-weight: 400; line-height: 1.5; letter-spacing: -.025em; text-wrap: pretty; }
+.mt-intro.is-enhanced .mt-word { color: #797983; transition: color .12s linear; }
+.mt-intro.is-enhanced .mt-word.is-lit { color: #f5f5f7; }
+@media (max-width: 640px) {
+  .mt-intro { margin-bottom: 64px; }
+  .mt-intro h2 { font-size: 28px; line-height: 1.3; }
+  .mt-intro > p { margin-top: 24px; font-size: 22px; line-height: 1.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-intro.is-enhanced .mt-word { color: #f5f5f7; transition: none; }
+}
+@media (forced-colors: active) { .mt-intro.is-enhanced .mt-word { color: CanvasText; } }
+
+/* Stable chapter geometry: summaries change without shifting chapter links. */
+@media (min-width: 801px) and (min-height: 651px) {
+  .mt-nav li { min-height: 184px; }
+  .mt-nav ol { gap: 16px; }
+  .mt-nav { top: 104px; max-height: calc(100svh - 120px); }
+}
+.mt-nav a { transition: color .24s ease; }
+.mt-options button { transition: color .18s ease; }
+.mt-screen-caption { min-height: 5.1em; text-wrap: pretty; }
+@media (max-width: 800px), (max-height: 650px) {
+  .mt-scenes { gap: clamp(72px, 12vw, 96px); }
+  .mt-device { width: min(72vw, 280px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-nav a, .mt-options button { transition: none; }
+}
+
+/* Explore finish: continuous crossfades and comfortable screen selectors. */
+.mt-zoom { position: relative; overflow: hidden; isolation: isolate; }
+.mt-device .mt-outgoing { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mt-options { gap: 4px 8px; margin-top: 22px; }
+.mt-options button { min-height: 44px; padding: 10px; line-height: 1.4; }
+.mt-options button::after { inset-inline: 10px; }
+.mt-screen-caption { max-width: 350px; margin-top: 16px; color: #b0b0ba; }
+.mt-nav a { transition: color .24s ease; }
+@media (min-width: 801px) and (min-height: 651px) {
+  .mt-nav li { min-height: clamp(148px, 21svh, 184px); }
+  .mt-nav ol { gap: 12px; }
+}
+@media (max-width: 640px) {
+  .mt-options { gap: 4px 6px; }
+  .mt-screen-caption { max-width: 310px; font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .mt-nav a { transition: none; } }

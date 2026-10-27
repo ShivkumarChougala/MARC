@@ -16,15 +16,20 @@ Open http://localhost:8000. Edit source files, then rebuild and refresh.
 ## Source layout
 
 - `components/`: shared navigation, footer, and homepage sections.
-- `css/styles.css`: shared marketing layout, navigation, hero, and sections.
+- `css/styles.css`: shared marketing layout, navigation, footer, and sections.
+- `css/hero.css`: homepage hero.
+- `css/tour.css`: scrolling Explore section and screen transitions.
+- `css/sections.css`: Why MARC layout.
 - `css/docs.css`: documentation layout and Spotlight search.
 - `css/policies.css`: Privacy and Terms reading layout.
 - `css/legal.css`: license and fallback pages.
-- `js/main.js`: marketing navigation, screen explorer, and motion.
+- `js/main.js`: marketing navigation, FAQ motion, and desktop wheel easing.
+- `js/hero.js`: hero entrance and scroll-linked phone movement.
+- `js/tour.js`: screen metadata, Explore chapter tracking, screen crossfades, zoom, and intro reveal.
 - `js/docs.js`: documentation search, copy buttons, sidebar, and contents tracking.
 - `js/reading.js`: reading-page entrances.
 - `docs/`: individual guides. Their embedded search index includes all 12 guides.
-- `assets/`: referenced screenshots, logos, icons, and ceramic backgrounds.
+- `assets/`: referenced screenshots, logos, and icons.
 
 `build.py` expands components and fingerprints local resources. It produces
 20 complete pages in `dist/`. The generated site loads its scripts directly;
