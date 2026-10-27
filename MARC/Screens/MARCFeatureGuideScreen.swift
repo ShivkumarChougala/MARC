@@ -33,12 +33,12 @@ struct MARCExploreInvitationScreen: View {
     }
     private func exploreButton(_ p: MARCPalette) -> some View {
         Button(action: explore) {
-            Label("Explore MARC", systemImage: "arrow.right")
+            Label("Show me around", systemImage: "arrow.right")
                 .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
         }.buttonStyle(.plain).foregroundStyle(p.accent)
     }
     private func laterButton(_ p: MARCPalette) -> some View {
-        Button("Not now", action: later).font(.subheadline)
+        Button("Explore on my own", action: later).font(.subheadline)
             .frame(minWidth: 60, minHeight: 44).buttonStyle(.plain).foregroundStyle(p.muted)
     }
 }

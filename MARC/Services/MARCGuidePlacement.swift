@@ -9,7 +9,7 @@ struct MARCGuidePlacement {
     /// Hide guidance when it cannot fit without covering the target or nearby list.
     /// Unlike contextual feature hints, this never shrinks a caption's text.
     static func setupCaption(size: CGSize, target: CGRect, avoid: CGRect? = nil,
-                             preferredHeight: CGFloat, accessibility: Bool = false) -> CGRect? {
+                             preferredHeight: CGFloat, accessibility: Bool = false, protected: [CGRect] = []) -> CGRect? {
         guard size.width.isFinite, size.height.isFinite, size.width > 32, size.height > 32,
               !target.isNull, !target.isInfinite, target.width > 0, target.height > 0,
               target.minX.isFinite, target.minY.isFinite,
@@ -23,11 +23,13 @@ struct MARCGuidePlacement {
         if let avoid, !avoid.isNull, !avoid.isInfinite {
             positions += [avoid.maxY + 16, avoid.minY - height - 16]
         }
+        let protected = protected.filter { !$0.isNull && !$0.isInfinite }
+        for region in protected { positions += [region.maxY + 16, region.minY - height - 16] }
         return positions.lazy.map { CGRect(x: x, y: $0, width: width, height: height) }.first { card in
             guard viewport.insetBy(dx: 8, dy: 8).contains(card),
                   !card.intersects(target.insetBy(dx: -8, dy: -8)) else { return false }
-            if let avoid { return !card.intersects(avoid.insetBy(dx: -8, dy: -8)) }
-            return true
+            if let avoid, card.intersects(avoid.insetBy(dx: -8, dy: -8)) { return false }
+            return !protected.contains { card.intersects($0.insetBy(dx: -8, dy: -8)) }
         }
     }
 

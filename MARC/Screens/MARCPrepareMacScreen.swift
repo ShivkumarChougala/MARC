@@ -134,33 +134,41 @@ private struct MARCSetupConnectionCanvas: View {
         GeometryReader { geometry in
             let w = geometry.size.width
             let h = geometry.size.height
-            // Preserve the uploaded screenshot's aspect ratio inside a 3-point bezel.
-            // Snap frame edges to physical pixels and avoid rotating/resampling the text.
-            let phoneWidth = (w * 0.27 * displayScale).rounded() / displayScale
-            let phoneHeight = (((phoneWidth - 6) * 2048 / 946 + 6) * displayScale).rounded() / displayScale
-            let phoneX = ((w * 0.83 - phoneWidth / 2) * displayScale).rounded() / displayScale + phoneWidth / 2
-            let phoneY = ((h * 0.64 - phoneHeight / 2) * displayScale).rounded() / displayScale + phoneHeight / 2
-            let phoneTop = phoneY - phoneHeight / 2
+            // Use each bundled image's aspect ratio and visible base, including
+            // its transparent margins, so the physical devices share a baseline.
+            let macWidth = (w * 0.73 * displayScale).rounded() / displayScale
+            let macHeight = macWidth * 1024 / 1536
+            let phoneWidth = (w * 0.212 * displayScale).rounded() / displayScale
+            let phoneHeight = phoneWidth * 1774 / 887
+            let baseY = (h * 0.78 * displayScale).rounded() / displayScale
+            let macX = macWidth / 2
+            let macY = baseY - macHeight * (977.0 / 1024.0 - 0.5)
+            let phoneX = w * 0.89
+            let phoneY = baseY - phoneHeight * (1673.0 / 1774.0 - 0.5) + h * 0.035
+            let start = CGPoint(x: macWidth * 0.892,
+                y: macY - macHeight / 2 + macHeight * 0.27)
+            let end = CGPoint(x: phoneX - phoneWidth / 2 + phoneWidth * 48 / 887,
+                y: phoneY - phoneHeight / 2 + phoneHeight * 0.25)
             ZStack(alignment: .topLeading) {
-                Path { path in
-                    path.move(to: CGPoint(x: w * 0.64, y: h * 0.25))
-                    path.addCurve(to: CGPoint(x: phoneX, y: phoneTop),
-                                  control1: CGPoint(x: w * 0.77, y: h * 0.24),
-                                  control2: CGPoint(x: w * 0.85, y: h * 0.26))
-                }
-                .trim(from: 0, to: lineVisible || reduceMotion ? 1 : 0)
-                .stroke(palette.accent.opacity(0.8), style: StrokeStyle(lineWidth: 1, lineCap: .round))
-                Image("MARCSetupMacBook")
-                    .resizable().scaledToFit()
-                    .frame(width: w * 0.76, height: h * 0.7)
-                    .position(x: w * 0.38, y: h * 0.43)
+                macBook
+                    .frame(width: macWidth, height: macHeight)
+                    .position(x: macX, y: macY)
                 phone
                     .frame(width: phoneWidth, height: phoneHeight)
                     .position(x: phoneX, y: phoneY)
-                Circle().fill(palette.accent).frame(width: 4, height: 4)
-                    .position(x: w * 0.64, y: h * 0.25)
-                Circle().fill(palette.accent).frame(width: 4, height: 4)
-                    .position(x: phoneX, y: phoneTop)
+                Path { path in
+                    path.move(to: start)
+                    let gap = end.x - start.x
+                    path.addCurve(to: end,
+                        control1: CGPoint(x: start.x + gap * 0.45, y: start.y),
+                        control2: CGPoint(x: end.x - gap * 0.45, y: end.y))
+                }
+                .trim(from: 0, to: lineVisible || reduceMotion ? 1 : 0)
+                .stroke(palette.accent.opacity(0.65), style: StrokeStyle(lineWidth: 0.8, lineCap: .round))
+                Circle().fill(palette.accent.opacity(0.85)).frame(width: 2.5, height: 2.5)
+                    .position(start)
+                Circle().fill(palette.accent.opacity(0.85)).frame(width: 2.5, height: 2.5)
+                    .position(end)
             }
         }
         .task {
@@ -169,17 +177,48 @@ private struct MARCSetupConnectionCanvas: View {
         }
     }
 
-    private var phone: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(Color.black)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.9), lineWidth: 1))
-            Image("MARCSetupStatus")
-                .resizable().interpolation(.high).antialiased(true).scaledToFit()
-                .clipShape(RoundedRectangle(cornerRadius: 9))
-                .padding(3)
-        }
-        .shadow(color: .black.opacity(0.16), radius: 7, y: 4)
+    // Keep original captures as separate high-resolution layers: generated
+    // device frames never need to redraw the website's or app's typography.
+    private var macBook: some View {
+        Image("MARCSetupMacBook")
+            .resizable().interpolation(.high).scaledToFit()
+            .overlay {
+                GeometryReader { geometry in
+                    let screenWidth = geometry.size.width * 1153 / 1536
+                    let screenHeight = geometry.size.height * 645 / 1024
+                    Image("MARCSetupWebsiteCapture")
+                        .resizable().interpolation(.high).scaledToFill()
+                        .frame(width: screenWidth, height: screenHeight, alignment: .top)
+                        .clipped()
+                        .position(x: geometry.size.width * (191 + 1153.0 / 2) / 1536,
+                                  y: geometry.size.height * (145 + 645.0 / 2) / 1024)
+                }.allowsHitTesting(false)
+            }
     }
+
+    private var phone: some View {
+        Image("MARCSetupStatus")
+            .resizable().interpolation(.high).scaledToFit()
+            .overlay {
+                GeometryReader { geometry in
+                    let screenWidth = geometry.size.width * 702 / 887
+                    let screenHeight = geometry.size.height * 1518 / 1774
+                    Image("MARCSetupStatusCapture")
+                        .resizable().interpolation(.high).scaledToFill()
+                        .frame(width: screenWidth, height: screenHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: screenWidth * 0.09))
+                        .overlay(alignment: .top) {
+                            Capsule().fill(.black)
+                                .frame(width: screenWidth * 0.28, height: screenHeight * 0.026)
+                                .padding(.top, screenHeight * 0.012)
+                        }
+                        .position(x: geometry.size.width * (97 + 702.0 / 2) / 887,
+                                  y: geometry.size.height * (120 + 1518.0 / 2) / 1774)
+                }.allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 7, y: 4)
+    }
+
 }
 
 /// A noninteractive, theme-aware illustration of the Mac's Sharing settings.

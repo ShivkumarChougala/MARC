@@ -2,6 +2,7 @@
 """Run actual first-launch policy and live-tour state transitions without SwiftUI or SSH."""
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 import tempfile
 
@@ -256,6 +257,17 @@ checks = r'''
             hasDevices: false, ready: false) == nil)
         precondition(manualHints.target(manual: true, selected: false, hasHost: true,
             hasDevices: false, ready: true) == "connect")
+        var backHints = MARCSetupHintProgress()
+        backHints.review("address")
+        backHints.review("login")
+        backHints.back()
+        precondition(backHints.target(manual: true, selected: false, hasHost: true,
+            hasDevices: false, ready: true) == "login", "Back reviews login without clearing credentials")
+        backHints.back()
+        precondition(backHints.target(manual: true, selected: false, hasHost: true,
+            hasDevices: false, ready: true) == "address", "Back can explain an already-entered host")
+        backHints.restartLogin()
+        precondition(!backHints.canGoBack)
         print("PASS: setup Next progression, real-result waiting, manual path and login restart without synthetic selection or credentials")
 
         let guide = MARCGuidedTour()
@@ -367,6 +379,32 @@ checks = r'''
             preferredHeight: 900) == nil, "Hide instead of covering controls or clipping text")
         precondition(MARCGuidePlacement.setupCaption(size: setupSize, target: .infinite,
             preferredHeight: 88) == nil)
+        // Manual form proportions from the reported iPhone screen. The Host
+        // target must have a free caption below Test Connection and above Connect.
+        let manualSize = CGSize(width: 390, height: 740)
+        let manualHost = CGRect(x: 16, y: 165, width: 358, height: 48)
+        let manualRegions = [CGRect(x: 16, y: 70, width: 358, height: 32),
+            CGRect(x: 16, y: 118, width: 358, height: 145),
+            CGRect(x: 16, y: 305, width: 358, height: 128),
+            CGRect(x: 16, y: 450, width: 358, height: 44),
+            CGRect(x: 16, y: 690, width: 358, height: 44)]
+        let manualCaption = MARCGuidePlacement.setupCaption(size: manualSize, target: manualHost,
+            preferredHeight: 146, protected: manualRegions)
+        precondition(manualCaption != nil, "Manual Host guidance should fit this phone")
+        for region in manualRegions {
+            precondition(!manualCaption!.intersects(region.insetBy(dx: -8, dy: -8)))
+        }
+        let loginForm = CGRect(x: 16, y: 220, width: 358, height: 150)
+        let footer = CGRect(x: 16, y: 620, width: 358, height: 60)
+        if let freeCaption = MARCGuidePlacement.setupCaption(size: setupSize, target: topTarget,
+            preferredHeight: 146, protected: [protectedPanel, loginForm, footer]) {
+            for protected in [protectedPanel, loginForm, footer] {
+                precondition(!freeCaption.intersects(protected.insetBy(dx: -8, dy: -8)))
+            }
+        } else { preconditionFailure("Caption should fit the free area below login") }
+        precondition(MARCGuidePlacement.setupCaption(size: setupSize, target: topTarget,
+            preferredHeight: 146, protected: [CGRect(origin: .zero, size: setupSize)]) == nil,
+            "No free area must hide guidance rather than cover fields")
         print("PASS: moving setup caption bounds, large text, off-screen targets and protected discovery rows")
         let missingTargets: [CGRect?] = [nil, CGRect.null, CGRect.infinite, CGRect(x: 10, y: -500, width: 20, height: 10)]
         for target in missingTargets {
@@ -379,6 +417,22 @@ checks = r'''
     }
 }
 '''
+overlay = (root / 'MARC/Components/MARCGuidedTourOverlay.swift').read_text()
+servers = (root / 'MARC/Screens/ServersScreen.swift').read_text()
+assert 'MARCSetupCorners' not in overlay
+assert 'transformAnchorPreference(key: MARCSetupAnchors.self, value: .bounds)' in overlay
+assert 'if enabled { targets[id] = anchor }' in overlay
+assert 'anchorPreference(key: MARCSetupAnchors.self, value: .bounds)' not in overlay
+assert 'protected: protected' in overlay and 'keyboardVisible = true' in overlay
+assert 'let back: (() -> Void)?' in overlay and 'Button("Back", action: back)' in overlay
+assert '.marcSetupTarget("manualForm")' in servers and '.marcSetupTarget("test")' in servers
+assert 'inputRow("Host", hint: "IP or hostname", text: $host, help: .address)\n                                .marcSetupTarget("address")' in servers
+assert 'case .connect: return // Only a real connection can finish setup.' in tour
+assert 'MARCSetupCaption' in overlay and '.allowsHitTesting(false)' in overlay
+print('PASS: nested target preservation, Manual Host placement fixture, keyboard suppression and guided-path wiring')
+if '--source-only' in sys.argv:
+    print('NOT RUN: native Swift onboarding/state/placement fixtures (source-only mode)')
+    raise SystemExit(0)
 compiler = shutil.which('swiftc')
 if not compiler:
     raise SystemExit('Swift compiler required. Run this check on your Mac.')

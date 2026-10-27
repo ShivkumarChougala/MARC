@@ -34,31 +34,17 @@ private struct MARCSetupAnchors: PreferenceKey {
 
 extension View {
     func marcSetupTarget(_ id: String, enabled: Bool = true) -> some View {
-        anchorPreference(key: MARCSetupAnchors.self, value: .bounds) { enabled ? [id: $0] : [:] }
+        // Append this target without replacing anchors from nested fields/rows.
+        // Manual form and nearby-panel protection must preserve Host/device targets.
+        transformAnchorPreference(key: MARCSetupAnchors.self, value: .bounds) { targets, anchor in
+            if enabled { targets[id] = anchor }
+        }
     }
     func marcSetupCoach(target: String?, title: String, message: String, enabled: Bool,
-                        next: @escaping () -> Void, skip: @escaping () -> Void) -> some View {
+                        next: @escaping () -> Void, skip: @escaping () -> Void,
+                        back: (() -> Void)? = nil) -> some View {
         modifier(MARCSetupCoach(target: target, title: title, message: message,
-                                enabled: enabled, next: next, skip: skip))
-    }
-}
-
-/// Four short corners keep the underlying control legible without a scrim.
-private struct MARCSetupCorners: Shape {
-    func path(in rect: CGRect) -> Path {
-        let length = min(12, min(rect.width, rect.height) / 3)
-        var path = Path()
-        for (x, y, dx, dy) in [
-            (rect.minX, rect.minY, CGFloat(1), CGFloat(1)),
-            (rect.maxX, rect.minY, CGFloat(-1), CGFloat(1)),
-            (rect.minX, rect.maxY, CGFloat(1), CGFloat(-1)),
-            (rect.maxX, rect.maxY, CGFloat(-1), CGFloat(-1))
-        ] {
-            path.move(to: CGPoint(x: x, y: y + length * dy))
-            path.addLine(to: CGPoint(x: x, y: y))
-            path.addLine(to: CGPoint(x: x + length * dx, y: y))
-        }
-        return path
+                                enabled: enabled, next: next, skip: skip, back: back))
     }
 }
 
@@ -69,12 +55,13 @@ private struct MARCSetupCoach: ViewModifier {
     let enabled: Bool
     let next: () -> Void
     let skip: () -> Void
+    let back: (() -> Void)?
     @Environment(\.colorScheme) private var scheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicType
     @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
-    @State private var measuredHeight: CGFloat = 88
+    @State private var measuredHeight: CGFloat = 146
     @State private var keyboardVisible = false
 
     private var step: Int { target == "add" ? 1 : ["login", "connect"].contains(target ?? "") ? 3 : 2 }
@@ -86,26 +73,39 @@ private struct MARCSetupCoach: ViewModifier {
                 GeometryReader { geometry in
                     let rect = geometry[anchor]
                     let avoid = ["method", "scan", "device"].contains(target) ? anchors["nearbyPanel"].map { geometry[$0] } : nil
+                    let protected = ["method", "manualForm", "login", "test", "connect", "nearbyPanel"]
+                        .filter { $0 != target }.compactMap { anchors[$0].map { geometry[$0] } }
                     if let caption = MARCGuidePlacement.setupCaption(size: geometry.size,
                         target: rect, avoid: avoid, preferredHeight: measuredHeight,
-                        accessibility: dynamicType.isAccessibilitySize) {
+                        accessibility: dynamicType.isAccessibilitySize, protected: protected) {
                         let p = MARCPalette(dark: scheme == .dark)
                         ZStack(alignment: .topLeading) {
-                            MARCSetupCorners()
-                                .stroke(p.accent.opacity(0.7), style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
-                                .frame(width: rect.width + 8, height: rect.height + 8)
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(p.accent.opacity(0.8), lineWidth: 1)
+                                .frame(width: rect.width + 6, height: rect.height + 6)
                                 .position(x: rect.midX, y: rect.midY)
-                                .animation(reduceMotion ? nil : .smooth(duration: 0.42), value: rect)
-                                .accessibilityHidden(true)
-                                .allowsHitTesting(false)
+                                .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: rect)
+                                .accessibilityHidden(true).allowsHitTesting(false)
+                            // Route through the outer margin so the guide never crosses form controls.
+                            let edge = min(geometry.size.width - 6, max(rect.maxX, caption.maxX) + 8)
+                            let start = CGPoint(x: rect.maxX + 3, y: rect.midY)
+                            let end = CGPoint(x: caption.maxX - 8, y: caption.minY + 10)
+                            Path { path in
+                                path.move(to: start)
+                                path.addCurve(to: CGPoint(x: edge, y: start.y + 10),
+                                    control1: CGPoint(x: edge, y: start.y), control2: CGPoint(x: edge, y: start.y))
+                                path.addLine(to: CGPoint(x: edge, y: end.y - 8))
+                                path.addQuadCurve(to: end, control: CGPoint(x: edge, y: end.y))
+                            }.stroke(p.accent.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                                .accessibilityHidden(true).allowsHitTesting(false)
+                            Circle().fill(p.accent).frame(width: 5, height: 5)
+                                .position(start).accessibilityHidden(true).allowsHitTesting(false)
                             MARCSetupCaption(step: step, title: title, message: message,
-                                inline: caption.width >= 340 && !dynamicType.isAccessibilitySize,
-                                next: next, skip: skip)
+                                next: next, skip: skip, back: back)
                             .foregroundStyle(p.text)
                             .frame(width: caption.width)
                             .fixedSize(horizontal: false, vertical: true)
-                            .background(p.raised, in: RoundedRectangle(cornerRadius: 16))
-                            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+                            .background(p.background.opacity(0.97))
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { value in
                                 if abs(value - measuredHeight) > 0.5 { measuredHeight = value }
                             }
@@ -119,7 +119,7 @@ private struct MARCSetupCoach: ViewModifier {
                 }
             }
         }
-        .onChange(of: dynamicType) { _, _ in measuredHeight = 88 }
+        .onChange(of: dynamicType) { _, _ in measuredHeight = 146 }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardVisible = true
         }
@@ -138,56 +138,48 @@ private struct MARCSetupCaption: View {
     let step: Int
     let title: String
     let message: String
-    let inline: Bool
     let next: () -> Void
     let skip: () -> Void
+    let back: (() -> Void)?
     @Environment(\.colorScheme) private var scheme
 
-    private var description: some View {
+    var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        return HStack(alignment: .top, spacing: 8) {
-            Text("\(step)").font(.caption.weight(.medium)).monospacedDigit()
-                .foregroundStyle(p.accent).frame(width: 24, height: 24)
-                .background(p.accent.opacity(0.1), in: Circle())
-                .accessibilityLabel("Step \(step) of 3")
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.caption.weight(.medium))
-                Text(message).font(.caption).foregroundStyle(p.muted)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                ForEach(1...3, id: \.self) { index in
+                    Capsule().fill(index == step ? p.accent : p.muted.opacity(0.3))
+                        .frame(width: 16, height: 3)
+                }
+            }.accessibilityElement(children: .ignore).accessibilityLabel("Step \(step) of 3")
+            Text(title).font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            Text(message).font(.caption).foregroundStyle(p.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { secondaryActions(p); Spacer(minLength: 8); nextAction(p) }
+                VStack(alignment: .leading, spacing: 4) { secondaryActions(p); nextAction(p) }
             }
+        }.padding(.horizontal, 8).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-        }
     }
-    private var actions: some View {
-        let p = MARCPalette(dark: scheme == .dark)
-        return HStack(spacing: 8) {
+    private func secondaryActions(_ p: MARCPalette) -> some View {
+        HStack(spacing: 12) {
+            if let back {
+                Button("Back", action: back).frame(minWidth: 44, minHeight: 44)
+            }
             Button("Skip") {
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.45)
                 skip()
-            }
-            .foregroundStyle(p.muted).frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("Skip setup tour")
-            Button(action: next) {
-                Label("Next", systemImage: "arrow.right").fixedSize()
-                    .frame(minWidth: 54, minHeight: 44)
-            }
-            .foregroundStyle(p.accent)
-            .accessibilityHint("Continue setup guidance")
-        }
-        .font(.caption).buttonStyle(.plain)
+            }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("Skip setup tour")
+        }.font(.caption).foregroundStyle(p.muted).buttonStyle(.plain)
     }
-    var body: some View {
-        Group {
-            if inline {
-                HStack(spacing: 8) { description; actions }
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    description
-                    HStack { Spacer(minLength: 0); actions }
-                }
-            }
-        }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+    private func nextAction(_ p: MARCPalette) -> some View {
+        Button(action: next) {
+            Label("Next", systemImage: "arrow.right").font(.caption.weight(.semibold))
+                .padding(.horizontal, 14).frame(minHeight: 44)
+                .foregroundStyle(p.text).background(p.accent.opacity(0.16), in: Capsule())
+                .overlay(Capsule().stroke(p.accent.opacity(0.6), lineWidth: 0.75))
+        }.buttonStyle(.plain).accessibilityHint("Continue setup guidance")
     }
 }
 

@@ -78,7 +78,8 @@ struct SettingsScreen: View {
             .marcSetupCoach(target: "add", title: "Add your Mac",
                 message: "Tap Add server to begin.",
                 enabled: guidedTour?.active == true && guidedTour?.stage == .addServer && guidedTour?.hasBlockingPresentation != true,
-                next: { guidedTour?.next() }, skip: { guidedTour?.skip() })
+                next: { guidedTour?.next() }, skip: { guidedTour?.skip() },
+                back: { guidedTour?.back() })
             .marcNavigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

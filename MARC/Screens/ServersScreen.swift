@@ -25,12 +25,12 @@ struct AddServerScreen: View {
     }
     private var setupHintMessage: String {
         switch setupHint {
-        case "method": return "Choose a Mac below, or tap Manual to enter its address."
-        case "scan": return discovery.isSearching ? "Keep your Mac awake while we look nearby." : "No Mac yet? Try Refresh or Manual."
-        case "device": return "Tap your Mac to enter its login."
-        case "address": return "Enter the IP address or hostname shown on your Mac."
-        case "connect": return "Connect when ready. You may be asked to verify this Mac’s fingerprint."
-        default: return "Use the account allowed in Remote Login, with its password or SSH key."
+        case "method": return "Choose a nearby Mac, or use Manual if you know its address."
+        case "scan": return discovery.isSearching ? "Keep your Mac awake while we look nearby." : "No Mac yet? Tap Refresh, or use Manual."
+        case "device": return "Choose your Mac from the nearby results."
+        case "address": return "Enter your Mac’s IP address or hostname. Tap ? if you need help."
+        case "connect": return "Tap Connect when your login is ready."
+        default: return "Use your Mac username and password, or choose SSH key."
         }
     }
     @State private var mode: EntryMode = .nearby
@@ -125,12 +125,13 @@ struct AddServerScreen: View {
                             inputRow("Name", hint: "Display name", text: $name)
                             Divider().padding(.horizontal, 16)
                             inputRow("Host", hint: "IP or hostname", text: $host, help: .address)
+                                .marcSetupTarget("address")
                             Divider().padding(.horizontal, 16)
                             inputRow("Port", hint: "22", text: $port)
                                 .keyboardType(.numberPad)
                         }
                         .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
-                        .marcSetupTarget("address")
+                        .marcSetupTarget("manualForm")
                     }
 
                     if let matchingLogin {
@@ -177,6 +178,7 @@ struct AddServerScreen: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!valid || busy)
+                    .marcSetupTarget("test")
 
                     if let testMessage {
                         Text(testMessage)
@@ -209,7 +211,7 @@ struct AddServerScreen: View {
         }
         .onChange(of: mode) { _, newMode in
             setupHints = MARCSetupHintProgress()
-            setupHints.review("method")
+            if newMode == .nearby { setupHints.review("method") }
             if setupTour?.active == true && scenePhase == .active {
                 UISelectionFeedbackGenerator().selectionChanged()
             }
@@ -226,7 +228,8 @@ struct AddServerScreen: View {
                     setupHints.review(setupHint)
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
-            }, skip: { setupTour?.skip() })
+            }, skip: { setupTour?.skip() },
+            back: setupHints.canGoBack ? { setupHints.back() } : nil)
         .sheet(item: $setupHelp) { topic in
             MARCSetupHelpSheet(topic: topic).marcGuidePresentationBarrier()
         }

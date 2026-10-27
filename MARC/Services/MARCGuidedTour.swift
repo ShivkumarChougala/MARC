@@ -63,10 +63,32 @@ import Observation
 /// Reviewing a caption never supplies a host, credentials or connection success.
 struct MARCSetupHintProgress {
     private(set) var reviewed: Set<String> = []
-    mutating func review(_ target: String) { reviewed.insert(target) }
-    mutating func restartLogin() { reviewed.subtract(["login", "connect"]) }
+    private var history: [String] = []
+    private var replay: String?
+    var canGoBack: Bool { !history.isEmpty }
+    mutating func review(_ target: String) {
+        if history.last != target { history.append(target) }
+        reviewed.insert(target)
+        replay = nil
+    }
+    mutating func back() {
+        guard let previous = history.popLast() else { return }
+        reviewed.remove(previous)
+        replay = previous
+    }
+    mutating func restartLogin() {
+        reviewed.subtract(["login", "connect"])
+        history.removeAll()
+        replay = nil
+    }
 
     func target(manual: Bool, selected: Bool, hasHost: Bool, hasDevices: Bool, ready: Bool) -> String? {
+        if let replay {
+            let valid = manual ? ["address", "login", "connect"]
+                : selected ? ["login", "connect"] : ["method", "scan", "device"]
+            if valid.contains(replay), replay != "connect" || ready,
+               replay != "device" || hasDevices { return replay }
+        }
         if manual || selected {
             if manual && !hasHost && !reviewed.contains("address") { return "address" }
             if ready { return reviewed.contains("connect") ? nil : "connect" }
