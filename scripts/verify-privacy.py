@@ -4,6 +4,12 @@ import plistlib
 import json
 import subprocess
 import sys
+import argparse
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('bundle', nargs='?', type=Path)
+parser.add_argument('--website-root', type=Path)
+args = parser.parse_args()
 
 source = Path(__file__).resolve().parents[1] / "MARC/PrivacyInfo.xcprivacy"
 with source.open("rb") as stream:
@@ -49,16 +55,19 @@ for page in ("privacy", "terms"):
         raise SystemExit("Missing offline legal screen in Settings: " + page)
 if "marc.thechougala.in" in settings:
     raise SystemExit("Settings still points at the retired MARC website.")
-subprocess.run([sys.executable, str(source.parents[1] / "scripts/render-privacy.py"), "--check"], check=True)
-if len(sys.argv) > 1:
-    bundled = Path(sys.argv[1]) / "PrivacyInfo.xcprivacy"
+render = [sys.executable, str(source.parents[1] / "scripts/render-privacy.py"), "--check"]
+if args.website_root:
+    render.extend(['--website-root', str(args.website_root)])
+subprocess.run(render, check=True)
+if args.bundle:
+    bundled = args.bundle / "PrivacyInfo.xcprivacy"
     with bundled.open("rb") as stream:
         if plistlib.load(stream) != manifest:
             raise SystemExit("Built app privacy manifest differs from source.")
     print("PASS: required-reason privacy manifest included in built app")
     for policy in policies:
-        candidates = [Path(sys.argv[1]) / policy.name,
-                      Path(sys.argv[1]) / "Resources" / policy.name]
+        candidates = [args.bundle / policy.name,
+                      args.bundle / "Resources" / policy.name]
         if not any(path.is_file() and path.read_bytes() == policy.read_bytes() for path in candidates):
             raise SystemExit("Built app is missing the current offline document: " + policy.name)
         print("PASS: current offline legal document included in built app: " + policy.name)
