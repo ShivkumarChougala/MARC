@@ -123,3 +123,13 @@ checks; test offline Legal screens on iPhone and review App Store disclosures.
 No signed app, provider account, mailbox, Cloudflare account, data-processing
 agreement, or network packet capture was inspected. Neither these drafts nor
 script success certify compliance with every privacy or consumer law.
+
+## Confirmed operator and support practice
+
+The owner confirmed that MARC is a personal project operated by Shivkumar
+Chougala, support email uses Hostinger, and intended availability is worldwide.
+The owner agreed to retain open support conversations and delete resolved
+conversations at the next monthly review after 90 days. This is not an exact
+90-day deletion guarantee. Provider and backup retention remain separate.
+These confirmations supersede the matching provisional entries above.
+Minimum age and any additional forwarding recipients remain unconfirmed.

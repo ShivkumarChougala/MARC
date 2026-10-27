@@ -120,8 +120,8 @@
       "id": "support",
       "title": "Support, retention and privacy requests",
       "paragraphs": [
-        "Emailing support discloses your sender address, message, attachments and ordinary email metadata to the support operator and the email services carrying and storing that correspondence. The content is used to answer the request and resolve problems. Do not include passwords, private SSH keys or API keys.",
-        "Resolved support correspondence is deleted from active support records within 90 days after resolution unless longer retention is legally required. Email-provider systems and existing backups can have different retention. This period does not apply to your Mac, AI providers or shared destinations.",
+        "Support is handled personally by Shivkumar Chougala through contact@getmarc.app, hosted with Hostinger. Emailing support discloses your sender address, message, attachments and ordinary email metadata to the operator, Hostinger and the email services used to deliver the message. The content is used to answer the request and resolve problems. Do not include passwords, private SSH keys or API keys.",
+        "Support conversations are kept while an issue is open. After resolution, they are retained for 90 days and normally deleted from active support records at the next monthly mailbox review. This review schedule means deletion may occur after the 90-day point. Information needed for an ongoing related issue or a legal obligation may be kept longer. Hostinger, other email services and existing backups can have their own retention. Deleting support correspondence does not delete information on your Mac, at AI providers or at destinations you selected.",
         "For questions or requests concerning access, correction or deletion of support or website information, contact contact@getmarc.app. Verification proportionate to the request may be required. Depending on applicable law, you may also have rights to object, restrict processing, withdraw consent or complain to a competent authority. Rights and exceptions depend on the relevant processing and jurisdiction; this policy does not promise identical rights everywhere.",
         "There is no MARC account to delete. For data controlled by your Mac administrator, AI provider, email provider or a destination you selected, use that party’s own settings and request process."
       ],
@@ -129,6 +129,10 @@
         {
           "title": "Contact about privacy",
           "url": "mailto:contact@getmarc.app?subject=MARC%20privacy"
+        },
+        {
+          "title": "Hostinger privacy policy",
+          "url": "https://www.hostinger.com/legal/privacy-policy"
         }
       ]
     },
