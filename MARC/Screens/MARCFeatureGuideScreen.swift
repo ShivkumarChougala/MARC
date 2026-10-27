@@ -142,7 +142,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
     }
     var explanation: String {
         switch self {
-        case .status: return "See usage, battery and storage in one place."
+        case .status: return "See system usage, battery, storage, services and top processes in one place."
         case .system: return "Explore CPU cores, memory and storage."
         case .statistics: return "Follow CPU, memory, network and disk usage over time."
         case .processes: return "Sort by CPU or memory. Review an app before ending it."
@@ -171,10 +171,10 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         switch self {
         case .status:
             return [
-                .init(title: "Live activity", summary: "CPU & memory", detail: "Check how busy your Mac is, how much memory it uses and how data is moving.", x: 0.20, y: 0.27),
-                .init(title: "Power & storage", summary: "Battery & space", detail: "See your Mac’s battery level, charging state and available storage.", x: 0.76, y: 0.58),
-                .init(title: "Statistics", summary: "Usage over time", detail: "Open Statistics to explore CPU, memory, network and disk history.", x: 0.20, y: 0.42),
-                .init(title: "Attention", summary: "Check your alerts", detail: "Needs attention shows alerts from the checks you have enabled. Open its settings to choose which checks to use.", x: 0.78, y: 0.81)
+                .init(title: "System", summary: "CPU & memory", detail: "Check CPU and memory usage, load and swap, plus current network and disk activity. Tap Details for a closer look.", x: 0.04, y: 0.30),
+                .init(title: "Power & storage", summary: "Battery & SSD", detail: "See your Mac’s battery level and the percentage of SSD space used beside its name.", x: 0.96, y: 0.15),
+                .init(title: "Services & Docker", summary: "Apps & containers", detail: "Switch between services and Docker containers. Open All services or All containers to see the full list and available controls.", x: 0.04, y: 0.60),
+                .init(title: "Top processes", summary: "See what’s running", detail: "See process names, PIDs, CPU and memory usage. Tap View all to open Processes and explore the full list.", x: 0.96, y: 0.79)
             ]
         case .system:
             return [

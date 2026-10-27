@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import shutil
+import sys
 import subprocess
 import tempfile
 
@@ -20,7 +21,7 @@ notes = source[source.index('    var notes: [MARCPreviewNote]'):source.index('pr
 counts = {name: block.count('.init(title:') for name, block in re.findall(
     r'case \.(\w+):\s+return \[(.*?)\n            \]', notes, re.S)}
 assert counts == dict(status=4, system=4, statistics=2, processes=2, terminal=3, files=4, controls=3), counts
-for title in ['Attention', 'Statistics', 'Network', 'Storage', 'Add session', 'Upload', 'Back', 'Now Playing']:
+for title in ['System', 'Power & storage', 'Services & Docker', 'Top processes', 'Network', 'Storage', 'Add session', 'Upload', 'Back', 'Now Playing']:
     assert f'title: "{title}"' in notes
 for x, y in re.findall(r'x: ([0-9.]+), y: ([0-9.]+)', notes):
     assert 0 < float(x) < 1 and 0 < float(y) < 1
@@ -61,6 +62,10 @@ checks = r'''
     }
 }
 '''
+if '--source-only' in sys.argv:
+    print('PASS: gallery topic counts, updated Status labels and bounded screenshot anchors')
+    print('NOT RUN: native Swift gallery placement fixtures (source-only mode)')
+    raise SystemExit(0)
 compiler = shutil.which('swiftc')
 if not compiler:
     raise SystemExit('Swift compiler required. Run this check on your Mac.')
