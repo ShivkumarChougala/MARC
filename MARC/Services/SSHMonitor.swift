@@ -192,9 +192,14 @@ struct MacSnapshot: Decodable, Sendable {
                                 }
                             }
                         case .stderr(let chunk):
+                            #if DEBUG
                             print("[MARC] Collector: " +
                                 String(decoding: chunk.readableBytesView,
                                        as: UTF8.self).prefix(500))
+                            #else
+                            // Consume diagnostics without logging remote text in Release.
+                            _ = chunk
+                            #endif
                         }
                     }
                     guard let self, self.generation == token else { return }

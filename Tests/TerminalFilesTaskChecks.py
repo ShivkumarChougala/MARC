@@ -4,6 +4,7 @@ Exercises cancellation and interleaving without network, Keychain or remote chan
 """
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 import tempfile
 
@@ -37,7 +38,9 @@ enum MARCAIError: LocalizedError {
 }
 @MainActor enum SwiftTerm {
     final class TerminalView {
-        func feed(byteArray: ArraySlice<UInt8>) {}
+        var received: [UInt8] = []
+        func feed(byteArray: ArraySlice<UInt8>) { received.append(contentsOf: byteArray) }
+        func getBufferAsData() -> Data { Data(received) }
         func layoutIfNeeded() {}
         func scroll(toPosition: Double) {}
         func setNeedsDisplay() {}
@@ -296,14 +299,93 @@ checks = r'''
         workspace.add()
         await waitFor { workspace.selected?.session.ready == true }
         let second = workspace.selected!
-        let attempts = SSHClient.attempts
+        var attempts = SSHClient.attempts
         workspace.select(first)
         precondition(first.session.ready && SSHClient.attempts == attempts)
         workspace.close(second)
         precondition(first.session.ready)
+        // Attach through the production surface API. Directly assigning view
+        // bypasses attachment state after reconnectSelected() stopped the slot.
+        let display = first.session.display { SwiftTerm.TerminalView() }
+        let marker = Array("MARC-PRIVACY-TEST".utf8)
+        first.session.receive(marker)
         first.session.controlArmed = true; first.session.altArmed = true
         workspace.pause()
         precondition(!first.session.ready && !first.session.controlArmed && !first.session.altArmed)
+        workspace.clearIfDifferent(nil)
+        workspace.clearIfDifferent(a.id)
+        workspace.discardIfRemoved(from: [a.id, b.id])
+        precondition(workspace.selected === first && workspace.slots.count == 1,
+                     "Temporary disconnection must retain the selected terminal slot")
+        precondition(first.session.view === display && display.received == marker,
+                     "Paused terminal must retain its visible output buffer")
+        print("PASS: temporary disconnect preserves selected slot and displayed output without an active SSH writer")
+        first.session.detachDisplay(display)
+        first.session.stop() // duplicate teardown must not replace the saved copy
+        display.received = [] // model a detached renderer losing its drawn rows
+        first.session.receive(Array("new prompt".utf8)) // before surface reattachment
+        let resumed = first.session.display { SwiftTerm.TerminalView() }
+        precondition(resumed !== display)
+        precondition(String(decoding: resumed.received, as: UTF8.self) == "MARC-PRIVACY-TEST\r\nnew prompt")
+        let retained = first.session.display { preconditionFailure("Do not replace an active renderer") }
+        precondition(retained === resumed)
+
+        let bounded = MARCTerminalSession()
+        let large = bounded.display { SwiftTerm.TerminalView() }
+        bounded.receive(Array(repeating: 65, count: MARCTerminalSession.resumedDisplayByteLimit + 100))
+        bounded.stop(); bounded.detachDisplay(large)
+        let boundedResume = bounded.display { SwiftTerm.TerminalView() }
+        precondition(boundedResume.received.count == MARCTerminalSession.resumedDisplayByteLimit + 2)
+        let sanitized = MARCTerminalSession()
+        let unsafe = sanitized.display { SwiftTerm.TerminalView() }
+        sanitized.receive([65, 27, 7, 10, 66])
+        sanitized.stop(); sanitized.detachDisplay(unsafe)
+        let safe = sanitized.display { SwiftTerm.TerminalView() }
+        precondition(safe.received == [65, 13, 10, 66, 13, 10], "Saved display text cannot replay control sequences")
+        safe.received = [] // an intentional clear must remain clear on next resume
+        sanitized.stop(); sanitized.detachDisplay(safe)
+        let cleared = sanitized.display { SwiftTerm.TerminalView() }
+        precondition(cleared.received.isEmpty, "Do not resurrect an intentionally cleared display")
+        print("PASS: stopped renderer reattachment restores bounded display text, preserves early output and avoids replaying controls")
+
+        let startupControls = Array("\u{1B}[H\u{1B}[2J\u{1B}[3J\u{1B}cprompt".utf8)
+        let expectedStartup = Array("\r\n\r\nprompt".utf8)
+        // Every SSH split boundary must behave identically, including inside CSI.
+        for split in 0...startupControls.count {
+            var startup = MARCTerminalResumeOutput()
+            let result = startup.consume(Array(startupControls[..<split])) +
+                startup.consume(Array(startupControls[split...])) + startup.finish()
+            precondition(result == expectedStartup)
+        }
+        var bytewise = MARCTerminalResumeOutput()
+        var bytewiseResult: [UInt8] = []
+        for byte in startupControls { bytewiseResult += bytewise.consume([byte]) }
+        precondition(bytewiseResult + bytewise.finish() == expectedStartup)
+        let ordinary = Array("\u{1B}[32mgreen\u{1B}[0m\u{1B}]0;title\u{7}\u{1B}[?1049h\u{1B}[12;8H".utf8)
+        var passthrough = MARCTerminalResumeOutput()
+        precondition(passthrough.consume(ordinary) + passthrough.finish() == ordinary)
+        let alternate = Array("\u{1B}[?1049h\u{1B}[H\u{1B}[2J\u{1B}[3Jeditor".utf8)
+        var editor = MARCTerminalResumeOutput()
+        precondition(editor.consume(alternate) + editor.finish() == alternate,
+                     "An automatically opened alternate screen retains normal terminal controls")
+        var partial = MARCTerminalResumeOutput()
+        precondition(partial.consume([27, 91]).isEmpty && partial.finish() == [27, 91])
+
+        // Exercise the actual session integration, then verify user input ends
+        // the startup guard so deliberate clear commands are not intercepted.
+        first.session.receive(Array("\u{1B}[H\u{1B}[2J\u{1B}[3Jfresh prompt".utf8))
+        precondition(String(decoding: resumed.received, as: UTF8.self).contains("MARC-PRIVACY-TEST"))
+        workspace.prepare(server: a)
+        await waitFor { first.session.ready }
+        first.session.send(Array("clear\n".utf8))
+        let clearControl = Array("\u{1B}[H\u{1B}[2J\u{1B}[3J".utf8)
+        let beforeClear = resumed.received.count
+        first.session.receive(clearControl)
+        precondition(Array(resumed.received.dropFirst(beforeClear)) == clearControl,
+                     "Explicit clear/reset output must pass unchanged after user input")
+        workspace.pause()
+        print("PASS: reconnect startup preserves restored history across split resets; colours and user-requested clear pass unchanged")
+        attempts = SSHClient.attempts // establish the baseline after this deliberate reconnect
 
         for _ in 0..<10 { workspace.add() }
         precondition(workspace.slots.count == 4 && !workspace.canAdd)
@@ -314,6 +396,16 @@ checks = r'''
         precondition(workspace.slots.count == 4)
         workspace.pause()
         print("PASS: session cap enforced inside add; closing restores capacity")
+        workspace.clearIfDifferent(b.id)
+        precondition(workspace.slots.isEmpty && workspace.selectedID == nil,
+                     "Switching Macs must discard the previous Mac's display")
+        let removal = MARCTerminalWorkspace()
+        removal.prepare(server: a)
+        removal.pause()
+        removal.discardIfRemoved(from: [b.id])
+        precondition(removal.slots.isEmpty && removal.selectedID == nil,
+                     "Removing the owning profile must discard its display")
+
 
         let files = MARCRemoteFiles()
         let cancelledFiles = Task { await files.prepare(server: a) }
@@ -678,6 +770,29 @@ checks = r'''
 }
 '''
 
+app_lock = (root / 'MARC/Services/MARCAppLock.swift').read_text()
+content = (root / 'MARC/ContentView.swift').read_text()
+assert 'ContentView(store: store, terminalWorkspace: terminalWorkspace, tab: $tab)' in app_lock
+assert '@State private var terminalWorkspace = MARCTerminalWorkspace()' in app_lock
+assert '@State private var tab = 0' in app_lock
+assert 'if !lock.enabled || lock.unlocked {' in app_lock
+assert 'let terminalWorkspace: MARCTerminalWorkspace' in content and '@Binding var tab: Int' in content
+assert 'terminalWorkspace.discardIfRemoved(from: ids)' in content
+assert 'guard let id, let old = server?.id, old != id else { return }' in workspace
+assert 'UIScene.willDeactivateNotification' in app_lock
+assert 'UIScene.didEnterBackgroundNotification' in app_lock
+assert 'window.windowLevel = .alert + 1' in app_lock
+assert 'makeKeyAndVisible' not in app_lock
+assert 'enabled: lock.enabled, unlocked: lock.unlocked, busy: lock.busy' in app_lock
+assert 'coordinator.session.detachDisplay(view)' in terminal
+assert 'let previous = pausedDisplay' in terminal
+assert 'resumeOutput = hasHistory ? MARCTerminalResumeOutput() : nil' in terminal
+assert 'displayedBytes = startup.consume(bytes)' in terminal
+assert 'let held = startup.finish()' in terminal
+if '--source-only' in sys.argv:
+    print('PASS: protected UI remains authentication-gated; terminal workspace/tab owned above lock boundary; nil-disconnect and profile-removal wiring checked')
+    print('NOT RUN: native Swift terminal/files task fixtures (source-only mode)')
+    raise SystemExit(0)
 compiler = shutil.which('swiftc')
 if not compiler:
     raise SystemExit('Swift compiler required. Run this check on your Mac.')

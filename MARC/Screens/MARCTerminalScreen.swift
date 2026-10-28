@@ -28,7 +28,44 @@ final class MARCTerminalSession {
     var failure: String?
     var ready = false
 
-    @ObservationIgnored var view: SwiftTerm.TerminalView?
+    @ObservationIgnored private(set) var view: SwiftTerm.TerminalView?
+    @ObservationIgnored private var rebuildDisplay = false
+    @ObservationIgnored private var pausedDisplay = Data()
+    @ObservationIgnored private var pendingDisplay: [UInt8] = []
+    @ObservationIgnored private var displayAttached = false
+    @ObservationIgnored private var resumeOutput: MARCTerminalResumeOutput?
+    static let resumedDisplayByteLimit = 256 * 1024
+
+    // A stopped PTY has no live screen state to resume. Rehydrate its displayed
+    // text into a fresh renderer instead of reattaching a detached UIKit renderer.
+    // This is local scrollback only, never input to the remote shell.
+    func display(makeNew: () -> SwiftTerm.TerminalView) -> SwiftTerm.TerminalView {
+        displayAttached = true
+        if let view, !rebuildDisplay { return view }
+        let previous = pausedDisplay
+        let replacement = makeNew()
+        view = replacement
+        rebuildDisplay = false
+        pausedDisplay.removeAll(keepingCapacity: false)
+        let text = String(decoding: previous, as: UTF8.self)
+        let safeText = String(String.UnicodeScalarView(text.unicodeScalars.filter {
+            $0.value == 10 || $0.value == 13 || $0.value == 9 ||
+                ($0.value >= 32 && $0.value != 127 && !($0.value >= 128 && $0.value <= 159))
+        }))
+        let lines = safeText.replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .newlines)
+        if !lines.isEmpty {
+            replacement.feed(byteArray: Array((lines.replacingOccurrences(of: "\n", with: "\r\n") + "\r\n").utf8)[...])
+        }
+        let pending = pendingDisplay
+        pendingDisplay.removeAll(keepingCapacity: false)
+        if !pending.isEmpty { receive(pending) }
+        return replacement
+    }
+
+    func detachDisplay(_ detached: SwiftTerm.TerminalView) {
+        if view === detached { displayAttached = false }
+    }
     @ObservationIgnored private var client: SSHClient?
     @ObservationIgnored private var writer: TTYStdinWriter?
     @ObservationIgnored private var token = UUID()
@@ -38,15 +75,35 @@ final class MARCTerminalSession {
     @ObservationIgnored private var rows = 24
 
     func receive(_ bytes: [UInt8]) {
+        if view == nil || (rebuildDisplay && !displayAttached) {
+            let limit = Self.resumedDisplayByteLimit
+            if bytes.count >= limit {
+                pendingDisplay = Array(bytes.suffix(limit))
+            } else {
+                let overflow = max(0, pendingDisplay.count + bytes.count - limit)
+                if overflow > 0 { pendingDisplay.removeFirst(overflow) }
+                pendingDisplay.append(contentsOf: bytes)
+            }
+            return
+        }
         guard let view else { return }
+        var displayedBytes = bytes
+        if var startup = resumeOutput {
+            displayedBytes = startup.consume(bytes)
+            resumeOutput = startup
+        }
+        // Without removing the UI (for example, App Lock disabled), keep the
+        // existing live renderer and append output normally after reconnecting.
+        rebuildDisplay = false
+        pausedDisplay.removeAll(keepingCapacity: false)
 
         let sequence = marcClearSequenceTail +
-            String(decoding: bytes, as: UTF8.self)
+            String(decoding: displayedBytes, as: UTF8.self)
         let cleared = sequence.contains("\u{1B}[2J") ||
             sequence.contains("\u{1B}[3J")
         marcClearSequenceTail = String(sequence.suffix(8))
 
-        view.feed(byteArray: bytes[...])
+        view.feed(byteArray: displayedBytes[...])
 
         if cleared {
             let connection = token
@@ -166,6 +223,13 @@ final class MARCTerminalSession {
     }
 
     func stop() {
+        if !rebuildDisplay, let view {
+            pausedDisplay = Data(view.getBufferAsData().suffix(Self.resumedDisplayByteLimit))
+            let hasHistory = !String(decoding: pausedDisplay, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            resumeOutput = hasHistory ? MARCTerminalResumeOutput() : nil
+        }
+        rebuildDisplay = true
         aiServerID = nil
         token = UUID()
         ready = false
@@ -186,6 +250,13 @@ final class MARCTerminalSession {
 
     func send(_ bytes: [UInt8]) {
         guard ready, let writer, !bytes.isEmpty else { return }
+        // From the first real input onward, pass all remote terminal controls
+        // through unchanged, including an explicit clear/reset or full-screen app.
+        if var startup = resumeOutput {
+            let held = startup.finish()
+            if !held.isEmpty { view?.feed(byteArray: held[...]) }
+            resumeOutput = nil
+        }
         let outgoing = marcPrepareInput(bytes)
         let current = token
         let previous = writes
@@ -281,6 +352,61 @@ final class MARCTerminalSession {
 
 }
 
+// Applies only to reconnect startup with saved local text, ending at first input.
+// Exact controls are matched across SSH chunks; unmatched bytes (including
+// colours, titles and alternate-screen controls) are passed through unchanged.
+struct MARCTerminalResumeOutput {
+    private var held: [UInt8] = []
+    private var protecting = true
+    private static let alternateScreens = ["\u{1B}[?1049h", "\u{1B}[?1047h", "\u{1B}[?47h"]
+        .map { Array($0.utf8) }
+    private static let controls: [([UInt8], [UInt8])] = {
+        let home = ["\u{1B}[H", "\u{1B}[f", "\u{1B}[1H", "\u{1B}[1f",
+                    "\u{1B}[1;1H", "\u{1B}[1;1f", "\u{1B}[0;0H", "\u{1B}[0;0f",
+                    "\u{1B}c"]
+        let erase = ["\u{1B}[J", "\u{1B}[0J", "\u{1B}[2J", "\u{1B}[3J"]
+        return home.map { (Array($0.utf8), [UInt8(13), UInt8(10)]) } +
+            erase.map { (Array($0.utf8), [UInt8]()) }
+    }()
+
+    mutating func consume(_ bytes: [UInt8]) -> [UInt8] {
+        var output: [UInt8] = []
+        output.reserveCapacity(bytes.count)
+        for byte in bytes {
+            if !protecting {
+                output.append(byte)
+                continue
+            }
+            if held.isEmpty && byte != 27 {
+                output.append(byte)
+                continue
+            }
+            held.append(byte)
+            if Self.alternateScreens.contains(held) {
+                // A shell startup may launch a full-screen program itself.
+                // Its alternate buffer owns its cursor/erase semantics.
+                output.append(contentsOf: held)
+                held.removeAll(keepingCapacity: true)
+                protecting = false
+            } else if let match = Self.controls.first(where: { $0.0 == held }) {
+                output.append(contentsOf: match.1)
+                held.removeAll(keepingCapacity: true)
+            } else if !Self.controls.contains(where: { $0.0.starts(with: held) }) &&
+                        !Self.alternateScreens.contains(where: { $0.starts(with: held) }) {
+                output.append(contentsOf: held)
+                held.removeAll(keepingCapacity: true)
+            }
+        }
+        return output
+    }
+
+    mutating func finish() -> [UInt8] {
+        let result = held
+        held.removeAll(keepingCapacity: false)
+        return result
+    }
+}
+
 struct MARCTerminalSurface: UIViewRepresentable {
     let session: MARCTerminalSession
     let dark: Bool
@@ -290,16 +416,19 @@ struct MARCTerminalSurface: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> SwiftTerm.TerminalView {
-        let view = session.view ?? MARCScrollbackTerminalView(frame: .zero)
+        let view = session.display {
+            let fresh = MARCScrollbackTerminalView(frame: .zero)
+            fresh.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+            return fresh
+        }
         // The SwiftUI scrolling strip owns terminal shortcuts.
         view.inputAccessoryView = nil
         view.isOpaque = false
         view.contentMode = .redraw
         view.layer.shouldRasterize = false
-        view.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         view.terminalDelegate = context.coordinator
-        session.view = view
         applyTheme(view)
+        view.requestRedraw()
         view.setContentCompressionResistancePriority(
             .defaultLow, for: .vertical
         )
@@ -348,6 +477,7 @@ struct MARCTerminalSurface: UIViewRepresentable {
         _ view: SwiftTerm.TerminalView, coordinator: Coordinator
     ) {
         _ = view.resignFirstResponder()
+        coordinator.session.detachDisplay(view)
         view.terminalDelegate = nil
         // Workspace owns the shell and retained screen buffer.
         // Removing the visible view must not terminate that shell.
@@ -517,7 +647,18 @@ final class MARCTerminalWorkspace {
     }
 
     func clearIfDifferent(_ id: UUID?) {
-        guard let old = server?.id, old != id else { return }
+        // A disconnected monitor temporarily has no server. Keep its display
+        // buffers until a different Mac is selected or this profile is removed.
+        guard let id, let old = server?.id, old != id else { return }
+        discard()
+    }
+
+    func discardIfRemoved(from serverIDs: [UUID]) {
+        guard let id = server?.id, !serverIDs.contains(id) else { return }
+        discard()
+    }
+
+    private func discard() {
         pause()
         slots.removeAll()
         selectedID = nil

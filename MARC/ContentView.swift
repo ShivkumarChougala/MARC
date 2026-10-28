@@ -2,11 +2,11 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
-    @State private var store = ServerStore()
-    @State private var terminalWorkspace = MARCTerminalWorkspace()
+    let store: ServerStore
+    let terminalWorkspace: MARCTerminalWorkspace
     @State private var remoteFiles = MARCRemoteFiles()
     @AppStorage("marc.appearance") private var appearance = "system"
-    @State private var tab = 0
+    @Binding var tab: Int
     @State private var processSorting = "CPU"
     @State private var terminalReturnTab = 0
     @State private var initialConnectionCheck = true
@@ -304,6 +304,9 @@ struct ContentView: View {
                 setupSuccessSession = nil
                 terminating = nil; terminalWorkspace.pause(); remoteFiles.stop()
             }
+        }
+        .onChange(of: store.servers.map(\.id)) { _, ids in
+            terminalWorkspace.discardIfRemoved(from: ids)
         }
         .onChange(of: store.monitor.server?.id) { _, id in
             terminating = nil
