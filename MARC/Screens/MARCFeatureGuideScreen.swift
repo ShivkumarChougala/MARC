@@ -174,7 +174,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
                 .init(title: "System", summary: "CPU & memory", detail: "Check CPU and memory usage, load and swap, plus current network and disk activity. Tap Details for a closer look.", x: 0.04, y: 0.30),
                 .init(title: "Power & storage", summary: "Battery & SSD", detail: "See your Mac’s battery level and the percentage of SSD space used beside its name.", x: 0.96, y: 0.15),
                 .init(title: "Services & Docker", summary: "Apps & containers", detail: "Switch between services and Docker containers. Open All services or All containers to see the full list and available controls.", x: 0.04, y: 0.60),
-                .init(title: "Top processes", summary: "See what’s running", detail: "See process names, PIDs, CPU and memory usage. Tap View all to open Processes and explore the full list.", x: 0.96, y: 0.79)
+                .init(title: "Top tasks", summary: "CPU & memory", detail: "See process names, PIDs, CPU and memory usage. Tap View all to open Processes and explore the full list.", x: 0.96, y: 0.79)
             ]
         case .system:
             return [

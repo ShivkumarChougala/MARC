@@ -41,6 +41,12 @@ struct ControlsScreen: View {
     @State private var copiedMediaCommand = false
     private var controlsEnabled: Bool { usable && !busy }
 
+    private var wirelessPlaceholder: String {
+        guard monitor.connected else { return "Not connected" }
+        if wirelessReadAt != nil { return "Unavailable" }
+        return failure != nil && !refreshing ? "Not checked" : "Checking…"
+    }
+
     private var usable: Bool {
         visible && monitor.connected && scenePhase == .active &&
             controlConnection == monitor.controlConnectionID
@@ -658,10 +664,10 @@ struct ControlsScreen: View {
             }
 
             if !writable {
-                Text(enabled == nil ? "Unavailable" : "Status only")
+                Text(enabled == nil ? wirelessPlaceholder : "Status only")
                     .font(.system(size: 11))
                     .foregroundStyle(p.muted)
-                    .accessibilityLabel(enabled.map { $0 ? "On, status only" : "Off, status only" } ?? "Unavailable")
+                    .accessibilityLabel(enabled.map { $0 ? "On, status only" : "Off, status only" } ?? wirelessPlaceholder)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 48, alignment: .topLeading)
