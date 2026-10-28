@@ -83,6 +83,15 @@ def main():
     for path in (DIST / 'js').glob('*.js'):
         for value in re.findall(r'[\'\"](/?assets/[^\'\"]+)', path.read_text()):
             assert (DIST / urlsplit(value).path.lstrip('/')).is_file(), f'Missing JS asset: {value}'
+    # Catch orphaned screenshots/backgrounds before they ship in dist.
+    delivered = '\n'.join(
+        p.read_text(encoding='utf-8') for p in DIST.rglob('*')
+        if p.is_file() and p.suffix in {'.html', '.css', '.js'}
+    )
+    for asset in (DIST / 'assets').rglob('*'):
+        if asset.is_file():
+            name = asset.relative_to(DIST).as_posix()
+            assert name in delivered, f'Unreferenced asset: {name}'
     print(f'PASS: {len(pages)} pages, {refs} local references, documentation index and asset fingerprints.')
 
 if __name__ == '__main__':

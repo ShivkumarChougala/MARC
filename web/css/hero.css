@@ -1,53 +1,218 @@
-/* MARC product hero. Scoped to the homepage; content works without JavaScript. */
-body.marc-product-home { padding-top: 0; }
-.mr-scene {background: #101012; color: #f5f5f7; overflow: hidden; overflow: clip;}
-.mr-hero {position: relative; isolation: isolate; width: 100%; height: 100svh; min-height: 860px; max-height: 1120px; margin: 0 auto; padding: 100px 24px 0; text-align: center; box-sizing: border-box;}
-.mr-intro { position: relative; z-index: 2; }
-.mr-intro h1 {margin: 0; color: #f5f5f7; font-size: clamp(22px, 6.4vw, 88px); font-weight: 650; line-height: 1.08; letter-spacing: -.055em; white-space: nowrap;}
-.mr-intro h1 > span { display: inline-block; }
-.mr-intro .mr-title-first { color: #f5f5f7; }
-.mr-intro .mr-title-second { color: #9b9ba3; }
-.mr-description {max-width: 640px; margin: 24px auto 0; color: #a9a9b2; font-size: 16px; font-weight: 400; line-height: 1.65; letter-spacing: -.015em; text-wrap: pretty;}
-.mr-stage {position: relative; z-index: 0; width: min(400px, 46vw); margin: 32px auto 0;}
-.mr-phone-motion { transform-origin: 50% 20%; }
-.mr-phone {position: relative; padding: 7px; border: 1px solid #b7b7b3; border-radius: 62px; background: linear-gradient(105deg, #d1d1cc 0%, #777774 1%, #202022 3%, #101012 96%, #777773 99%, #cacac4); box-shadow: -4px 0 0 #777774, -7px 1px 0 #343436, 0 0 0 1px #000; transform: rotate(var(--mr-angle, 7deg)); transform-origin: 50% 20%;}
-.mr-phone::before,
-.mr-phone::after {content: ""; position: absolute; left: -9px; width: 3px; border-radius: 2px; background: #858580;}
-.mr-phone::before { top: 132px; height: 32px; }
-.mr-phone::after { top: 190px; height: 66px; }
-.mr-display { position: relative; overflow: hidden; border-radius: 54px; background: #101012; }
-.mr-display::before {content: ""; position: absolute; z-index: 1; top: 2%; left: 36%; width: 28%; height: 2.8%; border-radius: 999px; background: #050505;}
-.mr-display img { display: block; width: 100%; height: auto; aspect-ratio: 946 / 2048; }
-.mr-captions {position: absolute; z-index: 3; inset: auto 0 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 76px max(48px, calc((100% - 1280px) / 2)) 46px; text-align: left; pointer-events: none; background: linear-gradient(transparent, #101012d9 72%, #101012);}
-.mr-caption { max-width: 250px; }
-.mr-caption h2 { margin: 0; font-size: 25px; font-weight: 600; line-height: 1.2; letter-spacing: -.7px; }
-.mr-caption p,
-.mr-action p { margin: 8px 0 0; color: #a9a9b2; font-size: 14px; line-height: 1.6; }
-.mr-action { pointer-events: auto; }
-.mr-action a {display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: #f5f5f7; font-size: 18px; font-weight: 500; text-decoration: none; text-underline-offset: 6px;}
-.mr-action a:hover { text-decoration: underline; }
-.mr-action a:focus-visible { outline: 2px solid #d7d7df; outline-offset: 5px; border-radius: 4px; }
-@media (max-width: 1000px) {
-  .mr-hero { min-height: 820px; padding-top: 112px; }
-  .mr-caption { display: none; }
-  .mr-captions { justify-content: center; text-align: center; padding-bottom: 28px; }
+
+/* MARC hero: text beside the app, stacked on mobile. */
+body.marc-product-home {padding-top:0;}
+.mr-scene {background:#101012;color:#f5f5f7;overflow:hidden;overflow:clip;}
+.mr-hero {
+  box-sizing:border-box;isolation:isolate;position:relative;
+  max-width:1400px;margin:auto;min-height:min(900px,100svh);
+  padding:112px 64px 64px;display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+  align-items:center;gap:64px;text-align:left;
 }
-@media (max-width: 640px) {
-  .mr-hero { min-height: 760px; max-height: 980px; padding: 94px 24px 0; }
-  .mr-description { max-width: 370px; margin-top: 20px; font-size: 14px; line-height: 1.65; }
-  .mr-stage { width: min(70vw, 330px); margin-top: 34px; }
-  .mr-phone { padding: 5px; border-radius: 40px; }
-  .mr-display { border-radius: 34px; }
-  .mr-phone::before { top: 80px; height: 22px; }
-  .mr-phone::after { top: 120px; height: 42px; }
-  .mr-captions { padding: 62px 20px 24px; }
-  .mr-action a { font-size: 16px; }
-  .mr-action p { margin-top: 2px; font-size: 12px; }
+.mr-intro {position:relative;z-index:2;min-width:0;}
+.mr-eyebrow {
+  margin:0 0 26px;color:#aaaab3;font-size:12px;
+  font-weight:500;letter-spacing:.22em;text-transform:uppercase;
 }
-@media (max-width: 360px) {
-  .mr-hero { min-height: 780px; padding-inline: 20px; }
-  .mr-description { font-size: 14px; }
+.mr-intro h1 {
+  margin:0;font-size:clamp(48px,5.7vw,80px);
+  font-weight:650;line-height:1.06;letter-spacing:-.055em;
+  white-space:normal;
 }
-@media (prefers-reduced-motion: reduce) {
-  .mr-phone { transform: none; }
+.mr-intro h1>span {display:block;color:#f5f5f7;}
+.mr-description {
+  max-width:540px;margin:28px 0 0;color:#aaaab3;
+  font-size:clamp(17px,1.5vw,21px);line-height:1.55;
+  letter-spacing:-.015em;text-wrap:pretty;
+}
+.mr-hero-actions {
+  display:flex;align-items:center;gap:28px;
+  flex-wrap:wrap;margin-top:34px;
+}
+.mr-hero-actions a {
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:48px;text-decoration:none;font-size:16px;font-weight:550;
+}
+.mr-hero-actions .mr-hero-primary {
+  padding:0 28px;border-radius:999px;
+  background:#f5f5f7;color:#101012;transition:background .2s;
+}
+.mr-hero-actions .mr-hero-primary:hover {
+  background:#dedee3;color:#101012;
+}
+.mr-hero-actions a:focus-visible {
+  outline:2px solid #fff;outline-offset:6px;
+}
+.mr-connection {
+  margin:26px 0 0;color:#aaaab3;font-size:13px;line-height:1.65;
+}
+.mr-stage {
+  position:relative;min-width:0;width:min(100%,380px);margin:0 auto;
+}
+.mr-phone-motion {transform-origin:50% 50%;}
+.mr-phone {
+  position:relative;box-sizing:border-box;padding:7px;
+  border:1px solid #9d9d9b;border-radius:54px;
+  background:linear-gradient(105deg,#b8b8b4,#424244 3%,#101012 96%,#989894);
+  box-shadow:-3px 0 0 #555558,0 0 0 1px #000;
+  transform:none;transform-origin:50% 50%;
+}
+.mr-phone::before,.mr-phone::after {
+  content:'';position:absolute;left:-6px;width:3px;
+  border-radius:2px;background:#77777b;
+}
+.mr-phone::before {top:120px;height:28px;}
+.mr-phone::after {top:170px;height:56px;}
+.mr-display {
+  position:relative;overflow:hidden;border-radius:46px;background:#101012;
+}
+.mr-display::before {
+  content:'';position:absolute;z-index:1;top:2%;left:36%;
+  width:28%;height:2.8%;border-radius:999px;background:#050505;
+}
+.mr-display img {
+  display:block;width:100%;height:auto;aspect-ratio:946/2048;
+}
+@media (min-width:761px) and (max-height:850px) {
+  .mr-hero {padding-top:100px;padding-bottom:40px;}
+  .mr-stage {
+    width:min(100%,calc((100svh - 150px)*.462));min-width:240px;
+  }
+}
+@media (max-width:1100px) {
+  .mr-hero {
+    padding-inline:40px;gap:36px;
+    grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);
+  }
+  .mr-intro h1 {font-size:clamp(44px,5.7vw,64px);}
+  .mr-hero-actions {gap:18px;}
+}
+@media (max-width:760px) {
+  .mr-hero {
+    min-height:0;grid-template-columns:minmax(0,1fr);
+    gap:38px;padding:104px 24px 48px;text-align:center;
+  }
+  .mr-eyebrow {font-size:10px;margin-bottom:18px;}
+  .mr-intro h1 {font-size:clamp(34px,8vw,58px);}
+  .mr-description {
+    max-width:470px;margin:22px auto 0;font-size:16px;
+  }
+  .mr-hero-actions {
+    justify-content:center;margin-top:26px;gap:22px;
+  }
+  .mr-hero-actions a {font-size:14px;}
+  .mr-connection {margin-top:20px;font-size:12px;}
+  .mr-stage {width:min(76vw,300px);}
+  .mr-phone {padding:5px;border-radius:43px;}
+  .mr-display {border-radius:37px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .mr-phone {transform:none;}
+  .mr-hero-actions .mr-hero-primary {transition:none;}
+}
+
+/* MARC upright phone */
+.mr-hero .mr-phone,
+.mr-hero .mr-phone-motion {
+  transform: none;
+  rotate: none;
+  translate: none;
+}
+
+
+/* MARC connection note */
+.mr-hero .mr-connection {
+  margin-top:24px;color:#9696a1;font-size:12px;line-height:1.7;
+}
+.mr-hero .mr-connection span {
+  color:#bdbdc6;
+}
+
+/* MARC hero CTA and benefits */
+.mr-hero .mr-hero-actions {
+  align-items:center;gap:20px 28px;
+}
+.mr-hero .mr-hero-primary {flex-shrink:0;}
+.mr-hero .mr-hero-actions .mr-connection {
+  flex:1 1 230px;min-width:0;margin:0;
+  text-align:left;font-size:12px;line-height:1.6;
+}
+.mr-hero .mr-connection span {
+  display:block;color:#d1d1d9;font-size:13px;font-weight:500;
+}
+.mr-hero .mr-connection small {
+  display:block;margin-top:3px;color:#a9a9b4;
+  font-size:12px;line-height:1.6;
+}
+.mr-hero .mr-benefits {
+  display:flex;flex-wrap:wrap;gap:10px 24px;
+  list-style:none;margin:26px 0 0;padding:0;
+  color:#bdbdc6;font-size:12px;line-height:1.6;
+}
+.mr-hero .mr-benefits li {
+  display:flex;align-items:center;gap:8px;
+  margin:0;padding:0;white-space:nowrap;
+}
+.mr-hero .mr-benefits li>span {
+  color:#dedee3;font-size:16px;line-height:1;
+}
+.mr-hero .mr-benefits a {
+  color:inherit;text-decoration:underline;text-underline-offset:4px;
+}
+.mr-hero .mr-benefits a:hover {color:#fff;}
+.mr-hero .mr-benefits a:focus-visible {
+  outline:2px solid #f5f5f7;outline-offset:5px;
+}
+@media(max-width:760px) {
+  .mr-hero .mr-hero-actions {gap:18px;}
+  .mr-hero .mr-hero-actions .mr-connection {
+    flex-basis:100%;text-align:center;
+  }
+  .mr-hero .mr-benefits {gap:10px 18px;margin-top:24px;
+  }
+}
+
+/* MARC mobile compact hero rows */
+@media(max-width:760px) {
+  .mr-hero .mr-hero-actions {
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:center;gap:14px;
+    width:100%;max-width:460px;
+    margin-inline:auto;text-align:left;
+  }
+  .mr-hero .mr-hero-actions .mr-hero-primary {
+    min-height:46px;padding:0 20px;
+    font-size:13px;white-space:nowrap;
+  }
+  .mr-hero .mr-hero-actions .mr-connection {
+    min-width:0;margin:0;text-align:left;
+  }
+  .mr-hero .mr-connection span {
+    font-size:12px;line-height:1.45;
+  }
+  .mr-hero .mr-connection small {
+    font-size:11px;line-height:1.5;margin-top:3px;
+  }
+  .mr-hero .mr-benefits {
+    display:flex;flex-wrap:nowrap;justify-content:center;
+    gap:clamp(6px,2.5vw,14px);
+    font-size:clamp(10px,2.8vw,12px);
+    margin-top:22px;
+  }
+  .mr-hero .mr-benefits li {gap:4px;min-width:0;}
+  .mr-hero .mr-benefits li>span {
+    font-size:13px;flex-shrink:0;
+  }
+}
+@media(max-width:360px) {
+  .mr-hero .mr-hero-actions {gap:10px;}
+  .mr-hero .mr-hero-actions .mr-hero-primary {
+    padding-inline:16px;font-size:12px;
+  }
+  .mr-hero .mr-connection span {font-size:11px;}
+  .mr-hero .mr-connection small {font-size:10.5px;}
+  .mr-hero .mr-benefits {font-size:10px;gap:6px;}
+  .mr-hero .mr-benefits li {gap:3px;}
+  .mr-hero .mr-benefits li>span {font-size:12px;}
 }

@@ -3,44 +3,43 @@
 const screens = {
   "status": {
     "label": "Status",
-    "description": "Check CPU and memory, follow network and disk activity, and see services and top processes in one place.",
+    "description": "Mac feeling busy? Check CPU and memory, network and disk activity, and the services and processes behind it.",
     "src": "assets/status.webp"
   },
   "system": {
     "label": "System",
-    "description": "Explore CPU cores, memory, uptime, and other system details.",
+    "description": "Need more detail? Inspect CPU cores, memory, storage, uptime and the connected Mac’s system information.",
     "src": "assets/system.webp"
   },
   "statistics": {
     "label": "Statistics",
-    "description": "Review CPU, load, memory, network, and disk activity history.",
+    "description": "Was it a quick spike or sustained activity? Review recorded CPU, memory, network and disk history on your Mac.",
     "src": "assets/statistics.webp"
   },
   "processes": {
     "label": "Processes",
-    "description": "Search running processes, compare CPU and memory use, and inspect what is active.",
+    "description": "Find what’s using resources. Search and sort running processes, then review the selected process before stopping it. Unsaved work can be lost.",
     "src": "assets/processes.webp"
   },
   "files": {
     "label": "Files",
-    "description": "Find a file on your Mac. Preview it, download it to iPhone, share it, or rename and move it over SFTP.",
+    "description": "Need a file from your Mac? Browse folders, preview it, then download or share a copy from your iPhone.",
     "src": "assets/files.webp"
   },
   "terminal": {
     "label": "Terminal",
-    "description": "Use multiple terminal sessions, handy shortcut keys, and optional AI command suggestions.",
+    "description": "Need to finish a task? Run commands on your Mac in separate terminal sessions, with AI suggestions when configured. Review commands before running them.",
     "src": "assets/terminal.webp"
   },
   "control": {
     "label": "Control Center",
-    "description": "Manage supported Wi-Fi and Bluetooth controls, audio, brightness, playback, and quick launch.",
+    "description": "Adjust supported audio, brightness, playback, Wi-Fi and Bluetooth controls, or launch a Mac app. Availability depends on your Mac and permissions.",
     "src": "assets/control.webp"
   },
-  "fileDetails": {"label": "File details", "description": "Inspect size, dates, permissions and ownership. Preview, download, share, rename or move a file from one sheet.", "src": "assets/file-details.webp"},
-  "settings": {
-    "label": "Settings",
-    "description": "Manage saved Macs, connection settings, appearance, refresh rate, and available security options.",
-    "src": "assets/settings.webp"
+  "fileDetails": {
+    "label": "File details",
+    "description": "Check a file’s size, dates, permissions and owner. Preview, download, share, rename or move it using the available actions.",
+    "src": "assets/file-details.webp"
   }
 };
   const tour = document.querySelector('.mt-tour');
@@ -67,15 +66,45 @@ const screens = {
       reveal = summary.animate([{opacity: .35, translate: '0 7px'}, {opacity: 1, translate: '0 0'}], {duration: 320, easing: 'ease-out'});
     }
   }
+  /* MARC scroll-driven screens */
+  let scrollTarget = '';
   function draw() {
     frame = 0;
     if (!visible || !desktop.matches) return;
-    const focus = (innerHeight + 90) / 2;
-    const distances = scenes.map(scene => {
-      const r = scene.querySelector('.mt-device').getBoundingClientRect();
-      return Math.abs(r.top + r.height / 2 - focus);
-    });
-    mark(distances.indexOf(Math.min(...distances)));
+
+    const focus = innerHeight * .45;
+    const rectangles = scenes.map(
+      scene => scene.getBoundingClientRect()
+    );
+    const distances = rectangles.map(r =>
+      r.top > focus ? r.top - focus :
+      r.bottom < focus ? focus - r.bottom : 0
+    );
+    const index = distances.indexOf(Math.min(...distances));
+    mark(index);
+
+    if (reduced.matches) return;
+
+    const scene = scenes[index];
+    const buttons = [
+      ...scene.querySelectorAll('[data-tour-screen]')
+    ];
+    const rect = rectangles[index];
+    const travel = Math.max(1, rect.height - innerHeight + 112);
+    const progress = Math.max(
+      0, Math.min(1, (112 - rect.top) / travel)
+    );
+    const step = Math.min(
+      buttons.length - 1,
+      Math.floor(progress * buttons.length)
+    );
+    const target = index + ':' + step;
+    if (scrollTarget === target) return;
+    scrollTarget = target;
+
+    if (buttons[step]?.getAttribute('aria-pressed') !== 'true') {
+      select(buttons[step]);
+    }
   }
   function request() {
     if (visible && desktop.matches && !frame) frame = requestAnimationFrame(draw);
@@ -91,8 +120,10 @@ const screens = {
   addEventListener('scroll', request, {passive: true});
   addEventListener('resize', request, {passive: true});
   addEventListener('pageshow', request);
-  desktop.addEventListener('change', request);
+  desktop.addEventListener('change', () => { scrollTarget = ''; request(); });
   reduced.addEventListener('change', () => {
+    scrollTarget = '';
+    request();
     reveal?.cancel();
     scenes.forEach(scene => {
       const current = state.get(scene);

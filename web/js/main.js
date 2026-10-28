@@ -10,17 +10,15 @@
       observer.unobserve(entry.target);
       if (reduced.matches) return;
       const node = entry.target;
-      const index = node.matches('.story-features article') ?
-        [...node.parentElement.children].indexOf(node) % 2 : 0;
       const animation = node.animate([
         {opacity: .15, transform: 'translateY(16px)'},
         {opacity: 1, transform: 'translateY(0)'}
-      ], {duration: 560, delay: index * 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
+      ], {duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
       active.add(animation);
       animation.finished.catch(() => {}).finally(() => active.delete(animation));
     });
   }, {threshold: 0, rootMargin: '0px 0px -24px 0px'});
-  document.querySelectorAll('.story-heading, .story-copy, .story-phone, .story-features article, #faq-title, .marc-faq-list, .md-logo, #download-title, .md-description, .md-actions, .mt-mobile-copy')
+  document.querySelectorAll('#faq-title, .marc-faq-list, #download-title, .mt-mobile-copy')
     .forEach(node => observer.observe(node));
   function cancel() { active.forEach(animation => animation.cancel()); }
   reduced.addEventListener('change', () => { if (reduced.matches) cancel(); });

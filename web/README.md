@@ -24,15 +24,15 @@ Open http://localhost:8000. Edit source files, then rebuild and refresh.
 - `css/policies.css`: Privacy and Terms reading layout.
 - `css/legal.css`: license and fallback pages.
 - `js/main.js`: marketing navigation, FAQ motion, and desktop wheel easing.
-- `js/hero.js`: hero entrance and scroll-linked phone movement.
+- `js/hero.js`: hero text entrance; the phone remains upright.
 - `js/tour.js`: screen metadata, Explore chapter tracking, screen crossfades, zoom, and intro reveal.
 - `js/docs.js`: documentation search, copy buttons, sidebar, and contents tracking.
 - `js/reading.js`: reading-page entrances.
-- `docs/`: individual guides. Their embedded search index includes all 12 guides.
+- `docs/`: individual guides. Their embedded search index includes all 13 documentation pages.
 - `assets/`: referenced screenshots, logos, and icons.
 
 `build.py` expands components and fingerprints local resources. It produces
-20 complete pages in `dist/`. The generated site loads its scripts directly;
+21 complete pages in `dist/`. The generated site loads its scripts directly;
 it does not fetch HTML components at runtime. Build output is repeatable and
 is ignored by Git. `check.py` checks local links, anchors, search-index targets,
 resource references, and asset fingerprints.

@@ -1,29 +1,14 @@
 <section class="marc-faq" id="faq" aria-labelledby="faq-title">
-  <h2 id="faq-title">Frequently asked questions.</h2>
-  <div class="marc-faq-list">
-    <details name="marc-faq">
-      <summary>Do I need a subscription?</summary>
-      <p>No. Mac monitoring, file management, multiple terminal sessions, and everyday controls don’t require a subscription.</p>
-    </details>
-    <details name="marc-faq">
-      <summary>How does MARC connect to my Mac?</summary>
-      <p>MARC connects over SSH. Enable Remote Login on your Mac, then add it in the app using your Mac credentials or an SSH key.</p>
-    </details>
-    <details name="marc-faq">
-      <summary>Can I use MARC away from home?</summary>
-      <p>Yes, when your iPhone can reach your Mac over the network. For access outside your home network, you can use a VPN that connects your devices.</p>
-    </details>
-    <details name="marc-faq">
-      <summary>Do I need to create an account?</summary>
-      <p>No MARC account is required. Connect directly using your Mac’s login details or an SSH key.</p>
-    </details>
-    <details name="marc-faq">
-      <summary>Is AI required?</summary>
-      <p>No. AI assistance is optional. You can connect a local AI model running on your Mac or use a supported API provider. You review suggested commands before running them. API providers may charge for usage.</p>
-    </details>
-    <details name="marc-faq">
-      <summary>Can I control my Mac’s screen?</summary>
-      <p>MARC provides monitoring, file management, terminal access, and supported controls. It doesn’t stream your Mac’s desktop.</p>
-    </details>
-  </div>
+<h2 id="faq-title">A few things to know.</h2>
+<p class="mf-intro">Getting started, connecting and using MARC.</p>
+<div class="marc-faq-list">
+<details name="marc-faq"><summary>What is MARC?</summary><p>MARC is an iPhone app for monitoring and managing a Mac over SSH. Check activity, manage files and processes, run terminal commands, and use supported system, service and Docker controls. It does not stream your Mac’s desktop.</p></details>
+<details name="marc-faq"><summary>What do I need to get started?</summary><p>A compatible iPhone and Mac, Remote Login enabled for the Mac account you use, and a network connection between your devices. Your Mac must be awake and reachable. Monitoring and helper queries require Python 3 on the Mac; some controls require additional tools or permissions. Start with both devices on the same trusted network. <a href="/docs.html">Read the setup guide →</a></p></details>
+<details name="marc-faq"><summary>Do I need a subscription?</summary><p>No subscription is required for MARC’s core monitoring, file management, terminal sessions and supported controls. External AI providers may charge for API usage.</p></details>
+<details name="marc-faq"><summary>Can I use MARC away from home?</summary><p>Yes, if your iPhone has a secure network route to your Mac, such as a VPN you configure separately. MARC does not provide an internet relay or make a sleeping or disconnected Mac reachable. <a href="/docs/troubleshooting.html">See connection guidance →</a></p></details>
+<details name="marc-faq"><summary>Do I need a MARC account?</summary><p>No. Connect using your Mac account’s username and password or a supported SSH key. Your Mac account’s permissions determine which files and actions you can access.</p></details>
+<details name="marc-faq"><summary>Do I have to set up AI?</summary><p>No. AI command suggestions are available only in Terminal and start Off. Monitoring, files, processes, services, Docker and system controls work without AI. You can use Ollama on your Mac or a supported API provider when you want suggestions. Review suggested commands before choosing Run. <a href="/docs/ai.html">Read about AI setup and data sharing →</a></p></details>
+<details name="marc-faq"><summary>Does my Mac data pass through MARC’s servers?</summary><p>Normal monitoring, terminal traffic and file transfers go directly between your iPhone and Mac over SSH, without a MARC-operated relay. API AI sends requests to your selected provider when you use it. Website analytics and support email are separate. <a href="/privacy.html">Read the Privacy Policy →</a></p></details>
+<details name="marc-faq"><summary>Where can I get help or inspect the code?</summary><p>Use the <a href="/docs.html">documentation</a> for setup and feature guides, or <a href="/support.html">contact support</a> for help. MARC’s source code and public issue tracker are on <a href="https://github.com/ShivkumarChougala/MARC">GitHub</a>. Do not post passwords, private SSH keys, API keys or sensitive logs.</p></details>
+</div>
 </section>

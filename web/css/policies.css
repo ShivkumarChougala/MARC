@@ -412,13 +412,7 @@
   background: transparent;
   border: 0;
 }
-body.marc-open-legal {
-  padding-top: 0;
-}
 .marc-open-legal .marc-policy {
-  width: calc(100% - 48px);
-  max-width: 720px;
-  margin: 0 auto;
   padding: 150px 0 72px;
 }
 .marc-open-legal .policy-grid {
@@ -428,9 +422,6 @@ body.marc-open-legal {
   padding: 0;
   background: transparent;
   border: 0;
-}
-.marc-open-legal .policy-eyebrow {
-  display: none;
 }
 .marc-open-legal .policy-heading h1 {
   text-align: center;
