@@ -19,6 +19,10 @@
   <a href="https://getmarc.app"><img src="https://img.shields.io/badge/Website-getmarc.app-555555?style=flat" alt="MARC website"></a>
   <a href="https://getmarc.app/docs"><img src="https://img.shields.io/badge/Docs-Read-007AFF?style=flat" alt="Read documentation"></a>
   <a href="https://getmarc.app/support"><img src="https://img.shields.io/badge/Support-MARC-E76F83?style=flat" alt="Support MARC"></a>
+  <br>
+  <a href="https://hub.xerj.org/contributors/ShivkumarChougala">
+    <img src="https://hub.xerj.org/contributors/ShivkumarChougala/badge.svg" alt="XERJ Corpus Hub contributor">
+  </a>
 </p>
 
 <p align="center">
