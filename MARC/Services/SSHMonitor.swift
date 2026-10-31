@@ -82,6 +82,8 @@ struct MacSnapshot: Decodable, Sendable {
     private(set) var diskReadRate: Double?
     private(set) var diskWriteRate: Double?
     private(set) var processTotalCount = 0
+    // One in-memory snapshot, owned by this exact connection. No background feed.
+    private var processSnapshot: (connection: UUID, response: MARCProcessResponse)?
     private(set) var connecting = false
     private(set) var connected = false
     private(set) var automaticReconnectEnabled = true
@@ -261,6 +263,7 @@ struct MacSnapshot: Decodable, Sendable {
     private func finishCollector(token: UUID, message: String) {
         guard generation == token else { return }
         generation = UUID()
+        processSnapshot = nil
         collectorWatchdog?.cancel()
         collectorWatchdog = nil
         collectorHealth.reset()
@@ -280,6 +283,7 @@ struct MacSnapshot: Decodable, Sendable {
 
     private func resetConnection() -> SSHClient? {
         generation = UUID()
+        processSnapshot = nil
         collectorWatchdog?.cancel()
         collectorWatchdog = nil
         collectorHealth.reset()
@@ -345,6 +349,7 @@ struct MacSnapshot: Decodable, Sendable {
         if history.count > 300 {
             history.removeFirst(history.count - 300)
         }
+        if let server { MARCNotifications.shared.evaluate(next, serverID: server.id, sessionID: generation) }
         snapshot = next
         updatedAt = Date()
     }
@@ -929,6 +934,11 @@ struct MARCProcess: Codable, Identifiable, Equatable, Sendable {
 extension SSHMonitor {
     var processConnectionID: UUID { generation }
 
+    var currentProcessResponse: MARCProcessResponse? {
+        guard connected, processSnapshot?.connection == generation else { return nil }
+        return processSnapshot?.response
+    }
+
     func terminateProcess(_ process: MARCProcess, expectedConnection: UUID? = nil) async throws {
         try Task.checkCancellation()
         if let expectedConnection, expectedConnection != generation { throw CancellationError() }
@@ -1116,6 +1126,7 @@ MARC_PROCESS_STREAM
                                 let response = try JSONDecoder().decode(
                                     MARCProcessResponse.self, from: line
                                 )
+                                self.processSnapshot = (connection, response)
                                 self.processTotalCount = response.total
                                 continuation.yield(response)
                             }

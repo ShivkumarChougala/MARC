@@ -25,6 +25,11 @@ platform_source = (root / 'MARC/Services/SSHConnectionTest.swift').read_text()
 platform = platform_source[platform_source.index('enum MARCPlatformError:'):platform_source.index('/// One authenticated, read-only request.')]
 
 support = r'''
+@MainActor final class MARCNotifications {
+    static let shared = MARCNotifications()
+    func transferCompleted(serverID: UUID?, upload: Bool) {}
+}
+
 struct ServerProfile {
     let id: UUID
     var name = "Fixture"

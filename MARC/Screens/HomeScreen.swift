@@ -671,15 +671,27 @@ private struct MARCOverviewProcesses: View {
     @State private var processConnection: UUID?
     @State private var failure: String?
     @State private var received = false
+    @State private var awaitingFirstResponse = true
 
     private var active: Bool { enabled && scenePhase == .active && monitor.connected }
-    private var current: Bool { active && processConnection == monitor.processConnectionID }
+    private var current: Bool { monitor.connected && processConnection == monitor.processConnectionID }
+    private var initialLoading: Bool {
+        active && (!current || !received) && monitor.currentProcessResponse == nil && failure == nil
+    }
+    private var displayedRows: [MARCProcess] {
+        if current && received { return rows }
+        guard let cached = monitor.currentProcessResponse else { return [] }
+        return Array(MARCProcessRows.visible(cached.processes, query: "", sorting: "CPU").prefix(3))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Top processes").font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.text).accessibilityAddTraits(.isHeader)
+                if active && current && awaitingFirstResponse && !displayedRows.isEmpty {
+                    Text("Updating…").font(.system(size: 10)).foregroundStyle(palette.muted)
+                }
                 Spacer(minLength: 8)
                 Button(action: openProcesses) {
                     HStack(spacing: 4) {
@@ -690,7 +702,7 @@ private struct MARCOverviewProcesses: View {
                 }.buttonStyle(.plain).accessibilityLabel("View all processes, sorted by CPU")
             }
             VStack(spacing: 0) {
-                if current, !rows.isEmpty {
+                if !displayedRows.isEmpty || initialLoading {
                     HStack(spacing: 8) {
                         Text("Name").frame(maxWidth: .infinity, alignment: .leading)
                         Text("PID").frame(width: 44, alignment: .trailing)
@@ -698,7 +710,9 @@ private struct MARCOverviewProcesses: View {
                         Text("Memory").frame(width: 64, alignment: .trailing)
                     }.font(.system(size: 11)).foregroundStyle(palette.muted)
                         .padding(.bottom, 6).accessibilityHidden(true)
-                    ForEach(rows) { process in
+                }
+                if !displayedRows.isEmpty {
+                    ForEach(displayedRows) { process in
                         HStack(spacing: 8) {
                             Text(process.name).font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(palette.text).lineLimit(1)
@@ -716,23 +730,27 @@ private struct MARCOverviewProcesses: View {
                         }.font(.system(size: 12)).foregroundStyle(palette.text)
                             .monospacedDigit().frame(minHeight: 44)
                             .accessibilityElement(children: .combine)
-                        if process.id != rows.last?.id {
+                        if process.id != displayedRows.last?.id {
                             Rectangle().fill(palette.border.opacity(0.5)).frame(height: 0.5)
                                 .accessibilityHidden(true)
                         }
                     }
+                } else if initialLoading {
+                    MARCLoadingRows(layout: .overviewProcesses, count: 3, palette: palette)
                 } else {
                     Text(!monitor.connected ? "Connect a Mac to see its processes."
                          : !active ? "Process updates paused."
-                         : failure ?? (received ? "No processes available." : "Loading processes…"))
+                         : failure ?? (received || monitor.currentProcessResponse != nil ? "No processes available." : "Loading processes…"))
                         .font(.system(size: 12)).foregroundStyle(palette.muted)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
-                if current, !rows.isEmpty, let failure {
+                if current, !displayedRows.isEmpty, let failure {
                     Text(failure).font(.system(size: 11)).foregroundStyle(palette.muted)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, minHeight: 152, alignment: .topLeading)
+            .modifier(MARCLoadingReveal(isLoading: initialLoading))
         }
         .task(id: "\(monitor.processConnectionID)-\(active)") {
             await refreshProcesses()
@@ -742,10 +760,16 @@ private struct MARCOverviewProcesses: View {
     private func refreshProcesses() async {
         guard !Task.isCancelled else { return }
         let connection = monitor.processConnectionID
+        // Pausing this same connection (for example under Control Center) must
+        // not collapse the preview. A replacement connection never inherits it.
+        if processConnection != connection {
+            let cached = monitor.currentProcessResponse
+            rows = cached.map { Array(MARCProcessRows.visible($0.processes, query: "", sorting: "CPU").prefix(3)) } ?? []
+            received = cached != nil
+        }
         processConnection = connection
-        rows = []
         failure = nil
-        received = false
+        awaitingFirstResponse = active
         guard active else { return }
         while !Task.isCancelled && active && monitor.processConnectionID == connection {
             do {
@@ -760,16 +784,19 @@ private struct MARCOverviewProcesses: View {
                         withTransaction(transaction) { rows = next }
                     }
                     received = true
+                    awaitingFirstResponse = false
                     failure = nil
                 }
                 guard !Task.isCancelled, active,
                       monitor.processConnectionID == connection else { return }
+                awaitingFirstResponse = false
                 failure = "Process updates stopped. Retrying…"
             } catch is CancellationError {
                 return
             } catch {
                 guard !Task.isCancelled, active,
                       monitor.processConnectionID == connection else { return }
+                awaitingFirstResponse = false
                 failure = "Process updates delayed. Retrying…"
             }
             do { try await Task.sleep(for: .seconds(3)) }

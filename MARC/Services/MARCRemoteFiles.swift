@@ -517,6 +517,7 @@ final class MARCRemoteFiles {
                 path = folder
                 lastUploadedPath = destination
                 completionEvent = UUID()
+                MARCNotifications.shared.transferCompleted(serverID: folderServerID, upload: true)
                 completionTitle = "Upload complete"
                 completionPath = destination
                 notice = nil
@@ -648,6 +649,9 @@ final class MARCRemoteFiles {
                 // Preview needs a temporary local copy, not a second download toast.
                 completionTitle = nil
                 notice = nil
+                if !forPreview {
+                    MARCNotifications.shared.transferCompleted(serverID: folderServerID, upload: false)
+                }
                 downloaded = artifact
             } catch {
                 try? await remote?.close()

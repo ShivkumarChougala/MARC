@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct MARCApp: App {
     init() {
+        MARCNotifications.shared.start()
         Task.detached(priority: .utility) {
             // A later file request retries preparation if protection is unavailable.
             try? MARCTemporaryFileStore.shared.prepare()

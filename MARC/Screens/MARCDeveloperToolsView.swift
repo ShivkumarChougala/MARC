@@ -75,6 +75,7 @@ struct MARCDeveloperToolsView: View {
         let containers = reply?.containers ?? []
         let shownContainers = Array(containers.prefix(3))
         let ownFeed = feed.connection == monitor.statisticsConnectionID && feed.action == tab.rawValue
+        let initialLoading = monitor.connected && cached == nil && (!ownFeed || feed.loading)
         VStack(alignment: .leading, spacing: 0) {
             // Keep the title compact; the trailing action retains its 44-point
             // target in the empty trailing space beside the tabs below.
@@ -114,8 +115,9 @@ struct MARCDeveloperToolsView: View {
             }
             Group {
                 if !monitor.connected { note("Connect to your Mac.", p) }
-                else if cached == nil && (!ownFeed || feed.loading) {
-                    ProgressView().frame(maxWidth: .infinity, minHeight: 55)
+                else if initialLoading {
+                    MARCLoadingRows(layout: .services, count: 3, palette: p)
+                        .accessibilityLabel(tab == .services ? "Loading services" : "Loading containers")
                 } else {
                     if ownFeed, let message = feed.message { note(message, p) }
                     if tab == .services {
@@ -142,7 +144,10 @@ struct MARCDeveloperToolsView: View {
                         }
                     }
                 }
-            }.id(tab).transition(.opacity)
+            }
+            .frame(maxWidth: .infinity, minHeight: 145, alignment: .topLeading)
+            .modifier(MARCLoadingReveal(isLoading: initialLoading))
+            .id(tab).transition(.opacity)
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: tab)
         }.frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: monitor.server?.id, initial: true) { _, id in

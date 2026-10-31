@@ -15,6 +15,7 @@ struct ProcessesScreen: View {
     @Binding var sorting: String
     @State private var processes: [MARCProcess] = []
     @State private var failure: String?
+    @State private var received = false
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
 
@@ -23,12 +24,14 @@ struct ProcessesScreen: View {
     }
 
     private var visible: [MARCProcess] {
-        guard currentConnection else { return [] }
-        return MARCProcessRows.visible(processes, query: query, sorting: sorting,
+        guard monitor.connected else { return [] }
+        let displayed = currentConnection && received ? processes : monitor.currentProcessResponse?.processes ?? []
+        return MARCProcessRows.visible(displayed, query: query, sorting: sorting,
                                        frozenOrder: scrolling ? scrollOrder : [])
     }
 
     private func accept(_ result: [MARCProcess]) {
+        received = true
         guard result != processes else { return }
 
         var transaction = Transaction()
@@ -41,6 +44,7 @@ struct ProcessesScreen: View {
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         let rows = visible
+        let initialLoading = monitor.connected && (!currentConnection || !received) && monitor.currentProcessResponse == nil && failure == nil
         GeometryReader { viewport in
             let topInset = viewport.safeAreaInsets.top
             let bottomInset = viewport.safeAreaInsets.bottom
@@ -62,14 +66,14 @@ struct ProcessesScreen: View {
                                     .font(.system(size: 13))
                                     .foregroundStyle(p.muted)
                                     .padding(.vertical, 12)
-                            } else if !currentConnection || processes.isEmpty {
-                                VStack(spacing: 4) {
-                                    if failure == nil { ProgressView().padding(.bottom, 6) }
-                                    Text(failure == nil ? "Loading processes…" : "Waiting for live process data…")
-                                }
-                                .frame(maxWidth: .infinity)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(p.muted)
+                            } else if initialLoading {
+                                MARCLoadingRows(layout: .processes, count: MARCLoadingRows.rowsToFill(
+                                    viewport.size.height + bottomInset - topInset -
+                                        (searchFocused || !query.isEmpty ? 44 : headerMotion.expandedHeight),
+                                    rowHeight: 56) + 1, palette: p)
+                            } else if (!currentConnection || !received) && monitor.currentProcessResponse == nil {
+                                Text("Waiting for live process data…")
+                                    .font(.system(size: 13)).foregroundStyle(p.muted)
                                     .padding(.vertical, 12)
                             } else {
                                 ForEach(rows) { process in
@@ -117,7 +121,7 @@ struct ProcessesScreen: View {
                                     .accessibilityHint("Opens termination confirmation")
                                 }
                                 if rows.isEmpty {
-                                    Text("No matching processes.")
+                                    Text(processes.isEmpty ? "No processes available." : "No matching processes.")
                                         .font(.system(size: 12))
                                         .foregroundStyle(p.muted)
                                         .padding(.vertical, 12)
@@ -125,6 +129,7 @@ struct ProcessesScreen: View {
                             }
                         }
                         .padding(.horizontal, 16)
+                        .modifier(MARCLoadingReveal(isLoading: initialLoading))
                     }
                     .padding(.bottom, 70 + bottomInset)
                 }
@@ -154,7 +159,7 @@ struct ProcessesScreen: View {
 
                 MARCProcessHeader(motion: headerMotion, query: $query,
                                   sorting: $sorting, searchFocused: $searchFocused,
-                                  count: monitor.connected ? monitor.processTotalCount : 0,
+                                  count: (currentConnection && received) || monitor.currentProcessResponse != nil ? monitor.processTotalCount : nil,
                                   palette: p)
             }
             .frame(width: viewport.size.width, height: viewport.size.height, alignment: .top)
@@ -180,7 +185,9 @@ struct ProcessesScreen: View {
             processConnection = connection
             terminating = nil
             scrolling = false
-            processes = []
+            let cached = monitor.currentProcessResponse
+            processes = cached?.processes ?? []
+            received = cached != nil
             scrollOrder = []
             failure = nil
             guard monitor.connected else { return }
@@ -227,7 +234,7 @@ private struct MARCProcessHeader: View {
     @Binding var query: String
     @Binding var sorting: String
     @Binding var searchFocused: Bool
-    let count: Int
+    let count: Int?
     let palette: MARCPalette
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -248,7 +255,8 @@ private struct MARCProcessHeader: View {
                     .lineLimit(1).minimumScaleFactor(0.8)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                MARCRollingNumberText(text: "\(count) total", value: Double(count))
+                MARCRollingNumberText(text: count.map { "\($0) total" } ?? "— total",
+                                      value: count.map { Double($0) })
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(p.muted)
                     .lineLimit(1).minimumScaleFactor(0.8)

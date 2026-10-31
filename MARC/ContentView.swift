@@ -39,6 +39,22 @@ struct ContentView: View {
     private var reconnectPermitted: Bool {
         scenePhase == .active && !needsIntroduction && guidedTour.flow != .setup
     }
+    private func consumeNotification() {
+        guard let destination = MARCNotifications.shared.destination else { return }
+        MARCNotifications.shared.destination = nil
+        guard store.servers.contains(where: { $0.id == destination.serverID }) else {
+            tab = 4
+            return
+        }
+        // Never silently execute a connection or show a different Mac's data.
+        if store.monitor.server?.id == destination.serverID && store.monitor.connected {
+            tab = destination.tab
+        } else {
+            store.selectedID = destination.serverID
+            tab = 4
+        }
+    }
+
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         Group {
@@ -107,6 +123,8 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillHideNotification
         )) { _ in keyboardVisible = false }
+        .onAppear { consumeNotification() }
+        .onChange(of: MARCNotifications.shared.destination) { _, _ in consumeNotification() }
         .marcCanvas()
         .environment(\.marcGuidedTour, guidedTour)
         .allowsHitTesting(terminating == nil)

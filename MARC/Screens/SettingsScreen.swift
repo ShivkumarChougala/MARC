@@ -232,6 +232,12 @@ struct SettingsScreen: View {
                             Text("5 seconds").tag(5)
                         }.labelsHidden().pickerStyle(.menu).tint(p.muted).font(.system(size: 15))
                     }.padding(.horizontal, 14).frame(minHeight: 50)
+                    MARCSettingsDivider()
+                    NavigationLink {
+                        MARCNotificationSettings(servers: store.servers)
+                    } label: {
+                        MARCSettingsSupportRow(title: "Notifications", icon: "bell", external: false)
+                    }.buttonStyle(.plain)
                 }
         case .support:
                 MARCSettingsGroup(title: "Support") {

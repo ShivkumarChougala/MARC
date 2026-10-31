@@ -17,6 +17,8 @@ types = monitor[monitor.index('struct MARCProcess:'):monitor.index('extension SS
 response = monitor[monitor.index('struct MARCProcessResponse:'):monitor.index('extension SSHMonitor {\n    func processUpdates(')]
 rows = (root / 'MARC/Services/MARCProcessRows.swift').read_text()
 gauge_data = home[home.index('private struct MARCOverviewGaugeReading {'):home.index('private struct MARCOverviewSystemCard:')]
+loading_source = (root / 'MARC/Components/MARCLoadingRows.swift').read_text()
+loading_count = loading_source[loading_source.index('    static func rowsToFill('):loading_source.index('    private var rowHeight:')]
 
 
 support = r'''
@@ -34,6 +36,7 @@ enum FixtureError: Error { case expected }
 @MainActor final class MockMonitor {
     var connected = true
     var processConnectionID = UUID()
+    var currentProcessResponse: MARCProcessResponse?
     var calls = 0
     var gate: Gate?
     var throwAfterGate = false
@@ -53,6 +56,7 @@ enum FixtureError: Error { case expected }
     var processConnection: UUID?
     var failure: String?
     var received = false
+    var awaitingFirstResponse = true
 '''
 tests = r'''
 @main struct StatusChecks {
@@ -64,6 +68,16 @@ tests = r'''
         preconditionFailure("Fixture did not reach expected state")
     }
     @MainActor static func main() async {
+        for height in [CGFloat(300), 600, 900, 1400, 2000] {
+            for rowHeight in [CGFloat(56), 69] {
+                let count = FixtureLoadingRows.rowsToFill(height, rowHeight: rowHeight)
+                precondition(CGFloat(count) * rowHeight >= height)
+                precondition(CGFloat(count - 1) * rowHeight < height)
+            }
+        }
+        precondition(FixtureLoadingRows.rowsToFill(.infinity, rowHeight: 56) == 1)
+        precondition(FixtureLoadingRows.rowsToFill(100000, rowHeight: 56) == 64)
+        precondition(FixtureLoadingRows.rowsToFill(600, rowHeight: 0) == 1)
         let percent = MARCOverviewGaugeReading(raw: 150, kind: .percentage)
         precondition(percent.value == 100 && percent.text == "100%" && percent.progress == 1)
         let load = MARCOverviewGaugeReading(raw: 1.2, kind: .load)
@@ -114,6 +128,43 @@ tests = r'''
         await running.value
         precondition(live.rows.map(\.pid) == [4, 2, 3], "Stale response must not replace readings")
 
+        let paused = FixtureFeed()
+        paused.processConnection = paused.monitor.processConnectionID
+        paused.rows = [process(4, 9)]
+        paused.received = true
+        paused.enabled = false
+        await paused.refreshProcesses()
+        precondition(paused.current && paused.rows.count == 1 && !paused.initialLoading,
+                     "Pausing the same connection must keep the preview's existing rows")
+        precondition(paused.monitor.calls == 0)
+        paused.monitor.processConnectionID = UUID()
+        precondition(!paused.current, "A new connection must hide the old preview immediately")
+        await paused.refreshProcesses()
+        precondition(paused.rows.isEmpty && !paused.received)
+        paused.enabled = true
+        precondition(paused.initialLoading)
+
+        let restored = FixtureFeed()
+        restored.monitor.currentProcessResponse = MARCProcessResponse(total: 1, processes: [process(8, 2)])
+        precondition(!restored.initialLoading && restored.displayedRows.map(\.pid) == [8],
+                     "Recreated Status must display a current cached snapshot before its task starts")
+        restored.enabled = false
+        await restored.refreshProcesses()
+        precondition(restored.received && restored.rows.map(\.pid) == [8] && restored.monitor.calls == 0)
+        restored.monitor.currentProcessResponse = nil
+        restored.monitor.processConnectionID = UUID()
+        precondition(restored.displayedRows.isEmpty, "A replacement session must hide old rows")
+
+        let empty = FixtureFeed()
+        let emptyTask = Task { await empty.refreshProcesses() }
+        await waitFor { empty.monitor.continuation != nil }
+        empty.monitor.continuation?.yield(MARCProcessResponse(total: 0, processes: []))
+        await waitFor { empty.received }
+        precondition(empty.rows.isEmpty && !empty.initialLoading,
+                     "A completed empty response must leave loading and show an empty state")
+        emptyTask.cancel(); await emptyTask.value
+        print("PASS: loading distinguishes first read and empty results; same-connection pause preserves rows; replacement connection clears them")
+
         for cancel in [false, true] {
             let stale = FixtureFeed(); let gate = Gate(); stale.monitor.gate = gate
             stale.monitor.throwAfterGate = true
@@ -136,7 +187,7 @@ tests = r'''
 '''
 
 def fixture_source():
-    return support + properties + worker + '\n}\n' + types + response + rows + gauge_data + sections + tests
+    return support + properties + worker + '\n}\n' + types + response + rows + gauge_data + sections + '\nenum FixtureLoadingRows {\n' + loading_count + '\n}\n' + tests
 
 if __name__ == '__main__':
     if '--source-only' in sys.argv:

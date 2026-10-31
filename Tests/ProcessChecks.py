@@ -91,6 +91,7 @@ enum FixtureEvent { case stdout(FixtureBytes), stderr(FixtureBytes) }
     var server: Server? = Server()
     var generation = UUID()
     var processTotalCount = 0
+    var processSnapshot: (connection: UUID, response: MARCProcessResponse)?
 }
 @MainActor final class TerminationHarness {
     let process = MARCProcess(started: "start", pid: 321, user: "fixture", cpu: 0, memory: 0, name: "fixture")
@@ -147,12 +148,19 @@ checks = r'''
         let consumer = Task { for try await _ in updates {} }
         firstClient.emit(12)
         await waitFor { monitor.processTotalCount == 12 }
+        precondition(monitor.currentProcessResponse?.total == 12)
+        monitor.connected = false
+        precondition(monitor.currentProcessResponse == nil, "Disconnected snapshots must not be displayed")
+        monitor.connected = true
+        precondition(monitor.currentProcessResponse?.total == 12)
         let nextClient = SSHClient()
         monitor.client = nextClient; monitor.generation = UUID(); monitor.processTotalCount = 77
+        precondition(monitor.currentProcessResponse == nil, "A replacement connection must not inherit cached processes")
         firstClient.emit(999)
         if case .success = await consumer.result { preconditionFailure("Old stream survived reconnect") }
         await waitFor { firstClient.commands.contains { $0.contains("MARC_STOP_PROCESSES") } }
         precondition(monitor.processTotalCount == 77 && nextClient.commands.isEmpty)
+        precondition(monitor.currentProcessResponse == nil, "A stale stream cannot repopulate the cache")
 
         // Do not consume until a burst has been parsed. Historical snapshots
         // must not queue behind the newest state while the UI is delayed.

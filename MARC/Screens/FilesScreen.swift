@@ -28,6 +28,7 @@ struct FilesScreen: View {
     @State private var preview: MARCLocalDownload?
     @State private var showTransferProgress = false
     @State private var reconnectAttempt = UUID()
+    @State private var openingDirectory = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
     @AppStorage("marc.accent") private var marcAccentPreference = MARCAccentColor.defaultColor.rawValue
@@ -35,6 +36,15 @@ struct FilesScreen: View {
 
     private var connectionID: String {
         "\(monitor.server?.id.uuidString ?? "")-\(monitor.connected)"
+    }
+
+    private var loadingListing: Bool {
+        monitor.connected && files.failure == nil &&
+            (!files.ready || (files.busy && files.activity == "Opening folder" && openingDirectory))
+    }
+
+    private var refreshingListing: Bool {
+        files.ready && files.busy && files.activity == "Opening folder" && !openingDirectory
     }
 
     private var visibleEntries: [MARCRemoteEntry] {
@@ -46,7 +56,8 @@ struct FilesScreen: View {
 
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
-        let entries = visibleEntries
+        // Never display the previous folder's rows while opening another one.
+        let entries = loadingListing ? [] : visibleEntries
 
         GeometryReader { viewport in
             let topInset = viewport.safeAreaInsets.top
@@ -59,6 +70,12 @@ struct FilesScreen: View {
                                 .frame(height: (searchFocused || !search.isEmpty ? 44 : headerMotion.expandedHeight) + topInset)
                                 .accessibilityHidden(true)
                             LazyVStack(spacing: 1) {
+                                if loadingListing {
+                                    MARCLoadingRows(layout: .files, count: MARCLoadingRows.rowsToFill(
+                                        viewport.size.height + bottomInset - topInset -
+                                            (searchFocused || !search.isEmpty ? 44 : headerMotion.expandedHeight),
+                                        rowHeight: 69) + 1, palette: p)
+                                }
                                 ForEach(entries) { entry in
                                     let metadata = detail(entry)
                                     HStack(spacing: 0) {
@@ -119,8 +136,9 @@ struct FilesScreen: View {
                                     .id(entry.id)
                                 }
                             }
+                            .modifier(MARCLoadingReveal(isLoading: loadingListing))
 
-                            if !files.busy && entries.isEmpty {
+                            if !loadingListing && !files.busy && entries.isEmpty {
                                 Text(files.ready
                                      ? (search.isEmpty ? "This folder is empty." : "No matching files.")
                                      : (monitor.connected ? "Files connection unavailable." : "Connect a Mac in Settings."))
@@ -158,6 +176,12 @@ struct FilesScreen: View {
                         headerMotion.progress = 0
                         scroll.scrollTo("marc-files-start", anchor: .top)
                     }
+                    .onChange(of: loadingListing) { _, loading in
+                        if loading {
+                            headerMotion.progress = 0
+                            scroll.scrollTo("marc-files-start", anchor: .top)
+                        }
+                    }
                     .task(id: files.lastUploadedPath) {
                         guard let uploaded = files.lastUploadedPath, !Task.isCancelled else { return }
                         let folder = files.path
@@ -177,7 +201,8 @@ struct FilesScreen: View {
                 MARCFilesHeader(
                     motion: headerMotion, search: $search,
                     searchFocused: $searchFocused,
-                    palette: p, count: entries.count,
+                    palette: p, count: loadingListing ? nil : entries.count,
+                    updating: refreshingListing,
                     directory: { directoryHeader(palette: p) },
                     actions: { fileHeaderActions(palette: p) },
                     tools: { fileToolsMenu(palette: p) }
@@ -200,7 +225,7 @@ struct FilesScreen: View {
             !importing && !choosingPhoto && !preparingPhoto && !actionSheetVisible &&
             selectedEntry == nil && preview == nil && export == nil && files.completionTitle == nil)
         .marcDelayedActivity(
-            active: files.busy && !files.transferring && !preparingPhoto && selectedEntry == nil,
+            active: files.busy && !loadingListing && !refreshingListing && !files.transferring && !preparingPhoto && selectedEntry == nil,
             title: files.ready ? files.activity : "Connecting to Files"
         )
         .task(id: preparingPhoto || files.transferring) {
@@ -233,6 +258,7 @@ struct FilesScreen: View {
         .navigationTitle("Files")
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: connectionID) { _, _ in
+            openingDirectory = false
             selectedEntry = nil
             pendingDownload = nil
             importing = false
@@ -240,6 +266,9 @@ struct FilesScreen: View {
             photoSelection = nil
             photoPreparationID = UUID()
             preparingPhoto = false
+        }
+        .onChange(of: files.busy) { _, busy in
+            if !busy { openingDirectory = false }
         }
         .task(id: "\(connectionID)-\(reconnectAttempt.uuidString)") {
             guard scenePhase != .background, monitor.connected,
@@ -394,6 +423,7 @@ struct FilesScreen: View {
         guard files.ready, !files.busy, !path.isEmpty, path != files.path else { return }
         searchFocused = false
         search = ""
+        openingDirectory = true
         files.browse(path)
     }
 
@@ -583,8 +613,7 @@ struct FilesScreen: View {
 
     private func open(_ entry: MARCRemoteEntry) {
         if entry.directory {
-            search = ""
-            files.browse(entry.path)
+            browseFolder(entry.path)
         } else {
             files.download(entry, forPreview: true)
         }
@@ -845,7 +874,8 @@ private struct MARCFilesHeader<Directory: View, Actions: View, Tools: View>: Vie
     @Binding var search: String
     @Binding var searchFocused: Bool
     let palette: MARCPalette
-    let count: Int
+    let count: Int?
+    let updating: Bool
     let directory: () -> Directory
     let actions: () -> Actions
     let tools: () -> Tools
@@ -866,8 +896,12 @@ private struct MARCFilesHeader<Directory: View, Actions: View, Tools: View>: Vie
                     .font(.system(size: titleSize, weight: .semibold))
                     .foregroundStyle(palette.text)
                     .accessibilityAddTraits(.isHeader)
+                if updating {
+                    Text("Updating…").font(.system(size: 11)).foregroundStyle(palette.muted)
+                }
                 Spacer(minLength: 8)
-                MARCRollingNumberText(text: "\(count) total", value: Double(count))
+                MARCRollingNumberText(text: count.map { "\($0) total" } ?? "— total",
+                                      value: count.map { Double($0) })
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(palette.muted)
                     .lineLimit(1).minimumScaleFactor(0.8)

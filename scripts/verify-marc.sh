@@ -14,6 +14,18 @@ marc_build="${MARC_BUILD_DIR:-$HOME/Library/Developer/Xcode/DerivedData/MARC-Ver
 mkdir -p "$marc_build"
 echo "Build output and log: $marc_build"
 xcodebuild -version
+xcrun swiftc -swift-version 5 -parse-as-library \
+    MARC/Services/MARCNotificationThreshold.swift Tests/NotificationThresholdChecks.swift \
+    -o "$marc_build/notification-threshold-checks"
+"$marc_build/notification-threshold-checks"
+xcrun swiftc -swift-version 5 -default-isolation MainActor -parse-as-library \
+    MARC/Services/MARCAlertRule.swift MARC/Services/MARCAlertStore.swift \
+    Tests/CustomAlertChecks.swift -o "$marc_build/custom-alert-checks"
+"$marc_build/custom-alert-checks"
+xcrun swiftc -swift-version 5 -default-isolation MainActor -parse-as-library \
+    MARC/Services/MARCAlertRule.swift MARC/Services/MARCNotificationThreshold.swift \
+    Tests/AdvancedAlertChecks.swift -o "$marc_build/advanced-alert-checks"
+"$marc_build/advanced-alert-checks"
 python3 scripts/verify-privacy.py
 python3 scripts/verify-licenses.py
 python3 Tests/HostTrustChecks.py

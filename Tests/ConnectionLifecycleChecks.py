@@ -13,6 +13,8 @@ store = (root / 'MARC/Models/ServerStore.swift').read_text()
 # Use production bodies verbatim. Fail if the source boundaries change.
 prefix = monitor[:monitor.index('    private func publish(')]
 prefix = prefix.replace('import Citadel\n', '').replace('import NIOCore\n', '')
+process_types = monitor[monitor.index('struct MARCProcess:'):monitor.index('extension SSHMonitor {\n    var processConnectionID:')]
+process_response = monitor[monitor.index('struct MARCProcessResponse:'):monitor.index('extension SSHMonitor {\n    func processUpdates(')]
 archive = monitor[monitor.index('private struct MARCArchivePoint:'):monitor.index('struct MARCProcess:')]
 remove = store[store.index('    func remove('):store.index('    func update(')]
 remove += store[store.index('    private func removePreferences('):store.index('    private func persist(')]
@@ -134,7 +136,9 @@ extension SSHMonitor {
             download: nil, upload: nil, read: nil, write: nil)]
         archiveError = "Old connection error"
         processTotalCount = 42
+        processSnapshot = (generation, MARCProcessResponse(total: 42, processes: []))
     }
+    func hasProcessSnapshotFixture() -> Bool { processSnapshot != nil }
 }
 @MainActor final class ServerStore {
     let monitor = SSHMonitor()
@@ -230,6 +234,7 @@ checks = r'''
         store.monitor.seedHistoryFixture()
         store.monitor.cancelConnection()
         precondition(store.monitor.archivedHistory.isEmpty && store.monitor.archiveError == nil && store.monitor.processTotalCount == 0)
+        precondition(!store.monitor.hasProcessSnapshotFixture(), "Connection reset must release the previous process snapshot")
 
         // Both success and failure from an old same-server request must be ignored.
         for response in ["[]", "invalid JSON"] {
@@ -301,7 +306,7 @@ if not compiler:
 with tempfile.TemporaryDirectory(prefix='marc-connection-checks-') as directory:
     source = Path(directory) / 'ConnectionChecks.swift'
     health = (root / 'MARC/Services/MARCCollectorHealth.swift').read_text()
-    source.write_text('import Foundation\nimport Observation\n' + support + platform + health + prefix + end_monitor + remove + '\n}\n' + extensions + archive + checks)
+    source.write_text('import Foundation\nimport Observation\n' + support + platform + health + process_types + process_response + prefix + end_monitor + remove + '\n}\n' + extensions + archive + checks)
     binary = Path(directory) / 'connection-checks'
     subprocess.run([compiler, '-swift-version', '5', '-parse-as-library', str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=30)
