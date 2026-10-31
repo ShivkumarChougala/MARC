@@ -201,7 +201,8 @@ struct FilesScreen: View {
                 MARCFilesHeader(
                     motion: headerMotion, search: $search,
                     searchFocused: $searchFocused,
-                    palette: p, count: loadingListing ? nil : entries.count,
+                    palette: p,
+                    count: files.ready && !files.path.isEmpty && !loadingListing ? entries.count : nil,
                     updating: refreshingListing,
                     directory: { directoryHeader(palette: p) },
                     actions: { fileHeaderActions(palette: p) },
@@ -453,9 +454,11 @@ struct FilesScreen: View {
                 Button("Copy folder path") { UIPasteboard.general.string = files.path }
             } label: {
                 HStack(spacing: 6) {
-                    Text(files.path == files.home ? "Home" : currentFolderName)
+                    Text(!files.path.isEmpty && files.path == files.home ? "Home" : currentFolderName)
                         .lineLimit(1).truncationMode(.middle)
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                    if !files.path.isEmpty {
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                    }
                 }
                 .foregroundStyle(p.text)
                 .frame(minHeight: 44)
@@ -471,7 +474,7 @@ struct FilesScreen: View {
             } label: {
                 Label("Back", systemImage: "chevron.left")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(p.accent)
+                    .foregroundStyle(files.ready && !files.busy && !files.path.isEmpty && files.path != "/" ? p.accent : p.muted)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
@@ -902,6 +905,9 @@ private struct MARCFilesHeader<Directory: View, Actions: View, Tools: View>: Vie
                 Spacer(minLength: 8)
                 MARCRollingNumberText(text: count.map { "\($0) total" } ?? "— total",
                                       value: count.map { Double($0) })
+                    // A first completed listing starts at its real count; only
+                    // later known-to-known changes use the rolling transition.
+                    .id(count == nil)
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(palette.muted)
                     .lineLimit(1).minimumScaleFactor(0.8)

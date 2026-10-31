@@ -56,7 +56,6 @@ enum FixtureError: Error { case expected }
     var processConnection: UUID?
     var failure: String?
     var received = false
-    var awaitingFirstResponse = true
 '''
 tests = r'''
 @main struct StatusChecks {

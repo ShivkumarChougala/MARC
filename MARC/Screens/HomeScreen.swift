@@ -161,7 +161,7 @@ struct HomeScreen: View {
                         .padding(.top, 24)
                     }
                 }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
-            }.scrollClipDisabled().scrollIndicators(.hidden)
+            }.scrollClipDisabled().marcListHeaderFade().scrollIndicators(.hidden)
                 .environment(\.marcLiveMotionEnabled,
                     statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
                         max(0, context.date.timeIntervalSince($0)) < 12
@@ -671,7 +671,6 @@ private struct MARCOverviewProcesses: View {
     @State private var processConnection: UUID?
     @State private var failure: String?
     @State private var received = false
-    @State private var awaitingFirstResponse = true
 
     private var active: Bool { enabled && scenePhase == .active && monitor.connected }
     private var current: Bool { monitor.connected && processConnection == monitor.processConnectionID }
@@ -689,9 +688,6 @@ private struct MARCOverviewProcesses: View {
             HStack {
                 Text("Top processes").font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.text).accessibilityAddTraits(.isHeader)
-                if active && current && awaitingFirstResponse && !displayedRows.isEmpty {
-                    Text("Updating…").font(.system(size: 10)).foregroundStyle(palette.muted)
-                }
                 Spacer(minLength: 8)
                 Button(action: openProcesses) {
                     HStack(spacing: 4) {
@@ -769,7 +765,6 @@ private struct MARCOverviewProcesses: View {
         }
         processConnection = connection
         failure = nil
-        awaitingFirstResponse = active
         guard active else { return }
         while !Task.isCancelled && active && monitor.processConnectionID == connection {
             do {
@@ -784,19 +779,16 @@ private struct MARCOverviewProcesses: View {
                         withTransaction(transaction) { rows = next }
                     }
                     received = true
-                    awaitingFirstResponse = false
                     failure = nil
                 }
                 guard !Task.isCancelled, active,
                       monitor.processConnectionID == connection else { return }
-                awaitingFirstResponse = false
                 failure = "Process updates stopped. Retrying…"
             } catch is CancellationError {
                 return
             } catch {
                 guard !Task.isCancelled, active,
                       monitor.processConnectionID == connection else { return }
-                awaitingFirstResponse = false
                 failure = "Process updates delayed. Retrying…"
             }
             do { try await Task.sleep(for: .seconds(3)) }
