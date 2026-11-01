@@ -594,6 +594,27 @@ struct FilesScreen: View {
                 filename: (files.completionPath as NSString).lastPathComponent
             )
             .allowsHitTesting(false)
+        } else if let interrupted = files.interruptedUpload,
+                  interrupted.serverID == monitor.server?.id, !files.busy {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Upload interrupted").font(.system(size: 13, weight: .semibold))
+                    Text(interrupted.filename).font(.system(size: 12))
+                        .lineLimit(1).truncationMode(.middle)
+                    Text("Completion wasn’t confirmed. Check the folder before retrying.")
+                        .font(.system(size: 12)).foregroundStyle(p.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                Button { files.dismissInterruptedUpload(interrupted.id) } label: {
+                    Image(systemName: "xmark").font(.system(size: 12))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Dismiss interrupted upload")
+            }
+            .foregroundStyle(p.text)
+            .padding(14)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         } else if let notice = files.notice, !files.busy {
             Text(notice)
                 .font(.system(size: 12)).multilineTextAlignment(.center)
@@ -604,6 +625,9 @@ struct FilesScreen: View {
     }
 
     private var transferDetail: String {
+        if files.uploadConflict != nil {
+            return "Choose Replace or Cancel."
+        }
         func bytes(_ count: UInt64) -> String {
             ByteCountFormatter.string(fromByteCount: Int64(clamping: count), countStyle: .file)
         }

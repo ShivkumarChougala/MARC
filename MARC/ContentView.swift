@@ -4,7 +4,7 @@ import UIKit
 struct ContentView: View {
     let store: ServerStore
     let terminalWorkspace: MARCTerminalWorkspace
-    @State private var remoteFiles = MARCRemoteFiles()
+    let remoteFiles: MARCRemoteFiles
     @AppStorage("marc.appearance") private var appearance = "system"
     @Binding var tab: Int
     @State private var processSorting = "CPU"
@@ -325,6 +325,7 @@ struct ContentView: View {
         }
         .onChange(of: store.servers.map(\.id)) { _, ids in
             terminalWorkspace.discardIfRemoved(from: ids)
+            remoteFiles.discardInterruptedUpload(ifOwnerMissingFrom: ids)
         }
         .onChange(of: store.monitor.server?.id) { _, id in
             terminating = nil

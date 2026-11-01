@@ -23,6 +23,12 @@ struct MARCUploadConflict: Identifiable, Sendable {
     let name: String
 }
 
+struct MARCInterruptedUpload: Identifiable, Equatable {
+    let id = UUID()
+    let serverID: UUID
+    let filename: String
+}
+
 @MainActor @Observable
 final class MARCRemoteFiles {
     var entries: [MARCRemoteEntry] = []
@@ -48,6 +54,18 @@ final class MARCRemoteFiles {
     var completionTitle: String?
     var completionEvent = UUID()
     var completionPath = ""
+    private(set) var interruptedUpload: MARCInterruptedUpload?
+
+    func dismissInterruptedUpload(_ id: UUID) {
+        guard interruptedUpload?.id == id else { return }
+        interruptedUpload = nil
+    }
+
+    func discardInterruptedUpload(ifOwnerMissingFrom ids: [UUID]) {
+        if let interruptedUpload, !ids.contains(interruptedUpload.serverID) {
+            self.interruptedUpload = nil
+        }
+    }
 
     @ObservationIgnored private var ssh: SSHClient?
     @ObservationIgnored private var sftp: SFTPClient?
@@ -96,6 +114,13 @@ final class MARCRemoteFiles {
     }
 
     func stop() {
+        // Capture metadata only, before cancellation clears transfer state.
+        // A lost rename reply can leave completion uncertain: never claim that
+        // the remote file is absent, or automatically replay the upload.
+        if transferring && uploadingTransfer && !cancellingTransfer &&
+            completionTitle != "Upload complete", let serverID = folderServerID {
+            interruptedUpload = MARCInterruptedUpload(serverID: serverID, filename: transferName)
+        }
         watchdog?.cancel()
         watchdog = nil
         watchdogID = UUID()
@@ -138,6 +163,7 @@ final class MARCRemoteFiles {
         guard !Task.isCancelled else { return }
         if folderServerID == server.id && ready { return }
         stop()
+        if interruptedUpload?.serverID != server.id { interruptedUpload = nil }
         await connect(server: server)
     }
 
@@ -389,6 +415,7 @@ final class MARCRemoteFiles {
 
         let destination = joined(folder, name)
         let temporary = joined(folder, ".marc-upload-\(UUID().uuidString).part")
+        interruptedUpload = nil
         busy = true
         transferring = true
         beginTransfer(name: name, upload: true)

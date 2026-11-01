@@ -87,6 +87,7 @@ struct MARCLockedRoot: View {
     // Session state survives removal of the protected UI while authentication is required.
     @State private var store = ServerStore()
     @State private var terminalWorkspace = MARCTerminalWorkspace()
+    @State private var remoteFiles = MARCRemoteFiles()
     @State private var tab = 0
     @State private var lock = MARCAppLock()
     @State private var needsUnlock = true
@@ -98,7 +99,7 @@ struct MARCLockedRoot: View {
         let p = MARCPalette(dark: scheme == .dark)
         Group {
             if !lock.enabled || lock.unlocked {
-                ContentView(store: store, terminalWorkspace: terminalWorkspace, tab: $tab)
+                ContentView(store: store, terminalWorkspace: terminalWorkspace, remoteFiles: remoteFiles, tab: $tab)
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "lock.fill")
@@ -194,6 +195,7 @@ private struct MARCPrivacyShield: UIViewRepresentable {
         private var curtain: UIWindow?
         private var unlockButton: UIButton?
         private var failureLabel: UILabel?
+        private var titleLabel: UILabel?
 
         init(lock: MARCAppLock) {
             self.lock = lock
@@ -259,7 +261,7 @@ private struct MARCPrivacyShield: UIViewRepresentable {
                 symbol.contentMode = .scaleAspectFit
                 symbol.heightAnchor.constraint(equalToConstant: 32).isActive = true
                 let title = UILabel()
-                title.text = "MARC is locked"
+                titleLabel = title
                 title.textColor = .white
                 title.font = .preferredFont(forTextStyle: .title2)
                 title.adjustsFontForContentSizeCategory = true
@@ -294,6 +296,9 @@ private struct MARCPrivacyShield: UIViewRepresentable {
                 curtain = window
             }
             // Never steal key-window ownership from the app or authentication UI.
+            // Inactivity covers content without claiming that the still-unlocked
+            // app requires authentication. Actual backgrounding still locks it.
+            titleLabel?.text = lock.unlocked ? "Privacy protected" : "MARC is locked"
             curtain?.isHidden = false
         }
 
@@ -311,6 +316,7 @@ private struct MARCPrivacyShield: UIViewRepresentable {
             curtain = nil
             unlockButton = nil
             failureLabel = nil
+            titleLabel = nil
             scene = nil
         }
         deinit { NotificationCenter.default.removeObserver(self) }

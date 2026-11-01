@@ -27,7 +27,8 @@ platform = platform_source[platform_source.index('enum MARCPlatformError:'):plat
 support = r'''
 @MainActor final class MARCNotifications {
     static let shared = MARCNotifications()
-    func transferCompleted(serverID: UUID?, upload: Bool) {}
+    var completionCalls = 0
+    func transferCompleted(serverID: UUID?, upload: Bool) { completionCalls += 1 }
 }
 
 struct ServerProfile {
@@ -769,6 +770,50 @@ checks = r'''
         precondition(!files.busy && !files.ready && files.notice?.contains("cleanup could not be confirmed") == true)
         sftp.readHook = nil; cancelledStall.open()
         await cancelledStallTask?.value
+        let interruptedOwner = MARCRemoteFiles()
+        await interruptedOwner.prepare(server: a)
+        let interruptedSource = directory.appendingPathComponent("interrupted-owner.bin")
+        try Data(repeating: 3, count: 70000).write(to: interruptedSource)
+        let interruptedGate = Gate()
+        sftp.writeHook = { await interruptedGate.wait() }
+        let notificationsBeforeStop = MARCNotifications.shared.completionCalls
+        interruptedOwner.upload(interruptedSource)
+        let interruptedOwnerTask = interruptedOwner.operationFixture()
+        await waitFor { interruptedGate.entered }
+        interruptedOwner.stop()
+        let interruptedRecord = interruptedOwner.interruptedUpload!
+        precondition(interruptedRecord.serverID == a.id && interruptedRecord.filename == "interrupted-owner.bin")
+        interruptedOwner.stop()
+        precondition(interruptedOwner.interruptedUpload == interruptedRecord, "Duplicate teardown must preserve the incident")
+        await interruptedOwner.prepare(server: a)
+        precondition(interruptedOwner.interruptedUpload == interruptedRecord, "Same-Mac reconnect must preserve interruption feedback")
+        sftp.writeHook = nil; interruptedGate.open(); await interruptedOwnerTask?.value
+        precondition(interruptedOwner.interruptedUpload == interruptedRecord && interruptedOwner.completionTitle == nil)
+        precondition(MARCNotifications.shared.completionCalls == notificationsBeforeStop,
+                     "Interrupted or stale work cannot send a completion notification")
+        interruptedOwner.dismissInterruptedUpload(UUID())
+        precondition(interruptedOwner.interruptedUpload == interruptedRecord, "An old dismiss action cannot clear a newer incident")
+        interruptedOwner.discardInterruptedUpload(ifOwnerMissingFrom: [b.id])
+        precondition(interruptedOwner.interruptedUpload == nil)
+
+        // A verified rename has committed, even if its subsequent folder refresh
+        // is interrupted. Do not replace known success with an interruption.
+        interruptedOwner.transferring = true; interruptedOwner.uploadingTransfer = true
+        interruptedOwner.completionTitle = "Upload complete"
+        interruptedOwner.stop()
+        precondition(interruptedOwner.interruptedUpload == nil)
+        await interruptedOwner.prepare(server: a)
+        interruptedOwner.transferring = true; interruptedOwner.uploadingTransfer = true
+        interruptedOwner.transferName = "switch.bin"
+        interruptedOwner.stop()
+        precondition(interruptedOwner.interruptedUpload != nil)
+        await interruptedOwner.prepare(server: b)
+        precondition(interruptedOwner.interruptedUpload == nil, "Switching Macs clears the previous Mac's incident")
+        interruptedOwner.transferring = true; interruptedOwner.uploadingTransfer = true
+        interruptedOwner.cancellingTransfer = true
+        interruptedOwner.stop()
+        precondition(interruptedOwner.interruptedUpload == nil, "Explicit cancellation keeps its existing feedback")
+        print("PASS: interrupted upload survives duplicate teardown/same-Mac reconnect; profile/switch ownership, stale callbacks, completion truth and notification suppression")
         print("PASS: stalled-read timeout and cancellation release UI, require reconnect and reject stale results")
         print("PASS: import leases survive queued work and release on rejection, completion and mid-upload cancellation")
     }
@@ -777,7 +822,9 @@ checks = r'''
 
 app_lock = (root / 'MARC/Services/MARCAppLock.swift').read_text()
 content = (root / 'MARC/ContentView.swift').read_text()
-assert 'ContentView(store: store, terminalWorkspace: terminalWorkspace, tab: $tab)' in app_lock
+assert 'ContentView(store: store, terminalWorkspace: terminalWorkspace, remoteFiles: remoteFiles, tab: $tab)' in app_lock
+assert '@State private var remoteFiles = MARCRemoteFiles()' in app_lock
+assert 'let remoteFiles: MARCRemoteFiles' in content
 assert '@State private var terminalWorkspace = MARCTerminalWorkspace()' in app_lock
 assert '@State private var tab = 0' in app_lock
 assert 'if !lock.enabled || lock.unlocked {' in app_lock
