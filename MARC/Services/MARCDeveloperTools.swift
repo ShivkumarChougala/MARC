@@ -17,11 +17,60 @@ struct MARCListeningService: Codable, Identifiable, Hashable, Sendable {
     var canStop: Bool { stoppable == true && identity != nil }
     var endpoint: String { (address.contains(":") ? "[\(address)]" : address) + ":\(port)" }
     var id: String { "\(pid)|\(name)|\(endpoint)|\(identity?.started ?? "")" }
-    var previewID: String { "\(pid)|\(port)|\(identity?.started ?? "")" }
     var addressExplanation: String {
         if address == "127.0.0.1" || address == "::1" { return "Bound to loopback on your Mac." }
         if address == "*" || address == "0.0.0.0" || address == "::" { return "Listening on all local interfaces. Reachability depends on your network and firewall." }
         return "Listening on this address on your Mac."
+    }
+}
+
+// A presentation group within one connection snapshot. Keep the original
+// listeners intact so actions still validate one real endpoint and identity.
+struct MARCListeningProcess: Identifiable, Sendable {
+    struct Key: Hashable, Sendable {
+        let pid: Int
+        let name: String
+        let identity: MARCListeningIdentity?
+    }
+    private(set) var listeners: [MARCListeningService]
+    var id: Key { Key(pid: pid, name: name, identity: listeners[0].identity) }
+    var pid: Int { listeners[0].pid }
+    var name: String { listeners[0].name }
+    var ports: [Int] { Array(Set(listeners.map(\.port))).sorted() }
+    var endpoints: [String] { Array(Set(listeners.map(\.endpoint))).sorted() }
+    var portSummary: String {
+        ports.prefix(2).map { ":\($0)" }.joined(separator: " · ") +
+            (ports.count > 2 ? " +\(ports.count - 2)" : "")
+    }
+    var searchText: String { "\(name) \(pid) " + endpoints.joined(separator: " ") }
+    var addressExplanation: String {
+        let explanations = Set(listeners.map(\.addressExplanation))
+        return explanations.count == 1 ? listeners[0].addressExplanation :
+            "These addresses belong to the same process. Reachability depends on your network and firewall."
+    }
+    var stopTarget: MARCListeningService? {
+        // Conflicting eligibility or malformed identity must fail closed.
+        guard listeners.allSatisfy({ $0.canStop && $0.identity?.pid == $0.pid }),
+              let first = listeners.first else { return nil }
+        return first
+    }
+    var canStop: Bool { stopTarget != nil }
+
+    static func grouped(_ services: [MARCListeningService]) -> [Self] {
+        var result: [Self] = []
+        var indices: [Key: Int] = [:]
+        for service in services {
+            let key = Key(pid: service.pid, name: service.name, identity: service.identity)
+            if let index = indices[key] {
+                if !result[index].listeners.contains(service) {
+                    result[index].listeners.append(service)
+                }
+            } else {
+                indices[key] = result.count
+                result.append(Self(listeners: [service]))
+            }
+        }
+        return result
     }
 }
 

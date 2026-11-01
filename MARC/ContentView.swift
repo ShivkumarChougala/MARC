@@ -396,6 +396,8 @@ struct ContentView: View {
                     }
                 }
         }
+        // Files owns its approved full-screen header and scroll fades.
+        .marcSoftScrollEdge(enabled: tab != 3)
     }
 
     @ViewBuilder

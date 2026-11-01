@@ -1,19 +1,18 @@
 import SwiftUI
 
 extension View {
-    /// Fade only above the list viewport; keep pinned controls and resting rows clear.
-    func marcListHeaderFade() -> some View {
-        mask {
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .white],
-                                   startPoint: .top, endPoint: .bottom)
-                        .frame(height: 8)
-                    Rectangle()
-                }
-                .padding(.top, -8)
-                .padding(.bottom, -geometry.safeAreaInsets.bottom)
+    /// Use the system's feathered top scroll transition instead of an automatic hard edge.
+    /// Scoped to the top so the floating dock and custom bottom fades are unaffected.
+    @ViewBuilder
+    func marcSoftScrollEdge(enabled: Bool = true) -> some View {
+        if enabled {
+            if #available(iOS 26.0, *) {
+                self.scrollEdgeEffectStyle(.soft, for: .top)
+            } else {
+                self
             }
+        } else {
+            self
         }
     }
 
@@ -21,6 +20,7 @@ extension View {
         navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
+            .marcSoftScrollEdge()
     }
 }
 

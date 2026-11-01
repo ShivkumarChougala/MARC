@@ -70,7 +70,7 @@ struct MARCDeveloperToolsView: View {
         let p = MARCPalette(dark: scheme == .dark)
         let cached = monitor.marcDeveloperCachedRead(tab.rawValue)
         let reply = cached?.reply
-        let services = compactServices(reply?.services ?? [])
+        let services = MARCListeningProcess.grouped(reply?.services ?? [])
         let shownServices = Array(services.prefix(3))
         let containers = reply?.containers ?? []
         let shownContainers = Array(containers.prefix(3))
@@ -127,7 +127,7 @@ struct MARCDeveloperToolsView: View {
                             ForEach(shownServices) { service in
                                 NavigationLink {
                                     MARCServiceDetails(service: service, monitor: monitor, connection: monitor.statisticsConnectionID)
-                                } label: { MARCServiceRow(service: service, fullAddress: false) }.buttonStyle(MARCDeveloperRowPressStyle()).padding(.vertical, 2)
+                                } label: { MARCServiceRow(service: service) }.buttonStyle(MARCDeveloperRowPressStyle()).padding(.vertical, 2)
                                 if service.id != shownServices.last?.id { previewSeparator(p) }
                             }
                         }
@@ -166,10 +166,6 @@ struct MARCDeveloperToolsView: View {
         Rectangle().fill(p.muted.opacity(0.12)).frame(height: 0.5)
             .padding(.leading, 38).accessibilityHidden(true)
     }
-    private func compactServices(_ services: [MARCListeningService]) -> [MARCListeningService] {
-        var seen = Set<String>()
-        return services.filter { seen.insert($0.previewID).inserted }
-    }
     private func note(_ text: String, _ p: MARCPalette) -> some View {
         Text(text).font(.system(size: 12)).foregroundStyle(p.muted).fixedSize(horizontal: false, vertical: true).padding(.vertical, 8)
     }
@@ -195,8 +191,7 @@ private struct MARCDeveloperRowPressStyle: ButtonStyle {
 }
 
 private struct MARCServiceRow: View {
-    let service: MARCListeningService
-    var fullAddress = true
+    let service: MARCListeningProcess
     @Environment(\.colorScheme) private var scheme
     // Decorative hints only; process identity and action eligibility come from the backend.
     private var symbol: String {
@@ -214,12 +209,12 @@ private struct MARCServiceRow: View {
                 Text(service.name).font(.system(size: 13, weight: .medium)).foregroundStyle(p.text).lineLimit(1)
                 Text("PID \(String(service.pid))").font(.system(size: 10)).foregroundStyle(p.muted)
             }.frame(maxWidth: .infinity, alignment: .leading)
-            Text(fullAddress ? service.endpoint : ":\(service.port)")
+            Text(service.portSummary)
                 .font(.system(size: 11, design: .monospaced)).foregroundStyle(p.text).lineLimit(1).truncationMode(.middle)
-                .frame(width: fullAddress ? nil : 52, alignment: .trailing)
+                .frame(maxWidth: 120, alignment: .trailing)
             Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(p.muted.opacity(0.7)).accessibilityHidden(true)
         }.frame(minHeight: 44).contentShape(Rectangle()).accessibilityElement(children: .combine)
-            .accessibilityLabel("\(service.name), PID \(service.pid), listening on \(service.endpoint)")
+            .accessibilityLabel("\(service.name), PID \(service.pid), listening on \(service.endpoints.joined(separator: ", "))")
     }
 }
 private func marcServiceState(_ state: String) -> String {
@@ -258,8 +253,10 @@ private struct MARCDeveloperList: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dismiss) private var dismiss
     private var active: Bool { visible && scenePhase == .active && monitor.connected && monitor.statisticsConnectionID == connection }
-    private var services: [MARCListeningService] {
-        feed.services.filter { search.isEmpty || "\($0.name) \($0.pid) \($0.endpoint)".localizedCaseInsensitiveContains(search) }
+    private var services: [MARCListeningProcess] {
+        MARCListeningProcess.grouped(feed.services).filter {
+            search.isEmpty || $0.searchText.localizedCaseInsensitiveContains(search)
+        }
     }
     private var containers: [MARCDeveloperContainer] {
         feed.containers.filter { search.isEmpty || "\($0.name) \($0.image) \($0.state)".localizedCaseInsensitiveContains(search) }
@@ -286,7 +283,7 @@ private struct MARCDeveloperList: View {
                 if feed.loading { ProgressView().frame(maxWidth: .infinity).padding(20) }
                 else if let message = feed.message { statusText(message, p) }
                 else if kind == "services" {
-                    heading("Listening ports · \(services.count)", p)
+                    heading("Listening processes · \(services.count)", p)
                     ForEach(services) { service in
                         NavigationLink { MARCServiceDetails(service: service, monitor: monitor, connection: connection) } label: { MARCServiceRow(service: service) }
                             .buttonStyle(.plain).padding(.vertical, 5)
@@ -344,7 +341,7 @@ private struct MARCDeveloperList: View {
 }
 
 private struct MARCServiceDetails: View {
-    let service: MARCListeningService
+    let service: MARCListeningProcess
     let monitor: SSHMonitor
     let connection: UUID
     @State private var visible = false
@@ -361,13 +358,15 @@ private struct MARCServiceDetails: View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Listening port").font(.system(size: 12)).foregroundStyle(p.muted)
+                Text("Listening ports").font(.system(size: 12)).foregroundStyle(p.muted)
                 VStack(spacing: 0) {
                     MARCDeveloperDetailRow(label: "Process", value: service.name)
                     MARCDeveloperDetailRow(label: "PID", value: String(service.pid))
                     MARCDeveloperDetailRow(label: "Protocol", value: "TCP")
-                    MARCDeveloperDetailRow(label: "Address", value: service.address)
-                    MARCDeveloperDetailRow(label: "Port", value: String(service.port), last: true)
+                    ForEach(service.endpoints, id: \.self) { endpoint in
+                        MARCDeveloperDetailRow(label: "Endpoint", value: endpoint,
+                                               last: endpoint == service.endpoints.last)
+                    }
                 }.padding(.horizontal, 16).background(p.surface, in: RoundedRectangle(cornerRadius: 14))
                 Text(service.addressExplanation).font(.system(size: 12)).foregroundStyle(p.muted)
                 if service.canStop {
@@ -397,14 +396,15 @@ private struct MARCServiceDetails: View {
             .onDisappear { visible = false; confirming = false; cancel() }
     }
     private func stop() {
-        guard active, !busy, !requested, service.canStop, let identity = service.identity else { return }
+        guard active, !busy, !requested, let target = service.stopTarget,
+              let identity = target.identity else { return }
         busy = true; feedback = nil
         work = Task {
             do {
                 try Task.checkCancellation()
                 guard active else { throw CancellationError() }
-                let reply = try await monitor.marcDeveloperRequest(action: "portStop", target: String(service.port),
-                    expectedState: service.address, identity: identity, expectedConnection: connection)
+                let reply = try await monitor.marcDeveloperRequest(action: "portStop", target: String(target.port),
+                    expectedState: target.address, identity: identity, expectedConnection: connection)
                 try Task.checkCancellation()
                 guard active else { return }
                 feedback = reply.message ?? reply.feedback ?? "Check the port list for the current state."

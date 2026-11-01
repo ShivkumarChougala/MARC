@@ -4,6 +4,7 @@ struct HomeScreen: View {
     let store: ServerStore
     let openSettings: () -> Void
     let openProcesses: (String) -> Void
+    @State private var headerDetail: MARCStatusHeaderDetail?
     @State private var controls = false
     @State private var showingMacPicker = false
     @State private var pickerMac: ServerProfile?
@@ -65,8 +66,8 @@ struct HomeScreen: View {
                         if let reading = store.monitor.snapshot,
                            !hiddenSections.split(separator: ",").contains("powerStorage") {
                             VStack(alignment: .trailing, spacing: 5) {
-                                MARCOverviewPowerReading(details: reading.details, palette: p, fontSize: 11)
-                                MARCOverviewStorageReading(reading: reading, palette: p, fontSize: 11)
+                                headerDetailButton(.battery, reading: reading, palette: p)
+                                headerDetailButton(.storage, reading: reading, palette: p)
                             }.fixedSize(horizontal: true, vertical: false)
                         }
                     }
@@ -161,7 +162,7 @@ struct HomeScreen: View {
                         .padding(.top, 24)
                     }
                 }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
-            }.scrollClipDisabled().marcListHeaderFade().scrollIndicators(.hidden)
+            }.scrollClipDisabled().scrollIndicators(.hidden)
                 .environment(\.marcLiveMotionEnabled,
                     statusVisible && store.monitor.connected && store.monitor.updatedAt.map {
                         max(0, context.date.timeIntervalSince($0)) < 12
@@ -209,18 +210,25 @@ struct HomeScreen: View {
                 SSHConnectScreen(server: server, monitor: store.monitor)
             }
             .onChange(of: store.monitor.connected) { _, connected in
+                headerDetail = nil
                 if connected { switchFailure = nil }
             }
+            .onChange(of: store.monitor.processConnectionID) { _, _ in headerDetail = nil }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { headerDetail = nil }
+            }
+            .onChange(of: hiddenSections) { _, _ in headerDetail = nil }
             .onChange(of: store.monitor.connecting) { _, connecting in
-                if connecting { switchFailure = nil }
+                if connecting { headerDetail = nil; switchFailure = nil }
             }
             .onDisappear {
+                headerDetail = nil
                 statusVisible = false
                 switchTask?.cancel(); switchTask = nil
             }
             .marcLearnOverlay([.statusSystem, .status], enabled: statusVisible && store.monitor.connected &&
                 store.monitor.snapshot != nil && !controls && !showingMacPicker &&
-                loginMac == nil && pickerMac == nil && !switchingMac)
+                loginMac == nil && pickerMac == nil && !switchingMac && headerDetail == nil)
             .sheet(isPresented: $controls) {
                 NavigationStack {
                     ControlsScreen(monitor: store.monitor).toolbar {
@@ -232,6 +240,36 @@ struct HomeScreen: View {
                 }
             }
     }
+    private func headerDetailButton(_ kind: MARCStatusHeaderDetail, reading: MacSnapshot,
+                                    palette: MARCPalette) -> some View {
+        Button { headerDetail = kind } label: {
+            HStack(spacing: 4) {
+                if kind == .battery {
+                    MARCOverviewPowerReading(details: reading.details, palette: palette, fontSize: 11)
+                } else {
+                    MARCOverviewStorageReading(reading: reading, palette: palette, fontSize: 11)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .medium)).foregroundStyle(palette.muted)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 22).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!store.monitor.connected || store.monitor.connecting || switchingMac)
+        .accessibilityLabel(kind == .battery ? "Battery details" : "Storage details")
+        .popover(isPresented: Binding(
+            get: { headerDetail == kind },
+            set: { if !$0, headerDetail == kind { headerDetail = nil } }
+        ), attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            if let current = store.monitor.snapshot, store.monitor.connected {
+                MARCStatusHeaderPopover(kind: kind, reading: current, palette: palette)
+                    .presentationCompactAdaptation(.popover)
+                    .presentationBackground(palette.surface)
+            }
+        }
+    }
+
     private var activeMac: ServerProfile? {
         store.monitor.server ?? store.selected
     }
@@ -603,6 +641,102 @@ private struct MARCOverviewGauge: View {
             }.font(.system(size: 11)).foregroundStyle(palette.muted)
                 .lineLimit(1).minimumScaleFactor(0.75)
         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+    }
+}
+
+private enum MARCStatusHeaderDetail { case battery, storage }
+
+private struct MARCStatusHeaderPopover: View {
+    let kind: MARCStatusHeaderDetail
+    let reading: MacSnapshot
+    let palette: MARCPalette
+    @Environment(\.dismiss) private var dismiss
+
+    private var batteryPercent: Double? {
+        guard reading.details?.hasBattery != false,
+              let value = reading.details?.batteryPercent, value.isFinite else { return nil }
+        return min(100, max(0, value))
+    }
+    private var validStorage: Bool {
+        reading.diskTotal.isFinite && reading.diskTotal > 0 && reading.diskAvailable.isFinite
+    }
+    private var storageAvailable: Double {
+        min(reading.diskTotal, max(0, reading.diskAvailable))
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(kind == .battery ? (reading.details?.hasBattery == false ? "Power" : "Battery") : "Storage")
+                    .font(.system(size: 16, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 8)
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(palette.muted)
+                        .frame(width: 32, height: 32).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel("Close details")
+            }
+            if kind == .battery { batteryContent } else { storageContent }
+        }
+        .foregroundStyle(palette.text).padding(18).frame(width: 270)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var batteryContent: some View {
+        if reading.details?.hasBattery == false {
+            Text("No built-in battery").font(.subheadline).foregroundStyle(palette.muted)
+            detailRow("Power source", reading.details?.powerSource ?? "Unavailable")
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(MARCStatisticsData.percent(batteryPercent))
+                    .font(.system(size: 28, weight: .semibold)).monospacedDigit()
+                Text(reading.details.map {
+                    MARCSystemDetailsData.batteryStatus(state: $0.batteryState, source: $0.powerSource)
+                } ?? "Unavailable")
+                    .font(.system(size: 12)).foregroundStyle(palette.muted)
+            }
+            if let batteryPercent {
+                ProgressView(value: batteryPercent, total: 100)
+                    .tint(batteryPercent <= 20 ? .orange : palette.accent)
+                    .accessibilityLabel("Battery charge")
+            }
+            VStack(spacing: 10) {
+                if let condition = reading.details?.batteryCondition, !condition.isEmpty {
+                    detailRow("Condition", condition)
+                }
+                if let capacity = reading.details?.batteryMaximumCapacity,
+                   capacity.isFinite, capacity >= 0, capacity <= 100 {
+                    detailRow("Maximum capacity", MARCStatisticsData.percent(capacity))
+                }
+                if let cycles = reading.details?.batteryCycleCount, cycles >= 0 {
+                    detailRow("Cycle count", String(cycles))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var storageContent: some View {
+        if validStorage {
+            Text("\(Int(reading.diskPercent.rounded()))% used")
+                .font(.system(size: 28, weight: .semibold)).monospacedDigit()
+            ProgressView(value: reading.diskPercent, total: 100)
+                .tint(palette.accent).accessibilityLabel("Storage used")
+            VStack(spacing: 10) {
+                detailRow("Used", MARCStatisticsData.storageBytes(reading.diskCapacityUsed))
+                detailRow("Available", MARCStatisticsData.storageBytes(storageAvailable))
+                detailRow("Total", MARCStatisticsData.storageBytes(reading.diskTotal))
+            }
+        } else {
+            Text("Storage data unavailable").font(.subheadline).foregroundStyle(palette.muted)
+        }
+    }
+
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label).foregroundStyle(palette.muted)
+            Spacer(minLength: 0)
+            Text(value).monospacedDigit().multilineTextAlignment(.trailing)
+        }.font(.system(size: 12))
+            .accessibilityElement(children: .combine)
     }
 }
 

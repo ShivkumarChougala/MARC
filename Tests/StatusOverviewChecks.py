@@ -188,7 +188,30 @@ tests = r'''
 def fixture_source():
     return support + properties + worker + '\n}\n' + types + response + rows + gauge_data + sections + '\nenum FixtureLoadingRows {\n' + loading_count + '\n}\n' + tests
 
+def check_header_popovers():
+    popup = home[home.index('private struct MARCStatusHeaderPopover:'):home.index('private struct MARCOverviewPowerReading:')]
+    button = home[home.index('    private func headerDetailButton('):home.index('    private var activeMac:')]
+    assert '.popover(isPresented: Binding(' in button
+    assert '.presentationCompactAdaptation(.popover)' in button
+    assert 'store.monitor.snapshot, store.monitor.connected' in button
+    assert 'headerDetail == kind' in button and 'headerDetail = nil' in button
+    assert '.disabled(!store.monitor.connected || store.monitor.connecting || switchingMac)' in button
+    assert '.onChange(of: store.monitor.processConnectionID)' in home
+    assert 'if phase != .active { headerDetail = nil }' in home
+    assert 'headerDetail == nil)' in home  # Coach overlays do not compete with a popup.
+    assert 'batteryMaximumCapacity' in popup and 'capacity.isFinite' in popup
+    assert 'capacity >= 0, capacity <= 100' in popup and 'cycles >= 0' in popup
+    assert 'hasBattery == false' in popup and 'No built-in battery' in popup
+    assert 'reading.diskAvailable.isFinite' in popup and 'reading.diskTotal > 0' in popup
+    assert 'diskCapacityUsed' in popup and 'storageBytes(storageAvailable)' in popup
+    assert 'Storage data unavailable' in popup
+    assert 'batteryStatus(state:' in popup
+    assert 'Task {' not in popup and '.task' not in popup and 'exec(' not in popup
+    assert 'Pressure' not in popup and 'pressure' not in popup
+    print('PASS: native anchored Status popover wiring, connection/background dismissal, unavailable/desktop handling and existing-data-only routes')
+
 if __name__ == '__main__':
+    check_header_popovers()
     if '--source-only' in sys.argv:
         assert 'UIBlurEffect' not in fixture_source()
         assert 'import Charts' not in home and 'MARCOverviewActivityRow' not in home

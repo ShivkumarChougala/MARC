@@ -196,6 +196,42 @@ struct FixtureBuffer { let readableBytesView: [UInt8] }
     @MainActor static func main() async throws {
         let ipv6 = MARCListeningService(pid: 42, name: "node", address: "::1", port: 3000)
         precondition(ipv6.endpoint == "[::1]:3000" && ipv6.addressExplanation.contains("loopback"))
+        let identity = MARCListeningIdentity(pid: 1057, uid: 501, started: "start-a", executable: "/System/ControlCenter")
+        let control = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 7000,
+                                          identity: identity, stoppable: true)
+        let second = MARCListeningService(pid: 1057, name: "ControlCenter", address: "127.0.0.1", port: 5000,
+                                         identity: identity, stoppable: true)
+        let dualStack = MARCListeningService(pid: 1057, name: "ControlCenter", address: "::1", port: 5000,
+                                            identity: identity, stoppable: true)
+        let postgres = MARCListeningService(pid: 1180, name: "postgres", address: "*", port: 5432)
+        let grouped = MARCListeningProcess.grouped([control, postgres, second, dualStack, control])
+        precondition(grouped.count == 2 && grouped[0].ports == [5000, 7000])
+        precondition(grouped[0].portSummary == ":5000 · :7000" && grouped[0].endpoints.count == 3)
+        precondition(grouped[0].canStop && grouped[0].stopTarget == control,
+                     "Grouped stop must retain one real endpoint and its original identity")
+        precondition(grouped[0].searchText.contains("7000") && grouped[0].searchText.contains("[::1]:5000"))
+        precondition(grouped[0].id == MARCListeningProcess.grouped([second, control])[0].id,
+                     "Endpoint ordering changes must not change a process row's identity")
+        let reused = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 8000,
+            identity: MARCListeningIdentity(pid: 1057, uid: 501, started: "start-b", executable: "/System/ControlCenter"), stoppable: true)
+        let otherUser = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 8001,
+            identity: MARCListeningIdentity(pid: 1057, uid: 502, started: "start-a", executable: "/System/ControlCenter"), stoppable: true)
+        let otherExecutable = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 8002,
+            identity: MARCListeningIdentity(pid: 1057, uid: 501, started: "start-a", executable: "/Other/ControlCenter"), stoppable: true)
+        let sameName = MARCListeningService(pid: 1058, name: "ControlCenter", address: "*", port: 7001)
+        precondition(MARCListeningProcess.grouped([control, reused, otherUser, otherExecutable, sameName]).count == 5,
+                     "PID reuse, user/executable differences and same-name processes cannot be merged")
+        let unknown = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 9000)
+        precondition(MARCListeningProcess.grouped([control, unknown]).count == 2)
+        precondition(!MARCListeningProcess.grouped([unknown])[0].canStop)
+        let denied = MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 9001,
+                                         identity: identity, stoppable: false)
+        precondition(!MARCListeningProcess.grouped([control, denied])[0].canStop,
+                     "Conflicting action eligibility must fail closed")
+        let many = MARCListeningProcess.grouped([control, second, dualStack,
+            MARCListeningService(pid: 1057, name: "ControlCenter", address: "*", port: 8000, identity: identity, stoppable: true)])[0]
+        precondition(many.portSummary == ":5000 · :7000 +1" && many.endpoints.count == 4)
+        print("PASS: grouped listening process identity, sorted ports, dual-stack endpoints, search, overflow and fail-closed action eligibility")
         let queued = MARCDeveloperFeed(), qMonitor = SSHMonitor()
         let q = Task { await queued.poll(monitor: qMonitor, tab: "services", connection: qMonitor.statisticsConnectionID) }
         q.cancel(); await q.value; precondition(qMonitor.calls == 0)
@@ -255,6 +291,11 @@ fixture = fixture.replace('    CACHE_DECLARATION', cache_declaration)
 print('PASS: production Developer cache is observable; native fixture tracks identical-result refresh invalidation')
 assert 'case services, docker\n' in ui and 'Copy endpoint' not in ui and 'MARCSavedCommand' not in source
 assert 'List {' not in ui and 'Search process or port' in ui and 'Stop process' in ui
+assert 'MARCListeningProcess.grouped(reply?.services ?? [])' in ui
+assert 'MARCListeningProcess.grouped(feed.services).filter' in ui
+assert 'compactServices' not in ui and 'previewID' not in source
+assert 'ForEach(service.endpoints, id: \\.self)' in ui
+assert 'expectedState: target.address, identity: identity, expectedConnection: connection' in ui
 if '--source-only' in sys.argv: print('NOT RUN: native Swift Developer Tools checks (source-only mode)')
 else:
     compiler=shutil.which('swiftc')
