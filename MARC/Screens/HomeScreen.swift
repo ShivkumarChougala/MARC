@@ -4,6 +4,12 @@ struct HomeScreen: View {
     let store: ServerStore
     let openSettings: () -> Void
     let openProcesses: (String) -> Void
+    @State private var showingNotificationSettings = false
+    @AppStorage("marc.notifications.discoveryHandled.v1") private var alertsDiscoveryHandled = false
+    @AppStorage("marc.notifications.enabled") private var notificationsEnabled = false
+    @AppStorage("marc.learn.v1.status") private var statusHintFinished = false
+    @AppStorage("marc.learn.v1.statusSystem") private var systemHintFinished = false
+    @Environment(\.marcGuidedTour) private var guidedTour
     @State private var headerDetail: MARCStatusHeaderDetail?
     @State private var controls = false
     @State private var showingMacPicker = false
@@ -83,6 +89,9 @@ struct HomeScreen: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .accessibilityLabel("Readings are not live. Last update received \(age) seconds ago.")
                             }
+                        }
+                        if showsAlertsInvitation {
+                            alertsInvitation(palette: p)
                         }
                         ForEach(visibleSections) { item in
                             section(item, reading: reading, palette: p)
@@ -181,6 +190,7 @@ struct HomeScreen: View {
             }
             .onAppear {
                 statusVisible = true
+                if notificationsEnabled && !alertsDiscoveryHandled { alertsDiscoveryHandled = true }
                 let order = developerFirstApplied ? MARCStatusSection.ordered(sectionOrder) : MARCStatusSection.developerFirst(sectionOrder)
                 sectionOrder = order.map(\.rawValue).joined(separator: ",")
                 developerFirstApplied = true
@@ -191,6 +201,12 @@ struct HomeScreen: View {
                 hidden.remove("statistics")
                 hidden.remove("alerts")
                 hiddenSections = hidden.sorted().joined(separator: ",")
+            }
+            .navigationDestination(isPresented: $showingNotificationSettings) {
+                MARCNotificationSettings(servers: store.servers)
+            }
+            .onChange(of: notificationsEnabled) { _, enabled in
+                if enabled && !alertsDiscoveryHandled { alertsDiscoveryHandled = true }
             }
             .sheet(isPresented: $showingMacPicker, onDismiss: {
                 let selected = pickerMac
@@ -240,6 +256,38 @@ struct HomeScreen: View {
                 }
             }
     }
+    private var showsAlertsInvitation: Bool {
+        !alertsDiscoveryHandled && !notificationsEnabled && statusHintFinished && systemHintFinished &&
+        scenePhase == .active && store.monitor.connected && !store.monitor.connecting &&
+        store.monitor.snapshot != nil && guidedTour?.active != true &&
+        guidedTour?.hasBlockingPresentation != true && guidedTour?.keyboardVisible != true &&
+        !controls && !showingMacPicker && loginMac == nil && !switchingMac && headerDetail == nil
+    }
+
+    private func alertsInvitation(palette p: MARCPalette) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                alertsDiscoveryHandled = true
+                showingNotificationSettings = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bell").foregroundStyle(p.accent).accessibilityHidden(true)
+                    Text("Set up Mac alerts").font(.subheadline)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(p.muted)
+                        .accessibilityHidden(true)
+                }.frame(minHeight: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain).foregroundStyle(p.text)
+            Button { alertsDiscoveryHandled = true } label: {
+                Image(systemName: "xmark").font(.caption)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain).foregroundStyle(p.muted)
+                .accessibilityLabel("Dismiss Mac alerts invitation")
+        }
+        .padding(.leading, 14).padding(.trailing, 2).padding(.vertical, 3)
+        .background(p.surface, in: RoundedRectangle(cornerRadius: 14))
+    }
+
     private func headerDetailButton(_ kind: MARCStatusHeaderDetail, reading: MacSnapshot,
                                     palette: MARCPalette) -> some View {
         Button { headerDetail = kind } label: {

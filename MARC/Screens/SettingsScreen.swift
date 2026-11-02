@@ -69,7 +69,7 @@ struct SettingsScreen: View {
                 if stage == .addServer { setupScroll.scrollTo(edge: .top) }
             }
             .sheet(isPresented: $showingFeatureGuide) {
-                MARCFeatureGuideScreen()
+                MARCFeatureGuideScreen(servers: store.servers)
                     .environment(\.colorScheme, scheme)
                     .marcGuidePresentationBarrier()
                     .presentationDetents([.large])

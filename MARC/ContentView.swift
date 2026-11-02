@@ -214,7 +214,7 @@ struct ContentView: View {
                     }, later: { explorePresentation = nil })
                     .onAppear(perform: markExploreInvitationPresented)
                 case .gallery:
-                    MARCFeatureGuideScreen()
+                    MARCFeatureGuideScreen(servers: store.servers)
                         .presentationDetents([.large]).presentationDragIndicator(.hidden)
                 }
             }

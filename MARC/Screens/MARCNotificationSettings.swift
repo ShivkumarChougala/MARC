@@ -11,6 +11,7 @@ struct MARCNotificationSettings: View {
     @AppStorage("marc.notifications.sound") private var sound = false
     @AppStorage("marc.notifications.battery") private var battery = false
     @AppStorage("marc.notifications.storage") private var storage = false
+    @AppStorage("marc.notifications.discoveryHandled.v1") private var alertsDiscoveryHandled = false
     @State private var requesting = false
     @State private var sendingTest = false
     @State private var testScheduled = false
@@ -21,6 +22,9 @@ struct MARCNotificationSettings: View {
         let p = MARCPalette(dark: scheme == .dark)
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                Text("Mac alerts work while MARC is connected and monitoring your Mac.")
+                    .font(.footnote).foregroundStyle(p.muted)
+                    .fixedSize(horizontal: false, vertical: true)
                 VStack(spacing: 0) {
                     if notifications.authorized {
                         toggleRow("Notifications", icon: "bell", value: Binding(
@@ -94,6 +98,9 @@ struct MARCNotificationSettings: View {
         .task { await notifications.refreshAuthorization() }
         .onChange(of: phase) { _, phase in
             if phase == .active { Task { await notifications.refreshAuthorization() } }
+        }
+        .onAppear {
+            if !alertsDiscoveryHandled { alertsDiscoveryHandled = true }
         }
         .onChange(of: enabled) { _, _ in testScheduled = false }
         .onDisappear { testScheduled = false }

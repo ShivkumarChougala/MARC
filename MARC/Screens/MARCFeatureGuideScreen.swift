@@ -45,11 +45,15 @@ struct MARCExploreInvitationScreen: View {
 
 /// A self-contained gallery of real screenshots; never creates SSH, file or AI clients.
 struct MARCFeatureGuideScreen: View {
+    var servers: [ServerProfile] = []
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("marc.accent") private var accent = MARCAccentColor.defaultColor.rawValue
     @State private var selection = 0
+    @State private var showingNotifications = false
+    @AppStorage("marc.notifications.discoveryHandled.v1") private var alertsDiscoveryHandled = false
+    private var alertsPage: Int { MARCPreviewTopic.notifications.rawValue }
     private var pageCount: Int { MARCPreviewTopic.allCases.count }
     private var isLastPage: Bool { selection == pageCount - 1 }
 
@@ -66,22 +70,23 @@ struct MARCFeatureGuideScreen: View {
             }.padding(.horizontal, 20)
             TabView(selection: $selection) {
                 ForEach(MARCPreviewTopic.allCases) { topic in
-                    MARCFeaturePreviewPage(topic: topic, isActive: selection == topic.rawValue)
+                    MARCFeaturePreviewPage(topic: topic, isActive: selection == topic.rawValue,
+                        openNotifications: topic == .notifications ? { showingNotifications = true } : nil)
                         .tag(topic.rawValue)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .accessibilityLabel("MARC feature previews")
             VStack(spacing: 0) {
-                HStack(spacing: 7) {
-                    ForEach(MARCPreviewTopic.allCases) { topic in
-                        Button { move(to: topic.rawValue) } label: {
-                            Capsule().fill(selection == topic.rawValue ? p.accent : p.border)
-                                .frame(width: selection == topic.rawValue ? 18 : 6, height: 6)
+                HStack(spacing: 4) {
+                    ForEach(0..<pageCount, id: \.self) { index in
+                        Button { move(to: index) } label: {
+                            Capsule().fill(selection == index ? p.accent : p.border)
+                                .frame(width: selection == index ? 18 : 6, height: 6)
                                 .frame(minWidth: 30, minHeight: 44).contentShape(Rectangle())
                         }
-                        .accessibilityLabel("\(topic.name), \(topic.rawValue + 1) of \(pageCount)")
-                        .accessibilityAddTraits(selection == topic.rawValue ? .isSelected : [])
+                        .accessibilityLabel("\(MARCPreviewTopic(rawValue: index)?.name ?? "Notifications"), \(index + 1) of \(pageCount)")
+                        .accessibilityAddTraits(selection == index ? .isSelected : [])
                     }
                 }
                 HStack {
@@ -92,7 +97,7 @@ struct MARCFeatureGuideScreen: View {
                     Text("\(selection + 1) / \(pageCount)").font(.caption).monospacedDigit()
                         .foregroundStyle(p.muted).accessibilityLabel("Page \(selection + 1) of \(pageCount)")
                     Spacer(minLength: 4)
-                    Button(isLastPage ? "Done" : "Next →") {
+                    Button(isLastPage ? "Finish" : "Next →") {
                         if isLastPage { dismiss() } else { move(to: selection + 1) }
                     }.frame(minWidth: 80, minHeight: 44)
                 }.font(.subheadline.weight(.medium))
@@ -100,7 +105,19 @@ struct MARCFeatureGuideScreen: View {
         }
         .buttonStyle(.plain).foregroundStyle(p.text).tint(p.accent)
         .background(p.background.ignoresSafeArea())
+        .sheet(isPresented: $showingNotifications) {
+            NavigationStack {
+                MARCNotificationSettings(servers: servers)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showingNotifications = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
         .onChange(of: selection) { _, value in
+            if value == alertsPage && !alertsDiscoveryHandled { alertsDiscoveryHandled = true }
             UISelectionFeedbackGenerator().selectionChanged()
             if UIAccessibility.isVoiceOverRunning, let topic = MARCPreviewTopic(rawValue: value) {
                 UIAccessibility.post(notification: .announcement,
@@ -110,13 +127,13 @@ struct MARCFeatureGuideScreen: View {
     }
 
     private func move(to index: Int) {
-        guard MARCPreviewTopic(rawValue: index) != nil else { return }
+        guard (0..<pageCount).contains(index), index != selection else { return }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = index }
     }
 }
 
 private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
-    case status, system, statistics, processes, terminal, files, controls
+    case status, system, statistics, processes, terminal, files, controls, notifications
     var id: Int { rawValue }
     var name: String {
         switch self {
@@ -127,6 +144,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         case .files: return "Files"
         case .controls: return "Controls"
         case .terminal: return "Terminal & AI"
+        case .notifications: return "Notifications"
         }
     }
     var headline: String {
@@ -138,6 +156,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         case .files: return "Your files, closer."
         case .controls: return "A little more control."
         case .terminal: return "A terminal, within reach."
+        case .notifications: return "Stay informed."
         }
     }
     var explanation: String {
@@ -149,6 +168,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         case .files: return "Browse, preview, upload and download over SSH."
         case .controls: return "Adjust supported controls and launch your Mac’s apps."
         case .terminal: return "Use the shell. Ask AI, then review commands before Run."
+        case .notifications: return "Choose battery, storage, CPU and memory alerts. Mac alerts require an active monitoring connection."
         }
     }
     var assetName: String {
@@ -160,10 +180,13 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         case .files: return "MARCGuideFiles"
         case .controls: return "MARCGuideControls"
         case .terminal: return "MARCGuideTerminal"
+        case .notifications: return "MARCGuideNotifications"
         }
     }
     var summary: String {
-        "Screenshot of MARC’s \(name) screen. \(explanation)"
+        self == .notifications
+            ? "Example of MARC’s Notifications settings. \(explanation)"
+            : "Screenshot of MARC’s \(name) screen. \(explanation)"
     }
 
     // Anchors refer to the original screenshots, not live controls.
@@ -212,6 +235,12 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
                 .init(title: "Quick Launch", summary: "Open Mac apps", detail: "Choose a saved app to launch it on your Mac. Edit Quick Launch to pick your favourites.", x: 0.77, y: 0.85),
                 .init(title: "Now Playing", summary: "Playback controls", detail: "See what’s playing and use the supported play, pause and skip controls on your Mac.", x: 0.78, y: 0.70)
             ]
+        case .notifications:
+            return [
+                .init(title: "Mac alerts", summary: "Battery & storage", detail: "Enable notifications, then choose low battery or low storage alerts. Mac alerts require MARC to be connected and monitoring your Mac.", x: 0.04, y: 0.37),
+                .init(title: "Custom alerts", summary: "CPU & memory", detail: "Create an alert for a saved Mac and choose the CPU or memory limit that matters to you. Preview values are examples; this page does not enable any alert.", x: 0.96, y: 0.57),
+                .init(title: "Try it", summary: "Test delivery", detail: "After enabling notifications, use Send test notification to check delivery on this iPhone. The real test is scheduled only when you choose it in Notifications.", x: 0.04, y: 0.70)
+            ]
         }
     }
 
@@ -228,6 +257,7 @@ private struct MARCPreviewNote {
 private struct MARCFeaturePreviewPage: View {
     let topic: MARCPreviewTopic
     let isActive: Bool
+    var openNotifications: (() -> Void)? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var dynamicType
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -275,6 +305,13 @@ private struct MARCFeaturePreviewPage: View {
                     }
                     Text("Tap a label to learn more")
                         .font(.caption).foregroundStyle(p.muted).multilineTextAlignment(.center)
+                    if topic == .notifications, let openNotifications {
+                        Button(action: openNotifications) {
+                            Text("Set up alerts →").font(.subheadline.weight(.medium))
+                                .frame(minHeight: 44).foregroundStyle(p.accent)
+                        }.buttonStyle(.plain)
+                            .disabled(!isActive || scenePhase != .active)
+                    }
                 }
                 // A fixed top inset keeps the headline near the header. Centering
                 // a short page in the entire viewport created the oversized top gap.
