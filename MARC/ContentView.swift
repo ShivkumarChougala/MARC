@@ -88,16 +88,25 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillChangeFrameNotification
         )) { notification in
-            guard let frame = notification.userInfo?[
-                UIResponder.keyboardFrameEndUserInfoKey
-            ] as? CGRect else { return }
+            guard let screen = notification.object as? UIScreen,
+                  let frame = notification.userInfo?[
+                    UIResponder.keyboardFrameEndUserInfoKey
+                  ] as? CGRect,
+                  !frame.isNull, !frame.isInfinite else { return }
             guard let window = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })?
-                .windows.first(where: \.isKeyWindow) else { return }
-            let local = window.convert(frame, from: window.screen.coordinateSpace)
+                .filter({
+                    $0.activationState == .foregroundActive &&
+                    $0.screen === screen
+                })
+                .flatMap({ $0.windows })
+                .first(where: { $0.isKeyWindow && $0.screen === screen })
+                else { return }
+            let local = window.convert(frame, from: screen.coordinateSpace)
+            guard !local.isNull, !local.isInfinite else { return }
             let overlap = window.bounds.intersection(local)
-            keyboardVisible = !overlap.isNull && overlap.height > 0
+            keyboardVisible = !overlap.isNull &&
+                overlap.width > 0 && overlap.height > 0
         }
         .onReceive(NotificationCenter.default.publisher(
             for: UIResponder.keyboardWillHideNotification

@@ -266,6 +266,18 @@ struct FixtureBuffer { let readableBytesView: [UInt8] }
         while restored.connection == nil { await Task.yield() }
         precondition(!restored.loading && restored.services.count == 1 && cacheMonitor.calls == 2)
         restore.cancel(); await restore.value
+        let retryFeed = MARCDeveloperFeed()
+        let retry = Task {
+            await retryFeed.poll(monitor: cacheMonitor, tab: "services",
+                                 connection: cacheMonitor.statisticsConnectionID, refreshImmediately: true)
+        }
+        while cacheMonitor.calls < 3 { await Task.yield() }
+        precondition(!retryFeed.loading && retryFeed.services.count == 1 && retryFeed.refreshing,
+                     "Retry must bypass the fresh-cache delay without replacing cached rows with loading")
+        retry.cancel()
+        cacheMonitor.finish()
+        await retry.value
+        precondition(!retryFeed.refreshing, "Cancelled retry must release its refresh state")
         cacheMonitor.statisticsConnectionID = UUID()
         precondition(cacheMonitor.marcDeveloperCachedRead("services") == nil)
         let actions = SSHMonitor()

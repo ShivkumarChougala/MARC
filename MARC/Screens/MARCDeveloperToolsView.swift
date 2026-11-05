@@ -15,14 +15,17 @@ private enum MARCDeveloperTab: String, CaseIterable, Identifiable {
     var managedMessage: String?
     var message: String?
     var loading = false
+    var refreshing = false
     var truncated = false
     private var owner = UUID()
     var connection: UUID?
     var action = ""
 
-    func poll(monitor: SSHMonitor, tab: String, connection: UUID) async {
+    func poll(monitor: SSHMonitor, tab: String, connection: UUID, refreshImmediately: Bool = false) async {
         guard !Task.isCancelled, monitor.connected, monitor.statisticsConnectionID == connection else { return }
+        let retainsScope = self.connection == connection && action == tab
         let token = UUID(); owner = token
+        refreshing = false
         self.connection = connection; action = tab
         if let cached = monitor.marcDeveloperCachedRead(tab) {
             services = cached.reply.services ?? []; containers = cached.reply.containers ?? []
@@ -30,15 +33,19 @@ private enum MARCDeveloperTab: String, CaseIterable, Identifiable {
             managedMessage = cached.reply.managedMessage; truncated = cached.reply.truncated == true
             message = nil; loading = false
             let remaining = 8 - max(0, ProcessInfo.processInfo.systemUptime - cached.uptime)
-            if remaining > 0 {
+            if remaining > 0 && !refreshImmediately {
                 do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
             }
         } else {
-            services = []; containers = []; managed = []; message = nil; managedMessage = nil
-            portsMessage = nil; truncated = false; loading = true
+            if !refreshImmediately || !retainsScope {
+                services = []; containers = []; managed = []; message = nil; managedMessage = nil
+                portsMessage = nil; truncated = false
+            }
+            loading = message == nil
         }
-        defer { if owner == token { loading = false } }
+        defer { if owner == token { loading = false; refreshing = false } }
         while !Task.isCancelled && monitor.connected && monitor.statisticsConnectionID == connection {
+            refreshing = true
             do {
                 let reply = try await monitor.marcDeveloperRequest(action: tab, expectedConnection: connection)
                 try Task.checkCancellation()
@@ -51,6 +58,7 @@ private enum MARCDeveloperTab: String, CaseIterable, Identifiable {
                       monitor.statisticsConnectionID == connection else { return }
                 message = "Could not update \(tab). Try again."; loading = false
             }
+            refreshing = false
             do { try await Task.sleep(for: .seconds(8)) } catch { return }
         }
     }
@@ -61,11 +69,13 @@ struct MARCDeveloperToolsView: View {
     let enabled: Bool
     @State private var feed = MARCDeveloperFeed()
     @State private var tab = MARCDeveloperTab.services
+    @State private var retryVersion = 0
+    @State private var retryRequested = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var active: Bool { enabled && scenePhase == .active && monitor.connected }
-    private var taskID: String { "\(monitor.statisticsConnectionID)|\(tab.rawValue)|\(active)" }
+    private var taskID: String { "\(monitor.statisticsConnectionID)|\(tab.rawValue)|\(active)|\(retryVersion)" }
     var body: some View {
         let p = MARCPalette(dark: scheme == .dark)
         let cached = monitor.marcDeveloperCachedRead(tab.rawValue)
@@ -76,6 +86,10 @@ struct MARCDeveloperToolsView: View {
         let shownContainers = Array(containers.prefix(3))
         let ownFeed = feed.connection == monitor.statisticsConnectionID && feed.action == tab.rawValue
         let initialLoading = monitor.connected && cached == nil && (!ownFeed || feed.loading)
+        let failure = (ownFeed ? feed.message : nil) ?? (tab == .services ? reply?.portsMessage : nil)
+        let rowCount = tab == .services ? shownServices.count : shownContainers.count
+        // Animate state/height changes, never every live poll or reading.
+        let contentState = "\(tab.rawValue)|\(initialLoading)|\(failure != nil)|\(rowCount)"
         VStack(alignment: .leading, spacing: 0) {
             // Keep the title compact; the trailing action retains its 44-point
             // target in the empty trailing space beside the tabs below.
@@ -119,10 +133,16 @@ struct MARCDeveloperToolsView: View {
                     MARCLoadingRows(layout: .services, count: 3, palette: p)
                         .accessibilityLabel(tab == .services ? "Loading services" : "Loading containers")
                 } else {
-                    if ownFeed, let message = feed.message { note(message, p) }
+                    if let failure {
+                        previewStatus(
+                            title: tab == .services ? "Couldn’t load services" : "Couldn’t load Docker",
+                            detail: failure, symbol: "exclamationmark.triangle", retry: true, palette: p
+                        )
+                    }
                     if tab == .services {
-                        if let message = reply?.portsMessage { note(message, p) }
-                        else if services.isEmpty && (!ownFeed || feed.message == nil) { note("No listening ports found.", p) }
+                        if services.isEmpty && failure == nil {
+                            previewStatus(title: "No listening services found", symbol: "network", palette: p)
+                        }
                         VStack(spacing: 0) {
                             ForEach(shownServices) { service in
                                 NavigationLink {
@@ -132,7 +152,9 @@ struct MARCDeveloperToolsView: View {
                             }
                         }
                     } else {
-                        if containers.isEmpty && (!ownFeed || feed.message == nil) { note("No containers found.", p) }
+                        if containers.isEmpty && failure == nil {
+                            previewStatus(title: "No containers found", symbol: "shippingbox", palette: p)
+                        }
                         VStack(spacing: 0) {
                             ForEach(shownContainers) { container in
                                 NavigationLink {
@@ -145,10 +167,10 @@ struct MARCDeveloperToolsView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 145, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .modifier(MARCLoadingReveal(isLoading: initialLoading))
             .id(tab).transition(.opacity)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: tab)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: contentState)
         }.frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: monitor.server?.id, initial: true) { _, id in
             guard let id else { return }
@@ -159,8 +181,36 @@ struct MARCDeveloperToolsView: View {
         }
         .task(id: taskID) {
             guard active else { return }
-            await feed.poll(monitor: monitor, tab: tab.rawValue, connection: monitor.statisticsConnectionID)
+            let refreshImmediately = retryRequested
+            retryRequested = false
+            await feed.poll(monitor: monitor, tab: tab.rawValue,
+                            connection: monitor.statisticsConnectionID, refreshImmediately: refreshImmediately)
         }
+    }
+    private func previewStatus(title: String, detail: String? = nil, symbol: String,
+                               retry: Bool = false, palette p: MARCPalette) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 17))
+                .foregroundStyle(p.muted).frame(width: 28).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(p.text)
+                if let detail {
+                    Text(detail).font(.system(size: 11)).foregroundStyle(p.muted)
+                }
+            }.fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if retry {
+                Button {
+                    guard active, !retryRequested, !feed.refreshing else { return }
+                    retryRequested = true
+                    retryVersion &+= 1
+                } label: {
+                    Text("Retry").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(p.accent).frame(minWidth: 44, minHeight: 44)
+                }.buttonStyle(.plain).disabled(!active || retryRequested || feed.refreshing)
+                    .accessibilityLabel(tab == .services ? "Retry loading services" : "Retry loading Docker")
+            }
+        }.frame(minHeight: 56).padding(.vertical, 2)
     }
     private func previewSeparator(_ p: MARCPalette) -> some View {
         Rectangle().fill(p.muted.opacity(0.12)).frame(height: 0.5)

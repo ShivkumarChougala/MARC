@@ -259,9 +259,6 @@ struct SettingsScreen: View {
                 }
         case .contribute:
                 MARCSettingsGroup(title: "Ways to Help") {
-                    MARCSettingsSupportRow(title: "Rate MARC", icon: "star", detail: "Coming soon", enabled: false)
-                        .accessibilityLabel("Rate MARC. Available after the App Store launch.")
-                    MARCSettingsDivider()
                     ShareLink(item: URL(string: "https://getmarc.app/")!,
                               subject: Text("MARC — your Mac, within reach"),
                               message: Text("Check out MARC, an open-source iPhone app for monitoring and controlling your Mac over SSH.")) {
@@ -270,10 +267,6 @@ struct SettingsScreen: View {
                     MARCSettingsDivider()
                     Link(destination: URL(string: "https://github.com/ShivkumarChougala/MARC")!) {
                         MARCSettingsSupportRow(title: "Star on GitHub", icon: "chevron.left.forwardslash.chevron.right")
-                    }.buttonStyle(.plain)
-                    MARCSettingsDivider()
-                    Link(destination: URL(string: "https://getmarc.app/support.html")!) {
-                        MARCSettingsSupportRow(title: "Support MARC", icon: "heart")
                     }.buttonStyle(.plain)
                 }
         case .legal:
