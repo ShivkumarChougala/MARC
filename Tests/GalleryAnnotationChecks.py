@@ -20,8 +20,8 @@ production = source[start:end].replace('private enum ', 'enum ', 1)
 notes = source[source.index('    var notes: [MARCPreviewNote]'):source.index('private struct MARCPreviewNote')]
 counts = {name: block.count('.init(title:') for name, block in re.findall(
     r'case \.(\w+):\s+return \[(.*?)\n            \]', notes, re.S)}
-assert counts == dict(status=4, system=4, statistics=2, processes=2, terminal=3, files=4, controls=3, notifications=3), counts
-for title in ['System', 'Power & storage', 'Services & Docker', 'Top tasks', 'Network', 'Storage', 'Add session', 'Upload', 'Back', 'Now Playing']:
+assert counts == dict(status=4, system=2, systemMore=3, statistics=2, processes=2, terminal=3, files=4, controls=3, notifications=3), counts
+for title in ['System', 'Power & storage', 'Services & Docker', 'Top tasks', 'Memory', 'Network', 'Storage', 'Battery', 'Turn on', 'Add session', 'Upload', 'Back', 'Now Playing']:
     assert f'title: "{title}"' in notes
 for x, y in re.findall(r'x: ([0-9.]+), y: ([0-9.]+)', notes):
     assert 0 < float(x) < 1 and 0 < float(y) < 1

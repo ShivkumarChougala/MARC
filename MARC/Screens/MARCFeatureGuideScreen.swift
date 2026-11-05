@@ -83,7 +83,7 @@ struct MARCFeatureGuideScreen: View {
                         Button { move(to: index) } label: {
                             Capsule().fill(selection == index ? p.accent : p.border)
                                 .frame(width: selection == index ? 18 : 6, height: 6)
-                                .frame(minWidth: 30, minHeight: 44).contentShape(Rectangle())
+                                .frame(maxWidth: 30, minHeight: 44).contentShape(Rectangle())
                         }
                         .accessibilityLabel("\(MARCPreviewTopic(rawValue: index)?.name ?? "Notifications"), \(index + 1) of \(pageCount)")
                         .accessibilityAddTraits(selection == index ? .isSelected : [])
@@ -133,12 +133,13 @@ struct MARCFeatureGuideScreen: View {
 }
 
 private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
-    case status, system, statistics, processes, terminal, files, controls, notifications
+    case status, system, systemMore, statistics, processes, terminal, files, controls, notifications
     var id: Int { rawValue }
     var name: String {
         switch self {
         case .status: return "Status"
-        case .system: return "System"
+        case .system: return "System: CPU and memory"
+        case .systemMore: return "System: network, storage and battery"
         case .statistics: return "Statistics"
         case .processes: return "Processes"
         case .files: return "Files"
@@ -151,6 +152,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         switch self {
         case .status: return "Your Mac, at a glance."
         case .system: return "A closer look at usage."
+        case .systemMore: return "Network, storage & battery."
         case .statistics: return "See the bigger picture."
         case .processes: return "Find what’s keeping it busy."
         case .files: return "Your files, closer."
@@ -162,7 +164,8 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
     var explanation: String {
         switch self {
         case .status: return "See system usage, battery, storage, services and top processes in one place."
-        case .system: return "Explore CPU cores, memory and storage."
+        case .system: return "Explore CPU activity and see available, used, swap and estimated cached memory."
+        case .systemMore: return "Check network traffic, disk activity and battery health."
         case .statistics: return "Follow CPU, memory, network and disk usage over time."
         case .processes: return "Sort by CPU or memory. Review an app before ending it."
         case .files: return "Browse, preview, upload and download over SSH."
@@ -175,6 +178,7 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
         switch self {
         case .status: return "MARCGuideStatus"
         case .system: return "MARCGuideSystem"
+        case .systemMore: return "MARCGuideSystemMore"
         case .statistics: return "MARCGuideStatistics"
         case .processes: return "MARCGuideProcesses"
         case .files: return "MARCGuideFiles"
@@ -197,14 +201,18 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
                 .init(title: "System", summary: "CPU & memory", detail: "Check CPU and memory usage, load and swap, plus current network and disk activity. Tap Details for a closer look.", x: 0.04, y: 0.30),
                 .init(title: "Power & storage", summary: "Battery & SSD", detail: "See your Mac’s battery level and the percentage of SSD space used beside its name.", x: 0.96, y: 0.15),
                 .init(title: "Services & Docker", summary: "Apps & containers", detail: "Switch between services and Docker containers. Open All services or All containers to see the full list and available controls.", x: 0.04, y: 0.60),
-                .init(title: "Top tasks", summary: "CPU & memory", detail: "See process names, PIDs, CPU and memory usage. Tap View all to open Processes and explore the full list.", x: 0.96, y: 0.79)
+                .init(title: "Top tasks", summary: "CPU & memory", detail: "See process names, PIDs, CPU and memory usage. Tap View all to open Processes and explore the full list.", x: 0.90, y: 0.79)
             ]
         case .system:
             return [
-                .init(title: "Each core", summary: "CPU activity", detail: "See activity across your Mac’s CPU cores, along with uptime and load.", x: 0.19, y: 0.27),
-                .init(title: "Memory", summary: "RAM & swap", detail: "Check available memory and swap to understand how your Mac is using RAM.", x: 0.80, y: 0.52),
-                .init(title: "Network", summary: "Data in and out", detail: "See current download and upload rates, your Mac’s network address and cumulative transfer totals.", x: 0.22, y: 0.66),
-                .init(title: "Storage", summary: "Space & disk activity", detail: "Check used and available space, along with current disk reads and writes.", x: 0.80, y: 0.85)
+                .init(title: "Each core", summary: "CPU activity", detail: "See activity across your Mac’s CPU cores, along with uptime and load.", x: 0.19, y: 0.35),
+                .init(title: "Memory", summary: "RAM, swap & cache", detail: "See how much memory is available or used, how much swap is in use, and an estimate of cached files.", x: 0.69, y: 0.64)
+            ]
+        case .systemMore:
+            return [
+                .init(title: "Network", summary: "Data in and out", detail: "See current download and upload rates and cumulative transfer totals.", x: 0.22, y: 0.23),
+                .init(title: "Storage", summary: "Space & disk activity", detail: "Check used and available space, along with current disk reads and writes.", x: 0.80, y: 0.49),
+                .init(title: "Battery", summary: "Charge & health", detail: "See the charge level, condition, maximum capacity and cycle count when your Mac reports them.", x: 0.23, y: 0.74)
             ]
         case .statistics:
             return [
@@ -237,9 +245,9 @@ private enum MARCPreviewTopic: Int, CaseIterable, Identifiable {
             ]
         case .notifications:
             return [
-                .init(title: "Mac alerts", summary: "Battery & storage", detail: "Enable notifications, then choose low battery or low storage alerts. Mac alerts require MARC to be connected and monitoring your Mac.", x: 0.04, y: 0.37),
-                .init(title: "Custom alerts", summary: "CPU & memory", detail: "Create an alert for a saved Mac and choose the CPU or memory limit that matters to you. Preview values are examples; this page does not enable any alert.", x: 0.96, y: 0.57),
-                .init(title: "Try it", summary: "Test delivery", detail: "After enabling notifications, use Send test notification to check delivery on this iPhone. The real test is scheduled only when you choose it in Notifications.", x: 0.04, y: 0.70)
+                .init(title: "Turn on", summary: "Enable alerts", detail: "Turn on Notifications, then use Send test notification under Setup & testing to check delivery on this iPhone.", x: 0.85, y: 0.23),
+                .init(title: "Mac alerts", summary: "Battery & storage", detail: "Choose low battery or low storage alerts. Mac alerts work while MARC is connected and monitoring your Mac.", x: 0.13, y: 0.39),
+                .init(title: "Custom alerts", summary: "CPU & memory", detail: "Once notifications are enabled, use + to add a CPU or memory alert for a saved Mac and choose a threshold.", x: 0.90, y: 0.53)
             ]
         }
     }
