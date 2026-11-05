@@ -325,10 +325,8 @@ private struct MARCPrivacyShield: UIViewRepresentable {
 
 struct MARCAppLockSetting: View {
     @Environment(MARCAppLock.self) private var lock
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let p = MARCPalette(dark: scheme == .dark)
         let authentication = lock.authenticationName
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: Binding(

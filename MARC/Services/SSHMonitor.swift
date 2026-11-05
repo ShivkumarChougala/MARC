@@ -24,6 +24,7 @@ struct SystemDetails: Decodable, Sendable {
     var batteryCondition: String? = nil
     var batteryMaximumCapacity: Double? = nil
     var batteryCycleCount: Int? = nil
+    var cachedFileBytes: Double? = nil
 }
 
 struct SystemHistoryPoint: Identifiable {
@@ -674,6 +675,20 @@ def read_storage_capacity():
         return 0, 0, 0
 # MARC_STORAGE_CAPACITY_END
 
+# MARC_FILE_CACHE_BEGIN
+def cached_file_bytes(pages, page_size, physical_bytes):
+    # vm_stat File-backed pages: resident non-swap file-backed memory.
+    # An estimate of file cache, not Activity Monitor's private accounting.
+    # Missing/invalid counters must remain unavailable, never a fabricated zero.
+    count = pages.get('File-backed pages')
+    if (type(count) is not int or count < 0 or
+            type(page_size) is not int or page_size <= 0 or
+            type(physical_bytes) is not int or physical_bytes <= 0):
+        return None
+    result = count * page_size
+    return result if result <= physical_bytes else None
+# MARC_FILE_CACHE_END
+
 while True:
     time.sleep(1)
     try:
@@ -742,6 +757,7 @@ while True:
             cores=cores, tasks=tasks,
             uptime=time.time() - boot if boot else None,
             load=os.getloadavg()[0], swap=swap, ip=local_ip,
+            cachedFileBytes=cached_file_bytes(pages, page, total),
             model=model, osVersion=os_version,
             architecture=architecture, username=username,
             batteryPercent=battery_percent, powerSource=power_source,

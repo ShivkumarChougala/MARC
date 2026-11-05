@@ -77,7 +77,7 @@ for network_result in ('', subprocess.TimeoutExpired('netstat', 8), header + row
     outputs, saved = [], []
     def command(*args):
         if args[0] == '/usr/bin/vm_stat':
-            return 'Mach Virtual Memory Statistics: (page size of 4096 bytes)\nPages free: 10.\nPages inactive: 20.\nPages speculative: 30.\n'
+            return 'Mach Virtual Memory Statistics: (page size of 4096 bytes)\nPages free: 10.\nPages inactive: 20.\nPages speculative: 30.\nFile-backed pages: 4096.\n'
         if args[0] == '/sbin/route':
             return route
         if args[0] == '/usr/sbin/netstat':
@@ -99,11 +99,14 @@ for network_result in ('', subprocess.TimeoutExpired('netstat', 8), header + row
                  history_writer=SimpleNamespace(save=lambda *args: saved.append(args)),
                  print=lambda text, **_: outputs.append(json.loads(text)))
     exec(compile(block, '<production-network-reader>', 'exec'), state)
+    exec(compile(source.split('# MARC_FILE_CACHE_BEGIN\n', 1)[1].split(
+        '# MARC_FILE_CACHE_END', 1)[0], '<production-file-cache>', 'exec'), state)
     exec(cycle_code, state)
     assert len(outputs) == len(saved) == 1
     sample = outputs[0]
     assert 'collectorError' not in sample and sample['cpu'] == 70
     assert sample['memoryUsed'] == 1024 ** 3 - 60 * 4096
+    assert sample['details']['cachedFileBytes'] == 4096 * 4096
     assert sample['diskReadBytes'] == 100 and sample['diskWriteBytes'] == 200
     assert sample['received'] == (1024 if isinstance(network_result, str) and network_result else None)
 print('PASS: production collector still publishes CPU, memory and disk during empty/timed-out network reads')

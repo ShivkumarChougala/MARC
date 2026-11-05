@@ -67,6 +67,25 @@ with patch('threading.Thread', QueuedThread), patch('time.monotonic', side_effec
     with patch('threading.Thread', side_effect=RuntimeError('unavailable')):
         assert health.read(True) == {} and health.running is False
 print('PASS: battery health parsing, unsupported fields, background ownership, cadence and timeout recovery')
+# Exercise the exact production cache calculation with Intel and Apple Silicon page sizes.
+cache_code = source[source.index('# MARC_FILE_CACHE_BEGIN'):source.index('# MARC_FILE_CACHE_END')]
+cache_namespace = {}
+exec(compile(cache_code, '<production-file-cache>', 'exec'), cache_namespace)
+cache = cache_namespace['cached_file_bytes']
+for page_size in (4096, 16384):
+    assert cache({'File-backed pages': 1024}, page_size, 8 * 1024**3) == 1024 * page_size
+assert cache({'File-backed pages': 0}, 16384, 8 * 1024**3) == 0
+assert cache({}, 16384, 8 * 1024**3) is None
+for bad in (-1, True, 1.5, '1024', None):
+    assert cache({'File-backed pages': bad}, 16384, 8 * 1024**3) is None
+assert cache({'File-backed pages': 1024}, 0, 8 * 1024**3) is None
+assert cache({'File-backed pages': 1024}, 16384, 1) is None
+# The existing vm_stat parser supplies the page count; do not hardcode 4 KB pages.
+fixture = 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\nFile-backed pages: 49152.\n'
+page = int(re.search(r'page size of (\d+) bytes', fixture).group(1))
+pages = {k.strip(): int(v) for k, v in re.findall(r'^([^:\n]+):\s*(\d+)\.', fixture, re.M)}
+assert cache(pages, page, 8 * 1024**3) == 768 * 1024**2
+print('PASS: production file-cache calculation, 4/16 KB pages, missing and invalid readings')
 if '--python-only' in sys.argv:
     raise SystemExit(0)
 compiler = shutil.which('swiftc')
@@ -89,6 +108,10 @@ checks = '''
         precondition(MARCSystemDetailsData.batteryStatus(state: "charging", source: "AC Power") == "Charging")
         precondition(MARCSystemDetailsData.batteryStatus(state: nil, source: nil) == "Unavailable")
         let legacy = try JSONDecoder().decode(SystemDetails.self, from: Data("{}".utf8))
+        precondition(legacy.cachedFileBytes == nil)
+        let cachePayload = #"{"cachedFileBytes":805306368}"#
+        let cached = try JSONDecoder().decode(SystemDetails.self, from: Data(cachePayload.utf8))
+        precondition(cached.cachedFileBytes == 805306368)
         precondition(legacy.batteryCondition == nil && legacy.batteryMaximumCapacity == nil && legacy.batteryCycleCount == nil)
         let current = try JSONDecoder().decode(SystemDetails.self, from: Data("{\\"batteryCondition\\":\\"Normal\\",\\"batteryMaximumCapacity\\":91,\\"batteryCycleCount\\":286}".utf8))
         precondition(current.batteryCondition == "Normal" && current.batteryMaximumCapacity == 91 && current.batteryCycleCount == 286)

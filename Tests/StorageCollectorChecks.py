@@ -84,6 +84,8 @@ exec(compile(block, '<production-storage-reader>', 'exec'), state)
 for index, now in enumerate((0, 12.9, 13, 17.9, 18, 22.9, 23)):
     clock[0] = now
     wall[0] = -1000 if index == 1 else 100  # Wall-clock jumps must not alter retries.
+    exec(compile(source.split('# MARC_FILE_CACHE_BEGIN\n', 1)[1].split(
+        '# MARC_FILE_CACHE_END', 1)[0], '<production-file-cache>', 'exec'), state)
     exec(cycle_code, state)
 assert calls == [0, 13, 18, 23] and not responses, calls
 assert len(outputs) == len(saved) == 7
@@ -91,6 +93,7 @@ assert [sample['diskTotal'] for sample in outputs] == [0, 0, 1024000, 1024000, 0
 assert outputs[-1]['diskUsed'] == 409600 and outputs[-1]['diskAvailable'] == 512000
 for sample in outputs:
     assert 'collectorError' not in sample
+    assert sample['details']['cachedFileBytes'] is None
     assert isinstance(sample['cpu'], (int, float)) and sample['memoryUsed'] == 1024 ** 3 - 40960
     assert sample['received'] == 1000 and sample['sent'] == 2000
     assert sample['diskReadBytes'] == 100 and sample['diskWriteBytes'] == 200

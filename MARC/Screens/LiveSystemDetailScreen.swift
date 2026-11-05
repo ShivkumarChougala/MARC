@@ -85,7 +85,7 @@ struct LiveSystemDetailScreen: View {
                     }
 
                     SystemPanel(title: "Memory", subtitle: bytes(r.memoryTotal)) {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 6) {
                             DetailStat(
                                 title: "Available ≈",
                                 value: bytes(max(0, r.memoryTotal - r.memoryUsed)),
@@ -102,6 +102,15 @@ struct LiveSystemDetailScreen: View {
                                 value: bytes(r.details?.swap),
                                 small: true, numericValue: r.details?.swap
                             )
+                            DetailStat(
+                                title: "Cached ≈",
+                                value: bytes(r.details?.cachedFileBytes),
+                                small: true, numericValue: r.details?.cachedFileBytes
+                            )
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Cached files estimate")
+                            .accessibilityValue(bytes(r.details?.cachedFileBytes))
+                            .accessibilityHint("File-backed memory. May overlap other memory readings.")
                             CompactMetricRing(
                                 value: r.memoryPercent,
                                 color: Color(marcHex: 0xe5a000)
