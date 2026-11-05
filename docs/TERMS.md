@@ -1,8 +1,12 @@
 # Terms of Use
 
-Effective 27 October 2026
+Effective 6 November 2026
 
-These Terms of Use govern use of the MARC iPhone app and getmarc.app, including SSH connections, monitoring, terminal commands, file transfers, supported controls and optional AI assistance. They explain permitted use, user responsibilities and the relationship between the app, third-party services and MARC’s open-source license.
+MARC is an open-source iPhone app for monitoring and controlling your Mac. These Terms of Use explain what we provide and your responsibilities when you use our app or website.
+
+Connect only to Macs and accounts you’re authorized to use. Review commands and file or service changes before confirming them, because they can affect your Mac and the work running on it.
+
+AI command suggestions are optional. Review any suggestion before running it. These terms do not change the rights granted by the MIT License or any rights that cannot lawfully be limited.
 
 Contact: contact@getmarc.app
 
@@ -10,9 +14,9 @@ Published version: https://getmarc.app/terms
 
 ## About MARC and these terms
 
-MARC (Macintosh Access & Remote Control) is currently provided by Shivkumar Chougala. MARC connects your iPhone to a Mac you are authorized to access. Questions about these terms can be sent to contact@getmarc.app.
+In these terms, “we,” “us” and “our” refer to the provider of MARC, and “the app” means the MARC iPhone app.
 
-These terms do not replace or restrict permissions granted by MARC’s MIT source-code license. If you obtain the app through Apple’s App Store, the applicable Apple store terms and app license also apply. Mandatory consumer and other statutory rights remain unaffected.
+If you download MARC from the App Store, Apple’s applicable store terms and app license also apply.
 
 [Apple’s Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)
 
@@ -20,43 +24,41 @@ These terms do not replace or restrict permissions granted by MARC’s MIT sourc
 
 ## Authorized access and account permissions
 
-Connect only to devices, accounts, files and services you own or have permission to use. Comply with applicable law, organizational rules and the terms of services you connect to. Do not use MARC for unauthorized access, credential theft, disruption or disclosure of information you are not entitled to share.
+Use the app only with devices, accounts, files and services you own or have permission to access. Follow applicable law, organizational rules and the terms of any service you use. Do not use the app to gain unauthorized access, steal credentials, disrupt systems or disclose information without permission.
 
-Remote actions use the connected Mac account and the access available to that account or its tools. A successful login does not establish that every action is authorized. MARC is not a separate sandbox or access-control policy for your Mac.
+Remote actions run with the permissions of the connected Mac account and its tools. A successful login does not give you permission to perform every action.
 
 ## Setup, connections and verification
 
-MARC requires a compatible iPhone running iOS 18 or later, a compatible Mac with SSH Remote Login enabled, Python 3 available to the connected account for monitoring and helper queries, and a working network route. Some features require additional tools, permissions or compatible hardware.
+You need a compatible iPhone and a reachable, awake Mac with Remote Login enabled. Monitoring and file helpers need Python 3 available to the SSH account. Some controls require compatible hardware or additional tools.
 
-Nearby discovery finds advertised local SSH services. Use the Mac account’s short username and an authorized password or SSH key. New host identities require approval before authentication. Verify the SHA256 fingerprint on the Mac; investigate unexpected key changes before changing stored trust.
-
-MARC does not provide a hosted remote-access relay. Access outside the local network requires secure networking that you configure separately. Compatibility, networking and macOS restrictions can prevent a connection or a control from working.
+Sign in with an authorized password or SSH key. Verify the Mac’s SSH fingerprint before trusting it, and investigate unexpected changes. We do not provide a hosted relay; if you connect from outside your local network, configure a secure route to your Mac.
 
 ## Commands, processes and file operations
 
-Terminal input executes on the Mac as the connected user. Commands can access networks or third-party services according to what you run. Monitoring and process readings are informational and may be incomplete, delayed or unavailable.
+Terminal commands run as the connected Mac user and can contact external services. File edits, transfers, permission changes and deletions affect real data. Review the target and destination before confirming an action, and keep backups of important files.
 
-Uploads, replacements, edits, rename or move operations, permission changes and deletion affect real data. A preview or download creates a local copy; saving or sharing it creates a separate destination copy. MARC’s cleanup does not remove copies you save elsewhere. Confirm the item and destination and keep backups.
+Stopping a process can interrupt work or lose unsaved data. Canceling, disconnecting or closing the app does not undo completed actions. Running jobs or temporary files can remain on your Mac. Copies you save or share elsewhere are managed at their destination.
 
-Process termination can interrupt work or lose unsaved data. An interrupted connection, canceled request or closed app cannot necessarily reverse a command, transfer or other operation already completed. Remote temporary files can remain if cleanup cannot be confirmed.
+Monitoring uses system and network resources and can save history on your Mac. Readings may be delayed, incomplete or unavailable. Alerts depend on the readings the app receives and iOS delivery settings; do not rely on them for continuous background monitoring or as your only safeguard. See the Privacy Policy for what the app reads and stores.
+
+[Privacy Policy](https://getmarc.app/privacy)
+
+[How MARC works](https://getmarc.app/docs/how-marc-works)
 
 ## Services, containers and system controls
 
-Services & Docker shows listening TCP ports, supported Homebrew background services and local Docker containers. Stop process is limited to eligible processes and uses a termination request rather than a guaranteed immediate stop. Stopping one process can affect several ports, and a service manager may start it again.
+Stopping an eligible process sends a termination request. One process can serve several ports, and a service manager may start it again.
 
-Homebrew Start runs a supported service without adding launch-at-login registration; Stop preserves its existing registration. Docker Start and Stop require a local Unix-socket Docker connection and an eligible current container state. This view does not provide remote TCP Docker management, container creation, removal, logs or restart controls.
-
-Service, container and system-control actions may interrupt applications or expose or stop services according to their own configuration. Volume, brightness, Bluetooth, media and other controls depend on macOS, hardware, installed tools and permissions. MARC does not guarantee every control on every setup.
+Homebrew Start runs a supported service without registering it at login; Stop preserves any existing registration. Docker Start and Stop require a local Unix socket and an eligible container state. Controls depend on your Mac, installed tools and account permissions. Helpers, apps and services you start may create files or logs and make their own network connections.
 
 ## Optional AI and third-party charges
 
-AI is optional and starts Off. Local mode uses Ollama on the selected Mac. API mode uses your chosen endpoint, model and credentials. Provider availability, quotas, charges and data practices are controlled by that provider and your account; displaying a model does not establish free access.
+AI command suggestions are off by default. The app can use Ollama on your Mac or an API provider you choose. External providers set their own terms, quotas and charges. The Privacy Policy explains what is sent and when the app asks for permission. Only send information you’re authorized to share.
 
-MARC asks for endpoint approval for the current Terminal session before API prompt sharing, and separately asks before loading a built-in provider’s model list. Review the Privacy Policy and destination before allowing either operation. You are responsible for having permission to send the information in your prompt.
+AI suggestions can be wrong or destructive. They do not run automatically. Tapping Run sends the command and Return to the active terminal. Review the command and make sure you’re at an empty shell prompt before running it.
 
-AI output can be incorrect, inappropriate or destructive. Suggestions do not execute automatically. Tapping Run sends the suggested command and Return to the active terminal. Review the command and use an empty shell prompt after exiting any running program and clearing partially typed input. MARC cannot detect which program is reading the terminal or guarantee command safety.
-
-Third-party services have their own terms, licenses, fees and privacy rules. Disabling AI, canceling a request or deleting a local key does not erase information already sent, revoke the provider key or undo charges already incurred.
+Turning off AI, canceling a request or removing a key from the app does not erase information already sent, revoke the provider’s key or reverse charges.
 
 [Privacy Policy](https://getmarc.app/privacy)
 
@@ -72,21 +74,21 @@ Dependencies, tools and services may have separate licenses and notices. Review 
 
 ## Availability, support and sponsorship
 
-Features and compatibility may change between releases. Uninterrupted connections, complete or error-free readings, support response times and availability of external services are not guaranteed. The website’s download section identifies the available distribution route and release status.
+We may change features and compatibility between releases. We do not guarantee uninterrupted access, complete readings or support response times.
 
-The MARC website does not currently sell an AI plan or begin a recurring MARC subscription. External AI providers can charge for their services. Optional sponsorship supports development and does not purchase app features. Any future paid offering requires its own clearly disclosed purchase terms rather than an assumption that these terms already describe it.
+Optional GitHub sponsorship supports development and does not unlock app features.
 
 ## Warranties, liability and statutory rights
 
-To the extent permitted by applicable law, the MIT-licensed software is provided as is and the MIT License’s warranty and liability provisions apply. Review consequential actions and maintain backups rather than relying on MARC as your only safeguard.
+To the extent permitted by law, MARC’s MIT-licensed software is provided as is under the MIT License’s warranty and liability provisions.
 
-Nothing in these terms excludes liability, remedies or consumer rights that cannot lawfully be excluded. The applicable law and the facts determine the effect of these provisions. Apple and other providers remain responsible for their own obligations under their terms and applicable law.
+These terms do not limit rights, remedies or liability that cannot lawfully be limited. Apple and other providers remain responsible for their own obligations.
 
-## Updates and contact
+## Changes to these Terms and contact
 
-The date above identifies this version. Updates do not retrospectively remove permissions granted under the MIT License or rights protected by mandatory law. Where additional notice or agreement is required for a material change, a changed date alone does not replace it.
+We may revise these terms as the app and website change. We update the date above when we publish a revision and provide notice or seek agreement where required. Revisions do not withdraw existing MIT license permissions or limit mandatory rights.
 
-For questions about these terms, contact contact@getmarc.app. For bugs and ideas, use the repository’s issue tracker. Do not include passwords, private keys, API keys or unredacted sensitive logs in reports.
+MARC is provided by Shivkumar Chougala. For questions about these terms, email contact@getmarc.app. For bugs and ideas, use the repository’s issue tracker. Do not include passwords, private keys, API keys or unredacted sensitive logs.
 
 [Contact about terms](mailto:contact@getmarc.app?subject=MARC%20terms)
 

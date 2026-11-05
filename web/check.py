@@ -48,6 +48,15 @@ def main():
     pages = sorted(DIST.rglob('*.html'))
     assert pages, 'Run python3 build.py first.'
     parsed = {p: Page(p.read_text(encoding='utf-8')) for p in pages}
+    documentation = [DIST / 'docs.html', *sorted((DIST / 'docs').glob('*.html'))]
+    expected_urls = {'/' + p.relative_to(DIST).as_posix() for p in documentation}
+    sitemap = (DIST / 'sitemap.xml').read_text(encoding='utf-8')
+    for guide in documentation:
+        text = guide.read_text(encoding='utf-8')
+        assert '<a href="/docs/how-marc-works.html"' in text, f'Missing guide navigation in {guide.name}'
+        canonical = re.search(r'<link rel="canonical" href="([^"]+)"', text)
+        assert canonical and '<loc>' + canonical[1] + '</loc>' in sitemap, f'Missing sitemap guide: {guide.name}'
+    search_index = None
     refs = 0
     for page, doc in parsed.items():
         assert not doc.components, f'Unresolved component in {page}'
@@ -72,7 +81,10 @@ def main():
         match = re.search(r'<script[^>]*id="docs-index"[^>]*>(.*?)</script>', text, re.S)
         if match:
             index = json.loads(match.group(1))
-            assert len(index) == 13, f'Unexpected documentation index in {page.name}'
+            assert {g['url'] for g in index} == expected_urls and len(index) == len(expected_urls), f'Incomplete documentation index in {page.name}'
+            if search_index is None:
+                search_index = index
+            assert index == search_index, f'Inconsistent documentation index in {page.name}'
             for guide in index:
                 assert resolve(page, urlsplit(guide['url']).path).is_file(), f'Missing indexed guide: {guide["url"]}'
     for path in (DIST / 'css').glob('*.css'):

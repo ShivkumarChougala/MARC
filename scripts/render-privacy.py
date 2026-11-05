@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse
 import html
 import json
+from policy_website import policy_intro_html
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -14,6 +15,8 @@ for resource, stem in [("MARCPrivacyPolicy", "privacy"), ("MARCTermsOfUse", "ter
     policy = json.loads((root / ("MARC/Resources/" + resource + ".json")).read_text())
     escape = html.escape
     markdown = ["# " + policy["title"], "Effective " + policy["effectiveDate"], policy["introduction"], "Contact: " + policy["contactEmail"], "Published version: " + policy["publishedURL"]]
+    for label in ("Privacy at a glance.", "Optional AI."):
+        markdown[2] = markdown[2].replace("\n\n" + label + " ", "\n\n**" + label + "** ")
     sections = []
     for section in policy["sections"]:
         markdown.extend(["## " + section["title"], *section["paragraphs"]])
@@ -34,7 +37,7 @@ for resource, stem in [("MARCPrivacyPolicy", "privacy"), ("MARCTermsOfUse", "ter
     '''
     page = page.replace('__POLICY_TITLE__', escape(policy['title']))
     page += '<h1>' + escape(policy["title"]) + '</h1><p class="date">Effective ' + escape(policy["effectiveDate"]) + '</p>'
-    page += '<p>' + escape(policy["introduction"]) + '</p><p>Contact: ' + escape(policy['contactEmail']) + '</p><p><a href="' + escape(policy['publishedURL'], quote=True) + '">Published version</a></p>' + "\n".join(sections) + '\n</main></body></html>\n'
+    page += '<p>' + policy_intro_html(policy["introduction"], "</p><p>") + '</p><p>Contact: ' + escape(policy['contactEmail']) + '</p><p><a href="' + escape(policy['publishedURL'], quote=True) + '">Published version</a></p>' + "\n".join(sections) + '\n</main></body></html>\n'
     outputs.update({root / ("docs/" + stem.upper() + ".md"): "\n\n".join(markdown) + "\n", root / ("docs/" + stem + ".html"): page})
     if args.website_root:
         from policy_website import website_policy

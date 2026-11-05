@@ -28,11 +28,11 @@ Open http://localhost:8000. Edit source files, then rebuild and refresh.
 - `js/tour.js`: screen metadata, Explore chapter tracking, screen crossfades, zoom, and intro reveal.
 - `js/docs.js`: documentation search, copy buttons, sidebar, and contents tracking.
 - `js/reading.js`: reading-page entrances.
-- `docs/`: individual guides. Their embedded search index includes all 13 documentation pages.
+- `docs/`: individual guides. Their embedded search index includes all 14 documentation pages.
 - `assets/`: referenced screenshots, logos, and icons.
 
 `build.py` expands components and fingerprints local resources. It produces
-21 complete pages in `dist/`. The generated site loads its scripts directly;
+22 complete pages in `dist/`. The generated site loads its scripts directly;
 it does not fetch HTML components at runtime. Build output is repeatable and
 is ignored by Git. `check.py` checks local links, anchors, search-index targets,
 resource references, and asset fingerprints.
@@ -50,6 +50,9 @@ expanded during the build, so publishing source HTML directly is unsupported.
 The `_headers`, `robots.txt`, and `sitemap.xml` files are copied into output.
 
 ## Editing
+
+After editing a guide, run `python3 update-docs-index.py` before building.
+`build.py` rejects stale search content. The index includes expandable technical details.
 
 Keep shared navigation and footer markup in `components/`. Keep documentation
 styles in `docs.css` and policy-specific styles in `policies.css`. Update the

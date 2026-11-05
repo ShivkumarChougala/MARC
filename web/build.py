@@ -3,6 +3,8 @@ import re
 import hashlib
 import shutil
 import tempfile
+import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / "dist"
@@ -28,6 +30,8 @@ def render(text, stack=()):
 
 if not (ROOT / "index.html").is_file():
     raise SystemExit("Website index.html not found.")
+
+subprocess.run([sys.executable, str(ROOT / 'update-docs-index.py'), '--check'], check=True)
 
 if OUTPUT.exists() and not (OUTPUT / MARKER).is_file():
     raise SystemExit("dist already exists and is not a MARC build. Nothing changed.")

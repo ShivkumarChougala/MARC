@@ -460,6 +460,19 @@ main {
 .article-body section {
   margin-bottom: 36px;
 }
+.docs-how-it-works .article-body section {
+  margin-bottom: 32px;
+}
+.docs-how-it-works .docs-explainer {
+  margin-block: 16px;
+}
+.docs-how-it-works .docs-explainer + .docs-explainer {
+  margin-top: 12px;
+}
+.article-body .docs-related {
+  margin-top: 24px;
+  font-size: 14px;
+}
 .article-body h2 {
   margin-bottom: 14px;
   line-height: 1.4;
@@ -499,6 +512,45 @@ main {
 }
 .article-body pre {
   scrollbar-width: thin;
+}
+.docs-table-scroll {
+  max-width: 100%;
+  margin: 16px 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.docs-table-scroll:focus-visible {
+  outline: 2px solid #aaaab5;
+  outline-offset: 3px;
+}
+.docs-reference {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.65;
+  text-align: left;
+}
+.docs-reference-commands {
+  min-width: 940px;
+}
+.docs-reference-commands th:nth-child(3) {
+  width: 28%;
+}
+.docs-reference th,
+.docs-reference td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #ffffff16;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.docs-reference th {
+  color: #dedee6;
+  font-weight: 500;
+}
+.docs-reference code {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .article-body .note,
 .article-body .docs-callout {
@@ -544,6 +596,9 @@ main {
   }
   .article-body section {
     margin-bottom: 30px;
+  }
+  .docs-how-it-works .article-body section {
+    margin-bottom: 28px;
   }
   .article-body h2 {
     font-size: 21px;

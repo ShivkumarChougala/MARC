@@ -1,48 +1,54 @@
 # Privacy Policy
 
-Effective 27 October 2026
+Effective 6 November 2026
 
-MARC (Macintosh Access & Remote Control) connects your iPhone to your Mac to monitor activity, manage files and processes, run terminal commands, and use supported system, service and Docker controls. This Privacy Policy explains what information these features process, where it is stored, when it is shared, and the choices available to you. It applies to the MARC iPhone app and getmarc.app.
+MARC (“we,” “our,” or “the app”) is an open-source iPhone app for monitoring and controlling your Mac. This Privacy Policy explains how we handle information when you use our app.
+
+You don’t need a MARC account. The app has no ads, in-app analytics, or cross-app tracking. Your iPhone connects directly to your Mac over SSH. We don’t receive your monitoring readings, Terminal activity, or file contents through that connection. The app stores saved credentials in Apple Keychain, and monitoring history is saved on your Mac.
+
+AI command suggestions are off by default. If you turn them on, the app sends your prompt to Ollama on your Mac or, with your permission, to the external AI provider you select. The app doesn’t automatically include your Terminal output, files, or SSH credentials in those requests.
 
 Contact: contact@getmarc.app
 
 Published version: https://getmarc.app/privacy
 
-## Scope and responsibility
+## Our role and your connection
 
-MARC connects directly to the Mac you select over SSH. Normal monitoring, terminal use and file transfers do not pass through a MARC-operated relay or send their contents to the developer. There is no MARC account, advertising SDK, in-app behavioral analytics or cross-app tracking in this version.
+The app connects directly to your Mac over SSH. We do not operate a relay for routine monitoring, Terminal sessions or file transfers, and we do not receive their contents. The app has no account system, advertising, behavioral analytics or cross-app tracking. We describe optional AI, website analytics and support separately below.
 
-The app processes information on your iPhone and your selected Mac to provide the features you use. Optional API AI, website hosting, support messages and services you choose to open involve separate recipients described below.
-
-MARC is currently provided by Shivkumar Chougala. Questions about the app, website or this policy can be sent to contact@getmarc.app. This contact handles support and website information; it cannot delete records controlled by your Mac administrator or an external provider.
+MARC is operated by Shivkumar Chougala. You can reach us about this policy at contact@getmarc.app.
 
 ## Connections, permissions and host verification
 
 Connection setup processes the Mac name or label, host address, SSH port and username. Nearby discovery browses local Bonjour SSH services (_ssh._tcp), including advertised names and connection addresses. Resolving hostnames may involve your network’s DNS or local name-resolution services.
 
-Monitoring and process views read system measurements, account and device details, and process names, identifiers and resource use from the Mac. Supported controls can read display and audio-output names and settings, Wi-Fi and Bluetooth state, installed application names and bundle identifiers, and Now Playing title, artist and source when available. These results travel from the Mac to your iPhone over SSH, not to an AI provider by default.
+Monitoring reads CPU and per-core activity, memory and swap, storage capacity, network and disk activity, uptime and available battery information. Process views read names, PIDs, account names, start times and resource use. Supported controls can read display and audio-output names and settings, Wi-Fi and Bluetooth state, installed application names and bundle identifiers, and Now Playing title, artist and source. MARC uses these readings to display activity and provide the controls you select. They return to iPhone over SSH, not to an AI provider by default.
 
-MARC obtains your approval of a new SSH host identity before starting authentication. Trust is stored for the host and port. Later connections check the host key against the stored identity; an unexpected change blocks the connection. Compare the displayed SHA256 fingerprint with the Mac itself before approving it. Remembering a key does not independently prove who owns the Mac.
+Connecting starts a Python monitoring collector on your Mac. Other readers run as needed; uploads, process termination and service actions require your input. MARC sends scripts over SSH and uses SFTP for transfers. It installs no persistent monitoring agent or scheduled job.
+
+The app asks you to approve a new SSH host key before authenticating. Compare the displayed SHA256 fingerprint with the one on your Mac. The app remembers the key for that host and port and blocks unexpected changes.
 
 Password authentication sends the username and password to the selected Mac within the encrypted SSH connection. SSH-key authentication uses the private key locally to sign authentication messages; the normal authentication flow does not upload the private key or its passphrase. The Mac receives the public authentication information needed to verify the login.
 
 Commands, queries and file operations run with the connected account’s permissions and any access available to that account or its tools. MARC does not provide a separate permission sandbox on the Mac. Your Mac, network administrator and services you use may retain connection, command or activity logs.
 
+[How MARC works](https://getmarc.app/docs/how-marc-works)
+
 ## Profiles, credentials and device storage
 
-Saved Mac profiles and preferences are stored in the app’s iPhone preferences. They include profile identifiers, names, addresses, usernames and ports; appearance and refresh choices; selected models and API endpoint settings; remembered folders; Quick Launch choices; guided-tour progress; and per-Mac Services or Docker tab choices. These preferences are not stored as secrets in Keychain.
+Mac profiles and app preferences are stored on your iPhone, separately from Keychain secrets. They include profile identifiers and connection details (names, addresses, usernames and ports), appearance and refresh settings, AI model and endpoint choices, remembered folders, Quick Launch settings, tour progress, and Services or Docker tab preferences. Notification preferences, custom alert names and conditions, associated Mac profile identifiers, and delivery times and state used to limit repeat alerts are also stored in app preferences.
 
-Saved connection credentials, imported SSH private keys and passphrases, trusted host keys and saved API keys use Apple Keychain with WhenUnlockedThisDeviceOnly accessibility. MARC does not enable iCloud Keychain synchronization for these records. They are accessible to the app while the device is unlocked; this is not a separate biometric prompt for every credential use.
+The app stores saved passwords, SSH private keys and passphrases, trusted host keys and API keys in Apple Keychain. These items are available to the app while your iPhone is unlocked and do not sync through iCloud Keychain.
 
-Credentials are read into memory when needed for a connection or request. Live system readings, process lists, terminal content and the current connection’s service or Docker read cache are held in app memory. This version does not write that service cache to disk. The remote shell and remote services can retain their own history or logs.
+The app loads credentials into memory when needed. Live readings, process lists, Terminal content and current service or Docker results are held in app memory. The Mac’s shell and services may keep their own logs.
 
-App preferences, system diagnostics and existing device backups are also subject to iOS settings and Apple’s platform behavior. MARC does not implement its own cloud backup or synchronization service. This policy does not promise that uninstalling the app removes Keychain records or copies in existing backups.
+App preferences, diagnostics and existing backups are subject to iOS settings. We do not provide our own cloud backup or sync.
 
 ## File transfers and temporary copies
 
-Browsing files sends directory and metadata requests to your Mac. Preview and Download transfer selected file contents from the Mac to your iPhone over SFTP through SSH. Upload sends selected file contents from your iPhone or a selected file provider to the Mac. A file picker or provider may obtain its own cloud-backed content when you select it.
+Browsing files sends directory and metadata requests to your Mac. Preview and Download transfer selected file contents from the Mac to your iPhone over SFTP through SSH. Upload sends selected file contents from your iPhone or a selected file provider to the Mac. A file picker or provider may obtain its own cloud-backed content when you select it. When checking whether text editing is supported, a helper may inspect up to 1 MiB of an eligible file on the Mac without returning that text to iPhone. Opening the editor, previewing or downloading reads the selected content for that action.
 
-MARC creates app-owned temporary files for downloads, previews and imported upload content. On iOS it applies and verifies Complete Protection before writing content, uses private file permissions, and marks its temporary directories as excluded from backup. It attempts to remove a temporary copy when its transfer, preview or sharing use ends. Startup cleanup attempts to remove recognized abandoned MARC temporary folders. Cleanup can fail, and a temporary file may remain until a later cleanup or system removal.
+The app creates temporary copies for downloads, previews and imported uploads. Before writing content, it applies and verifies iOS Complete Protection and private file permissions, and excludes its temporary directories from backup. The app attempts cleanup after use and checks for recognized abandoned temporary folders at startup. Cleanup can fail, leaving copies until a later cleanup or system removal.
 
 Downloaded files you save to Files, share, or open in another app become separate copies handled by the destination you select. MARC does not delete those copies when its temporary file is removed. Uploads and edits can create staging files on your Mac; an interrupted connection can leave a staging file when remote cleanup cannot be confirmed. Downloading a folder first creates a temporary archive on the Mac; MARC attempts to remove that archive after the transfer.
 
@@ -50,11 +56,17 @@ Rename, move, replacement, permission changes and deletion affect real files on 
 
 ## Monitoring history on your Mac
 
-While the monitoring collector is running, it attempts to save samples about every five seconds in ~/.local/share/marc/history.sqlite under the connected Mac account. A sample includes usage and activity measurements and context such as hostname, username, local IP address, Mac model, operating-system version, architecture, network interface, uptime and available power readings. This history is not just anonymous CPU percentages.
+While monitoring is active, the collector attempts to save samples about every five seconds in ~/.local/share/marc/history.sqlite under the connected Mac account, so Statistics can display recent activity. Samples include CPU and per-core activity, memory (including an estimate of cached files when available) and swap, storage capacity, network and disk counters, sample times, and context such as hostname, username, local IP address, hardware and operating-system details, interface, process count, uptime and available power and battery-health readings. This database does not contain the separate process list, Terminal transcript, file contents, control or service results, or AI prompts.
 
-The collector periodically deletes its own sample rows older than two hours while active. It does not schedule deletion after monitoring stops. The database remains on the Mac, and older collector tables are left in place. Row pruning is not a secure-erasure guarantee and does not remove backups or other logs.
+On its first successful save and about once a minute while active, the collector removes its own samples older than two hours. Once monitoring stops, no further pruning is scheduled. The database and older-format tables remain on the Mac. Pruning does not erase backups or other logs, and failed writes can leave gaps.
 
-Removing a saved Mac from MARC does not delete that database or other remote files. The Mac account owner or administrator can remove the database separately. Current chart buffers on iPhone are held in app memory.
+Removing a profile or uninstalling MARC does not delete the database. The Mac account owner or administrator can remove it separately.
+
+Process readers create empty stop markers under ~/.local/share/marc/. MARC attempts to remove them when a reader ends; a lost connection or abrupt shutdown can leave them behind.
+
+When the app enters the background, it cancels monitoring and attempts to close SSH sessions and stop file work. Connection loss or delayed process exit can prevent immediate cleanup.
+
+[How MARC works: data and storage](https://getmarc.app/docs/how-marc-works#storage-cleanup)
 
 ## Services and Docker
 
@@ -66,23 +78,13 @@ Processes, Homebrew services, Docker and the applications inside containers may 
 
 ## Optional AI and destination consent
 
-AI starts Off. Local mode sends the prompt, selected model and command-generation instructions over SSH to Ollama on your selected Mac, using its loopback service. Installed-model discovery also queries that local Ollama service. The model and Ollama configuration determine any further processing, logs or network activity; MARC cannot guarantee that every locally configured model is offline.
+Terminal command suggestions are optional and off by default. In Local mode, the app sends your prompt, selected model and command instructions over SSH to Ollama on your Mac. Model discovery also queries Ollama. Any further processing, logging or network activity depends on your Ollama and model configuration.
 
-API mode sends an HTTPS request from your iPhone to the configured endpoint. The payload contains your submitted prompt, selected model and instructions to suggest a shell command. The selected API key is sent as an authentication header when configured. The recipient also receives your public IP address and ordinary request and connection metadata.
+In API mode, the app sends your prompt, model and command instructions over HTTPS to the provider you choose: OpenAI, Google Gemini, Groq or a custom endpoint. The provider also receives your API key when configured, your public IP address and ordinary request metadata. We do not proxy these requests. The app does not attach Terminal output, files or Mac credentials automatically. Anything you type or paste into the prompt is included.
 
-The built-in presets are OpenAI (api.openai.com), Google Gemini (generativelanguage.googleapis.com), and Groq (api.groq.com). A custom HTTPS endpoint sends these requests to that endpoint’s operator. No MARC-operated AI proxy is used.
+Before the first prompt to an endpoint in a Terminal session, the app shows the destination and asks permission. Approval lasts for that session unless the connection or relevant settings change. Each request still requires your action. Loading a built-in provider’s model list requires separate approval and sends the configured API key and connection metadata without a prompt.
 
-Before the first prompt to an endpoint in the current Terminal session, MARC displays the destination host and requests permission. Approval allows further prompts to that endpoint in that session; it is not a new consent prompt for every generation. Connection or relevant configuration changes invalidate approval. Each generation still requires your action.
-
-Loading a built-in provider’s model catalogue requires separate approval. It sends the selected API key and connection metadata to that provider, not your command prompt, terminal output or files. Custom endpoints use a manually entered model ID rather than this built-in catalogue loader.
-
-MARC does not automatically attach terminal output, remote files, Mac passwords or SSH private keys to an AI request. Text you type or paste into the prompt is sent as part of that prompt. Do not include information you are not authorized to share. API requests use an ephemeral network session with cookies and persistent URL caching disabled, and do not follow HTTP redirects.
-
-Provider retention, training, human review, subprocessors and processing locations depend on the provider, account, plan and configuration. They can change. MARC does not impose zero retention or a no-training setting on your provider account. Review the provider’s current data controls and terms before sending information.
-
-Cancel a pending request or switch AI Off to stop future requests. Cancellation cannot recall information already transmitted. Removing an API key in MARC neither revokes it at the provider nor deletes the provider’s records. Use the provider’s controls or privacy contact for those actions.
-
-An AI suggestion runs only after you tap Run. Run sends the command followed by Return to the active terminal. Review it first and use an empty shell prompt; MARC cannot determine which program is reading that terminal.
+External providers set their own retention, training, review and processing location practices. You can cancel a request or turn AI off, but neither recalls information already sent. Removing your API key from the app does not revoke it or delete records held by the provider. Use the provider’s own controls for those actions.
 
 [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data)
 
@@ -90,27 +92,35 @@ An AI suggestion runs only after you tap Run. Run sends the command followed by 
 
 [GroqCloud data controls](https://console.groq.com/docs/your-data)
 
-## Device permissions and deletion choices
+[How AI requests work](https://getmarc.app/docs/ai.html#privacy)
 
-Local Network permission supports nearby discovery and connections. Optional App Lock uses Apple’s device-owner authentication, which can allow Face ID or device passcode. MARC receives an authentication result, not facial templates. App Lock controls entry to the app; it does not add an approval prompt to every remote action.
+## Device permissions
+
+Local Network permission supports nearby discovery and connections. Optional App Lock uses Apple’s device-owner authentication, which can allow Face ID or device passcode. The app receives an authentication result, not facial templates. App Lock controls entry to the app; it does not add an approval prompt to every remote action.
 
 File and photo pickers let you choose upload content. Preview uses the system preview interface; sharing uses the system share interface. Permission settings and the selected provider or destination control their additional processing.
 
+Notifications are optional and are generated locally on iPhone using received Mac readings or transfer results. MARC does not send these alerts through a MARC notification server. Alert titles, conditions, readings and internal Mac profile identifiers can be passed to iOS for delivery and navigation. Depending on your iOS settings, notification content can appear on the Lock Screen. Monitoring is not kept running in the background to supply continuous remote alerts.
+
 Explicit Copy actions can place a file path, public SSH key or setup command on the iPhone clipboard. The Terminal toolbar Paste action reads clipboard text when tapped and sends accepted input to the active Mac terminal. MARC does not automatically copy remote terminal output to the clipboard.
 
-Removing a saved Mac first attempts to delete its saved connection credential. After that succeeds, MARC removes the profile and its per-Mac preferences. Reusable SSH keys, trusted host identities and global AI settings are managed separately in Settings and Keychain. Removing a reusable SSH key is separate from removing its public key from the Mac’s authorized keys.
+## Manage or delete your data
 
-You can remove saved SSH keys, API keys and trusted fingerprints through Settings → Keychain, disable AI or App Lock, and change iOS permissions. Remove saved secrets before uninstalling when you want them deleted. Uninstalling does not reliably delete Keychain records, remote history, shared files, provider records or existing backups.
+When you remove a saved Mac, the app first tries to delete its saved connection credential. Once that succeeds, the app removes the profile and its per-Mac preferences. Use Settings → Keychain to remove reusable SSH keys, API keys and trusted fingerprints separately. Removing an SSH key in the app does not remove its public key from your Mac’s authorized keys. You can also turn off AI or App Lock and change app permissions in iOS Settings.
+
+You can delete custom notification rules in MARC. Turning notifications off clears pending and delivered MARC notifications but does not erase saved rules or delivery state. These stay until you change or remove them, or iOS removes the app’s data. Removing a Mac profile does not clear all notification settings.
+
+To clear monitoring history, stop monitoring and ask the Mac account owner or administrator to remove ~/.local/share/marc/history.sqlite. Uninstalling MARC does not delete that history, copies you exported, existing backups or provider records, and may leave Keychain items. Remove saved credentials before uninstalling if you want them deleted.
+
+To ask us to delete support or website information we hold, email contact@getmarc.app. For information held by an AI provider, email provider or another service you chose, use that service’s own deletion controls or contact process.
 
 ## Support, retention and privacy requests
 
-Support is handled personally by Shivkumar Chougala through contact@getmarc.app, hosted with Hostinger. Emailing support discloses your sender address, message, attachments and ordinary email metadata to the operator, Hostinger and the email services used to deliver the message. The content is used to answer the request and resolve problems. Do not include passwords, private SSH keys or API keys.
+MARC handles support and privacy requests at contact@getmarc.app. Messages may include your email address, message content, attachments and delivery information. We use this information to respond and resolve your request. Our email hosting provider, Hostinger, processes these messages to deliver and store email. Your email provider and other services involved in delivery also process the message. Do not include passwords, private SSH keys or API keys.
 
-Support conversations are kept while an issue is open. After resolution, they are retained for 90 days and normally deleted from active support records at the next monthly mailbox review. This review schedule means deletion may occur after the 90-day point. Information needed for an ongoing related issue or a legal obligation may be kept longer. Hostinger, other email services and existing backups can have their own retention. Deleting support correspondence does not delete information on your Mac, at AI providers or at destinations you selected.
+We keep support conversations while an issue is open and for 90 days after resolution, then normally delete them from active records at the next monthly mailbox review. We may keep records longer for related open issues or legal obligations. Email providers and backups may retain their own copies.
 
-For questions or requests concerning access, correction or deletion of support or website information, contact contact@getmarc.app. Verification proportionate to the request may be required. Depending on applicable law, you may also have rights to object, restrict processing, withdraw consent or complain to a competent authority. Rights and exceptions depend on the relevant processing and jurisdiction; this policy does not promise identical rights everywhere.
-
-There is no MARC account to delete. For data controlled by your Mac administrator, AI provider, email provider or a destination you selected, use that party’s own settings and request process.
+To ask for access, correction or deletion of support or website information, email contact@getmarc.app. We may need to verify your request. Depending on applicable law, you may also be able to object, restrict processing, withdraw consent or complain to a competent authority.
 
 [Contact about privacy](mailto:contact@getmarc.app?subject=MARC%20privacy)
 
@@ -118,15 +128,15 @@ There is no MARC account to delete. For data controlled by your Mac administrato
 
 ## Website hosting and external recipients
 
-getmarc.app is hosted through Cloudflare Pages. Requests to load the site disclose IP address, requested URL, browser and device information, and ordinary HTTP metadata to the hosting infrastructure for delivery, security and diagnostics. Network intermediaries such as your DNS resolver may also process the information needed to connect.
+We host getmarc.app on Cloudflare Pages. Cloudflare processes information such as your IP address, requested URL, browser and device details, and HTTP metadata to deliver, protect and troubleshoot the site. Network intermediaries such as your DNS resolver may also process information needed to connect.
 
-The deployed website loads Cloudflare Web Analytics to measure visits, page views and performance. The beacon loads from static.cloudflareinsights.com and submits analytics to Cloudflare, normally through /cdn-cgi/rum on a Cloudflare-proxied site. Cloudflare describes Web Analytics as cookie-free and not tracking individual visitors across its customers’ websites. This is separate from operational hosting or security records; cookie-free does not mean that no information leaves your browser.
+We use Cloudflare Web Analytics on our website to measure visits, page views and performance. Your browser sends those measurements to Cloudflare. Cloudflare describes this analytics service as cookie-free; hosting and security records are separate.
 
-The MARC website does not offer advertising, a newsletter signup, a MARC login, or a website payment form. Its documentation search runs against a bundled index in your browser rather than sending your query to a MARC search server.
+Documentation search runs in your browser using the site’s search index.
 
 Links to GitHub, GitHub Sponsors, Apple, Homebrew or AI-provider pages connect to those services when opened. Support email uses your email app and email providers. Sponsor or store transactions take place with the selected service, not a MARC website checkout. Public issues and comments on GitHub can be visible to others. Those services apply their own terms and data practices.
 
-Third parties may process information in countries other than yours. Their infrastructure, account settings and applicable agreements determine location and retention; MARC does not promise domestic-only processing or a fixed deletion period for third-party hosting, analytics or provider records.
+Third parties may process information outside your country. Processing locations and retention depend on the service and its settings.
 
 [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/)
 
@@ -136,12 +146,12 @@ Third parties may process information in countries other than yours. Their infra
 
 ## Open-source transparency
 
-MARC’s source code is available under the MIT License. The repository includes third-party license notices. Source transparency helps explain implemented behavior but does not replace your device, network or provider security controls.
+The MARC source code and third-party license notices are available in the project repository.
 
 [Review MARC on GitHub](https://github.com/ShivkumarChougala/MARC)
 
-## Policy updates
+## Changes to this Privacy Policy
 
-The date above identifies this version. The website can publish a newer policy before an installed app receives an updated bundled copy. Settings → Legal displays bundled documents offline and offers an explicit link to the published version. Opening a link or sending email involves that destination’s normal connection processing.
+We may update this Privacy Policy as the app, our website or our data practices change. We indicate revisions by updating the date at the top of this policy. For material changes, we provide any additional notice and obtain any consent required by applicable law or platform rules before the change takes effect.
 
-Changes to this policy do not replace consent or notices required for a new use of information. Material changes will be described in the updated policy and, where required, through additional notice.
+In the app, Settings → Legal opens the published policy. Copies bundled with earlier releases may reflect an earlier version.
